@@ -179,7 +179,7 @@ export function Sidebar({ mode = "desktop", onNavigate, isCollapsed = false, onT
           <button
             onClick={() => toggleMenu(item.label)}
             className={cn(
-              "group relative flex w-full items-center justify-between rounded-lg text-white/60 hover:bg-white/[0.04] hover:text-white transition-all duration-100 linear",
+              "group relative flex w-full items-center justify-between rounded-lg text-white/60 hover:bg-white/[0.04] hover:text-white transition-all duration-100 linear shrink-0",
               hasActiveChild && "text-white bg-white/[0.02]",
               isMobile ? "h-16 px-4" : "h-10 px-3",
               isCollapsed && !isMobile && "justify-center px-0"
@@ -234,7 +234,7 @@ export function Sidebar({ mode = "desktop", onNavigate, isCollapsed = false, onT
         to={item.path}
         end={item.end}
         className={cn(
-          "group relative flex w-full items-center gap-3 rounded-lg transition-all duration-100 linear",
+          "group relative flex w-full items-center gap-3 rounded-lg transition-all duration-100 linear shrink-0",
           isCollapsed && !isMobile ? "justify-center h-12 px-0" : isChild 
             ? (isMobile ? "h-14 text-base pl-6 [&_img]:h-6 [&_img]:w-6" : "h-9 text-[13px] px-3") 
             : (isMobile ? "h-16 text-lg px-4 [&_img]:h-7 [&_img]:w-7" : "h-10 text-sm px-3")

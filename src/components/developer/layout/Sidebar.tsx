@@ -46,7 +46,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
             key={item.path}
             to={item.path}
             end={item.end}
-            className="flex h-10 w-full items-center gap-3 rounded-lg px-3 text-white/70 hover:bg-white/15 hover:text-white transition-colors"
+            className="flex h-10 w-full items-center gap-3 rounded-lg px-3 text-white/70 hover:bg-white/15 hover:text-white transition-colors shrink-0"
             activeClassName="bg-white text-[#0b3f86] shadow-md"
             onClick={handleNavigate}
           >
@@ -60,7 +60,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
         <button
           type="button"
           onClick={onLogout}
-          className="flex w-full items-center gap-3 h-10 rounded-lg px-3 text-white/80 hover:bg-red-500/20 hover:text-red-100 transition-colors"
+          className="flex w-full items-center gap-3 h-10 rounded-lg px-3 text-white/80 hover:bg-red-500/20 hover:text-red-100 transition-colors shrink-0"
         >
           <LogOut className="h-5 w-5 flex-shrink-0" />
           <span className="text-sm font-medium">Logout</span>

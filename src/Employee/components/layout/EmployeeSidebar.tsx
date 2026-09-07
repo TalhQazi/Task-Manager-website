@@ -119,7 +119,7 @@ export function EmployeeSidebar({ mode = "desktop", onNavigate }: EmployeeSideba
             to={item.path}
             end={(item as any).end}
             className={cn(
-              "group relative flex w-full items-center gap-3 rounded-lg text-white/60 hover:bg-white/[0.04] hover:text-white transition-all duration-100 linear",
+              "group relative flex w-full items-center gap-3 rounded-lg text-white/60 hover:bg-white/[0.04] hover:text-white transition-all duration-100 linear shrink-0",
               isMobile ? "h-16 px-4" : "h-10 px-3"
             )}
             activeClassName="bg-white/[0.06] text-white"

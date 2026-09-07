@@ -227,14 +227,14 @@ export const HolidayThemeShell: React.FC<HolidayThemeShellProps> = ({ children }
           LAYER 6 (z-index: 100) & LAYER 7 (z-index: 110 Card Tokens):
           Dashboard content (<main className="main-app-layout">)
           ========================================================================= */}
-      <main
+      <div
         className="main-app-layout relative min-h-screen w-full"
         style={{
-          zIndex: 100, // Layer 6: Dashboard Content
+          zIndex: 100, // Layer 6: Content Wrapper
         }}
       >
         {children}
-      </main>
+      </div>
 
       {/* =========================================================================
           LAYER 9 (z-index: 120): Transient foreground effects (ghost pass, spark trails)

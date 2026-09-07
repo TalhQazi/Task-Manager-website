@@ -198,7 +198,7 @@ body[class*="tb-theme-"] div:not([class*="bg-"]):not([class*="btn"]):not([class*
 .tb-theme-high-contrast .text-warning { color: #ffff00 !important; }
 .tb-theme-high-contrast .text-destructive { color: #ff0000 !important; }
 .tb-theme-high-contrast .text-primary { color: #00ffff !important; }
-.tb-theme-high-contrast .text-[#6366f1] { color: #ffffff !important; }
+.tb-theme-high-contrast [class*="text-[#6366f1]"] { color: #ffffff !important; }
 
 .tb-theme-high-contrast [class*="Avatar"],
 .tb-theme-high-contrast .rounded-full {
@@ -320,10 +320,10 @@ body[class*="tb-theme-"] div:not([class*="bg-"]):not([class*="btn"]):not([class*
 
 /* Metallic card style + Metallic Elite = premium dark metallic look */
 /* Extra [class*="tb-theme-"] attr selector bumps specificity to (0,5,2) so this wins over the general metallic rule (0,4,2) */
-body.tb-theme-metallic-elite[class*="tb-theme-"] main .rounded-xl:not(.stat-card-gradient),
-body.tb-theme-metallic-elite[class*="tb-theme-"] main .rounded-lg:not(.stat-card-gradient),
+body.tb-theme-metallic-elite[class*="tb-theme-"] main .rounded-xl:not(.stat-card-gradient):not(button):not(a):not(input):not(select):not(aside *):not(nav *):not(header *):not([role="dialog"] *),
+body.tb-theme-metallic-elite[class*="tb-theme-"] main .rounded-lg:not(.stat-card-gradient):not(button):not(a):not(input):not(select):not(aside *):not(nav *):not(header *):not([role="dialog"] *),
 body.tb-theme-metallic-elite[class*="tb-theme-"] main .card,
-body.tb-theme-metallic-elite[class*="tb-theme-"] main [class*="bg-card"],
+body.tb-theme-metallic-elite[class*="tb-theme-"] main [class*="bg-card"]:not(aside *):not(nav *):not(header *),
 body.tb-theme-metallic-elite[class*="tb-theme-"] main .metallic-card {
   position: relative;
   overflow: hidden;
@@ -334,10 +334,10 @@ body.tb-theme-metallic-elite[class*="tb-theme-"] main .metallic-card {
   color: var(--tb-text-primary) !important;
 }
 
-body.tb-theme-metallic-elite[class*="tb-theme-"] main .rounded-xl:not(.stat-card-gradient)::before,
-body.tb-theme-metallic-elite[class*="tb-theme-"] main .rounded-lg:not(.stat-card-gradient)::before,
+body.tb-theme-metallic-elite[class*="tb-theme-"] main .rounded-xl:not(.stat-card-gradient):not(button):not(a):not(input):not(select):not(aside *):not(nav *):not(header *):not([role="dialog"] *)::before,
+body.tb-theme-metallic-elite[class*="tb-theme-"] main .rounded-lg:not(.stat-card-gradient):not(button):not(a):not(input):not(select):not(aside *):not(nav *):not(header *):not([role="dialog"] *)::before,
 body.tb-theme-metallic-elite[class*="tb-theme-"] main .card::before,
-body.tb-theme-metallic-elite[class*="tb-theme-"] main [class*="bg-card"]::before,
+body.tb-theme-metallic-elite[class*="tb-theme-"] main [class*="bg-card"]:not(aside *):not(nav *):not(header *)::before,
 body.tb-theme-metallic-elite[class*="tb-theme-"] main .metallic-card::before {
   content: '';
   position: absolute;
@@ -350,10 +350,10 @@ body.tb-theme-metallic-elite[class*="tb-theme-"] main .metallic-card::before {
   z-index: 0;
 }
 
-body.tb-theme-metallic-elite[class*="tb-theme-"] main .rounded-xl:not(.stat-card-gradient)::after,
-body.tb-theme-metallic-elite[class*="tb-theme-"] main .rounded-lg:not(.stat-card-gradient)::after,
+body.tb-theme-metallic-elite[class*="tb-theme-"] main .rounded-xl:not(.stat-card-gradient):not(button):not(a):not(input):not(select):not(aside *):not(nav *):not(header *):not([role="dialog"] *)::after,
+body.tb-theme-metallic-elite[class*="tb-theme-"] main .rounded-lg:not(.stat-card-gradient):not(button):not(a):not(input):not(select):not(aside *):not(nav *):not(header *):not([role="dialog"] *)::after,
 body.tb-theme-metallic-elite[class*="tb-theme-"] main .card::after,
-body.tb-theme-metallic-elite[class*="tb-theme-"] main [class*="bg-card"]::after,
+body.tb-theme-metallic-elite[class*="tb-theme-"] main [class*="bg-card"]:not(aside *):not(nav *):not(header *)::after,
 body.tb-theme-metallic-elite[class*="tb-theme-"] main .metallic-card::after {
   content: '';
   position: absolute;
@@ -366,10 +366,10 @@ body.tb-theme-metallic-elite[class*="tb-theme-"] main .metallic-card::after {
 }
 
 /* Ensure contents render above overlays */
-body.tb-theme-metallic-elite[class*="tb-theme-"] main .rounded-xl:not(.stat-card-gradient) > *,
-body.tb-theme-metallic-elite[class*="tb-theme-"] main .rounded-lg:not(.stat-card-gradient) > *,
+body.tb-theme-metallic-elite[class*="tb-theme-"] main .rounded-xl:not(.stat-card-gradient):not(button):not(a):not(input):not(select):not(aside *):not(nav *):not(header *):not([role="dialog"] *) > *,
+body.tb-theme-metallic-elite[class*="tb-theme-"] main .rounded-lg:not(.stat-card-gradient):not(button):not(a):not(input):not(select):not(aside *):not(nav *):not(header *):not([role="dialog"] *) > *,
 body.tb-theme-metallic-elite[class*="tb-theme-"] main .card > *,
-body.tb-theme-metallic-elite[class*="tb-theme-"] main [class*="bg-card"] > * {
+body.tb-theme-metallic-elite[class*="tb-theme-"] main [class*="bg-card"]:not(aside *):not(nav *):not(header *) > * {
   position: relative;
   z-index: 1;
 }
@@ -466,8 +466,8 @@ body[class*="tb-theme-"] .recharts-surface {
 }
 
 /* Metallic Card Style - Override theme card colors */
-body[class*="tb-theme-"][data-tb-card-style="metallic"] main .rounded-xl:not(.stat-card-gradient),
-body[class*="tb-theme-"][data-tb-card-style="metallic"] main .rounded-lg:not(.stat-card-gradient),
+body[class*="tb-theme-"][data-tb-card-style="metallic"] main .rounded-xl:not(.stat-card-gradient):not(button):not(a):not(input):not(select):not(aside *):not(nav *):not(header *),
+body[class*="tb-theme-"][data-tb-card-style="metallic"] main .rounded-lg:not(.stat-card-gradient):not(button):not(a):not(input):not(select):not(aside *):not(nav *):not(header *),
 body[class*="tb-theme-"][data-tb-card-style="metallic"] main .card {
   background: var(--tb-dashboard-card-bg) !important;
   background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0.03) 100%) !important;
@@ -476,7 +476,7 @@ body[class*="tb-theme-"][data-tb-card-style="metallic"] main .card {
 }
 
 /* Glass Card Style - Ensure it works with all themes */
-body[class*="tb-theme-"][data-tb-card-style="glass"] main .rounded-xl:not(.stat-card-gradient),
+body[class*="tb-theme-"][data-tb-card-style="glass"] main .rounded-xl:not(.stat-card-gradient):not(button):not(a):not(input):not(select):not(aside *):not(nav *):not(header *),
 body[class*="tb-theme-"][data-tb-card-style="glass"] main .card {
   background: var(--tb-dashboard-card-bg) !important;
   backdrop-filter: blur(10px) !important;
@@ -484,17 +484,17 @@ body[class*="tb-theme-"][data-tb-card-style="glass"] main .card {
 }
 
 /* Neon Card Style */
-body[class*="tb-theme-"][data-tb-card-style="neon"] main .rounded-xl:not(.stat-card-gradient),
-body[class*="tb-theme-"][data-tb-card-style="neon"] main .rounded-lg:not(.stat-card-gradient),
+body[class*="tb-theme-"][data-tb-card-style="neon"] main .rounded-xl:not(.stat-card-gradient):not(button):not(a):not(input):not(select):not(aside *):not(nav *):not(header *),
+body[class*="tb-theme-"][data-tb-card-style="neon"] main .rounded-lg:not(.stat-card-gradient):not(button):not(a):not(input):not(select):not(aside *):not(nav *):not(header *),
 body[class*="tb-theme-"][data-tb-card-style="neon"] main .card,
-body[class*="tb-theme-"][data-tb-card-style="neon"] main [class*="bg-card"] {
+body[class*="tb-theme-"][data-tb-card-style="neon"] main [class*="bg-card"]:not(aside *):not(nav *):not(header *) {
   background-color: var(--tb-dashboard-card-bg) !important;
   border: 1px solid var(--tb-accent, #8b5cf6) !important;
   box-shadow: 0 0 20px rgba(139, 92, 246, 0.3) !important;
 }
 
 /* Flat Card Style - Use theme colors */
-body[class*="tb-theme-"][data-tb-card-style="flat"] main .rounded-xl:not(.stat-card-gradient),
+body[class*="tb-theme-"][data-tb-card-style="flat"] main .rounded-xl:not(.stat-card-gradient):not(button):not(a):not(input):not(select):not(aside *):not(nav *):not(header *),
 body[class*="tb-theme-"][data-tb-card-style="flat"] main .card {
   background: var(--tb-dashboard-card-bg) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
@@ -505,13 +505,98 @@ body[class*="tb-theme-"][data-tb-card-style="flat"] main .card {
 }
 
 /* Ensure cards and dashboard containers follow the theme colors */
-body[class*="tb-theme-"] .rounded-xl,
-body[class*="tb-theme-"] .rounded-lg,
+body[class*="tb-theme-"] main .rounded-xl:not(.stat-card-gradient):not(button):not(a):not(input):not(select):not(aside *):not(nav *):not(header *),
+body[class*="tb-theme-"] main .rounded-lg:not(.stat-card-gradient):not(button):not(a):not(input):not(select):not(aside *):not(nav *):not(header *),
 body[class*="tb-theme-"] .card,
-body[class*="tb-theme-"] [class*="bg-card"] {
+body[class*="tb-theme-"] [class*="bg-card"]:not(aside *):not(nav *):not(header *) {
   background: var(--tb-dashboard-card-bg) !important;
   color: var(--tb-dashboard-text-color) !important;
   border-color: hsl(var(--border));
+}
+
+/* ── Sidebar & Header Universal Isolation & Protection ─────────────────── */
+aside,
+aside nav,
+header {
+  box-sizing: border-box;
+}
+
+/* Never allow sidebar items to shrink into thin lines */
+aside a,
+aside button,
+nav a,
+nav button {
+  flex-shrink: 0 !important;
+}
+
+/* Ensure sidebar nav links retain proper height, flex layout, and overflow */
+aside nav a,
+aside nav button {
+  min-height: 2.5rem !important; /* 40px */
+  overflow: visible !important;
+}
+
+aside nav a.h-9,
+aside nav button.h-9 {
+  min-height: 2.25rem !important; /* 36px */
+}
+
+aside nav a.h-10,
+aside nav button.h-10 {
+  min-height: 2.5rem !important; /* 40px */
+}
+
+aside nav a.h-14,
+aside nav button.h-14 {
+  min-height: 3.5rem !important; /* 56px */
+}
+
+aside nav a.h-16,
+aside nav button.h-16 {
+  min-height: 4rem !important; /* 64px */
+}
+
+/* Disallow card background and border bleeding into sidebar nav items */
+aside nav a:not([class*="bg-white"]):not(.active),
+aside nav button:not([class*="bg-white"]) {
+  background-color: transparent !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Retain hover state on sidebar nav items */
+aside nav a:hover,
+aside nav button:hover {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Prevent decorative card pseudo-elements from bleeding into sidebar or header */
+aside .rounded-lg::before,
+aside .rounded-lg::after,
+aside .rounded-xl::before,
+aside .rounded-xl::after,
+aside a::before,
+aside a::after,
+aside button::before,
+aside button::after,
+nav .rounded-lg::before,
+nav .rounded-lg::after,
+nav .rounded-xl::before,
+nav .rounded-xl::after,
+nav a::before,
+nav a::after,
+nav button::before,
+nav button::after,
+header .rounded-lg::before,
+header .rounded-lg::after,
+header .rounded-xl::before,
+header .rounded-xl::after,
+header a::before,
+header a::after,
+header button::before,
+header button::after {
+  display: none !important;
 }
 
 /* Ensure chart labels and tick marks follow theme text color */
