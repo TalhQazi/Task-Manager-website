@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { employeeApiFetch, toProxiedUrl } from "@/Employee/lib/api";
+import { employeeApiFetch, toProxiedUrl, downloadViaUrl } from "@/Employee/lib/api";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -114,23 +114,19 @@ export default function EmployeeAssetLibrary({
   const total = assetsQuery.data?.total ?? assets.length;
 
   const downloadAsset = async (asset: Asset) => {
-    const res = await employeeApiFetch<{ url: string; fileName: string }>(
-      `/api/asset-library/assets/${encodeURIComponent(asset.id)}/download`,
-      { method: "POST" }
-    );
+    try {
+      const res = await employeeApiFetch<{ url: string; fileName: string }>(
+        `/api/asset-library/assets/${encodeURIComponent(asset.id)}/download`,
+        { method: "POST" }
+      );
 
-    const safeUrl = toProxiedUrl(res.url);
-    const r = await fetch(safeUrl);
-    if (!r.ok) throw new Error(`Download failed (${r.status})`);
-    const blob = await r.blob();
-    const objectUrl = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = objectUrl;
-    a.download = res.fileName || asset.attachment?.fileName || "asset";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(objectUrl);
+      const safeUrl = toProxiedUrl(res.url) || res.url;
+      if (safeUrl) {
+        await downloadViaUrl(safeUrl, res.fileName || asset.attachment?.fileName || "asset");
+      }
+    } catch (err) {
+      console.error("Download failed:", err);
+    }
   };
 
   const renderFolderNode = (node: FolderNode, depth = 0) => {

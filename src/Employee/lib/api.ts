@@ -118,24 +118,32 @@ export function toProxiedUrl(url: string | undefined | null): string {
   }
 
   if (url.includes("/api/s3-proxy/")) {
-    if (token && !url.includes("token=")) {
-      return `${url}${url.includes("?") ? "&" : "?"}token=${token}`;
+    let proxied = url;
+    if (proxied.startsWith("/")) {
+      proxied = `${API_BASE_URL}${proxied}`;
     }
-    return url;
+    if (token && !proxied.includes("token=")) {
+      proxied = `${proxied}${proxied.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`;
+    }
+    return proxied;
   }
 
   // Local server uploads ("/uploads/<key>", "uploads/<key>", "http://.../uploads/<key>")
   const uploadsMatch = url.match(/(?:\/|^)uploads\/(.+)$/);
   if (uploadsMatch) {
     const key = uploadsMatch[1];
-    return `${API_BASE_URL}/api/s3-proxy/${key}${token ? `?token=${token}` : ""}`;
+    return `${API_BASE_URL}/api/s3-proxy/${key}${token ? `?token=${encodeURIComponent(token)}` : ""}`;
   }
 
   // Pattern for S3 URLs: https://<bucket>.s3.<region>.amazonaws.com/<key>
   const s3Match = url.match(/https:\/\/[^/]+\.s3\.[^/]+\.amazonaws\.com\/(.+)/);
   if (s3Match) {
     const key = s3Match[1];
-    return `${API_BASE_URL}/api/s3-proxy/${key}${token ? `?token=${token}` : ""}`;
+    return `${API_BASE_URL}/api/s3-proxy/${key}${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+  }
+
+  if (url.startsWith("/")) {
+    return `${API_BASE_URL}${url}`;
   }
 
   return url;
@@ -618,7 +626,10 @@ export async function downloadViaUrl(url: string, fileName: string): Promise<voi
     token = localStorage.getItem("token") || "";
   }
   
-  const targetUrl = toProxiedUrl(url) || url;
+  let targetUrl = toProxiedUrl(url) || url;
+  if (targetUrl.startsWith("/")) {
+    targetUrl = `${API_BASE_URL}${targetUrl}`;
+  }
   
   try {
     const res = await fetch(targetUrl, {
@@ -643,11 +654,13 @@ export async function downloadViaUrl(url: string, fileName: string): Promise<voi
   } catch (err) {
     console.warn("downloadViaUrl fetch failed, using direct link fallback:", err);
     const separator = targetUrl.includes("?") ? "&" : "?";
-    const windowUrl = `${targetUrl}${separator}download=true&fileName=${encodeURIComponent(fileName || "download")}`;
+    let windowUrl = `${targetUrl}${separator}download=true&fileName=${encodeURIComponent(fileName || "download")}`;
+    if (token && !windowUrl.includes("token=")) {
+      windowUrl += `&token=${encodeURIComponent(token)}`;
+    }
     const a = document.createElement("a");
     a.href = windowUrl;
     a.download = fileName || "download";
-    a.target = "_blank";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

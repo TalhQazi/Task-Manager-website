@@ -97,25 +97,33 @@ export function toProxiedUrl(url: string | undefined | null): string | undefined
   const token = getStoredToken();
 
   if (url.includes("/api/s3-proxy/")) {
-    if (token && !url.includes("token=")) {
-      return `${url}${url.includes("?") ? "&" : "?"}token=${token}`;
+    let proxied = url;
+    if (proxied.startsWith("/")) {
+      proxied = `${baseUrl}${proxied}`;
     }
-    return url;
+    if (token && !proxied.includes("token=")) {
+      proxied = `${proxied}${proxied.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`;
+    }
+    return proxied;
   }
 
   // Local server uploads ("/uploads/<key>", "uploads/<key>", "http://.../uploads/<key>")
   const uploadsMatch = url.match(/(?:\/|^)uploads\/(.+)$/);
   if (uploadsMatch) {
     const key = uploadsMatch[1];
-    return `${baseUrl}/api/s3-proxy/${key}${token ? `?token=${token}` : ""}`;
+    return `${baseUrl}/api/s3-proxy/${key}${token ? `?token=${encodeURIComponent(token)}` : ""}`;
   }
 
   // Match S3 URLs pattern: https://<bucket>.s3.<region>.amazonaws.com/<key>
   const s3Match = url.match(/https:\/\/[^/]+\.s3\.[^/]+\.amazonaws\.com\/(.+)/);
-  if (!s3Match) return url;
+  if (s3Match) {
+    const s3Key = s3Match[1];
+    return `${baseUrl}/api/s3-proxy/${s3Key}${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+  }
 
-  const s3Key = s3Match[1];
-  return `${baseUrl}/api/s3-proxy/${s3Key}${token ? `?token=${token}` : ""}`;
+  if (url.startsWith("/")) {
+    return `${baseUrl}${url}`;
+  }
 }
 
 function readTokenFrom(key: string): string | null {
@@ -311,8 +319,12 @@ export async function downloadViaUrl(url: string, fileName: string): Promise<voi
     return;
   }
 
+  const baseUrl = getApiBaseUrl().replace(/\/$/, "");
   const token = getStoredToken();
-  const targetUrl = toProxiedUrl(url) || url;
+  let targetUrl = toProxiedUrl(url) || url;
+  if (targetUrl.startsWith("/")) {
+    targetUrl = `${baseUrl}${targetUrl}`;
+  }
   
   try {
     const res = await fetch(targetUrl, {
@@ -337,11 +349,13 @@ export async function downloadViaUrl(url: string, fileName: string): Promise<voi
   } catch (err) {
     console.warn("downloadViaUrl fetch failed, using fallback direct download:", err);
     const separator = targetUrl.includes("?") ? "&" : "?";
-    const directUrl = `${targetUrl}${separator}download=true&fileName=${encodeURIComponent(fileName || "download")}`;
+    let directUrl = `${targetUrl}${separator}download=true&fileName=${encodeURIComponent(fileName || "download")}`;
+    if (token && !directUrl.includes("token=")) {
+      directUrl += `&token=${encodeURIComponent(token)}`;
+    }
     const a = document.createElement("a");
     a.href = directUrl;
     a.download = fileName || "download";
-    a.target = "_blank";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

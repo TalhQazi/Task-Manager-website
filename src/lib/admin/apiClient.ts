@@ -29,25 +29,45 @@ export function getApiBaseUrl() {
  */
 export function toProxiedUrl(url: string | undefined | null): string | undefined {
   if (!url) return undefined;
-  // Don't proxy data: URLs, already-proxied URLs, or non-S3 URLs
-  if (url.startsWith("data:") || url.includes("/api/s3-proxy/")) return url;
+  if (url.startsWith("data:")) return url;
 
   const baseUrl = getApiBaseUrl().replace(/\/$/, "");
-  const token = getAuthState().token;
+  const token =
+    getAuthState().token ||
+    getEmployeeAuth()?.token ||
+    (typeof localStorage !== "undefined" ? localStorage.getItem("token") : null);
 
-  // Local server uploads ("/uploads/<key>") — served by the backend, so route them
-  // through the backend origin (via the s3-proxy, which reads local disk first).
-  if (url.startsWith("/uploads/")) {
-    const key = url.replace(/^\/uploads\//, "");
-    return `${baseUrl}/api/s3-proxy/${key}${token ? `?token=${token}` : ""}`;
+  // If already proxied
+  if (url.includes("/api/s3-proxy/")) {
+    let proxied = url;
+    if (proxied.startsWith("/")) {
+      proxied = `${baseUrl}${proxied}`;
+    }
+    if (token && !proxied.includes("token=")) {
+      proxied = `${proxied}${proxied.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`;
+    }
+    return proxied;
+  }
+
+  // Local server uploads ("/uploads/<key>", "uploads/<key>", "http://.../uploads/<key>")
+  const uploadsMatch = url.match(/(?:\/|^)uploads\/(.+)$/);
+  if (uploadsMatch) {
+    const key = uploadsMatch[1];
+    return `${baseUrl}/api/s3-proxy/${key}${token ? `?token=${encodeURIComponent(token)}` : ""}`;
   }
 
   // Match S3 URLs pattern: https://<bucket>.s3.<region>.amazonaws.com/<key>
   const s3Match = url.match(/https:\/\/[^/]+\.s3\.[^/]+\.amazonaws\.com\/(.+)/);
-  if (!s3Match) return url;
+  if (s3Match) {
+    const s3Key = s3Match[1];
+    return `${baseUrl}/api/s3-proxy/${s3Key}${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+  }
 
-  const s3Key = s3Match[1];
-  return `${baseUrl}/api/s3-proxy/${s3Key}${token ? `?token=${token}` : ""}`;
+  if (url.startsWith("/")) {
+    return `${baseUrl}${url}`;
+  }
+
+  return url;
 }
 
 async function parseJsonSafe(res: Response) {
@@ -293,12 +313,20 @@ export async function downloadViaUrl(url: string, fileName: string): Promise<voi
     return;
   }
 
-  const auth = getAuthState();
+  const baseUrl = getApiBaseUrl().replace(/\/$/, "");
+  const token =
+    getAuthState().token ||
+    getEmployeeAuth()?.token ||
+    (typeof localStorage !== "undefined" ? localStorage.getItem("token") : null);
+
   let targetUrl = toProxiedUrl(url) || url;
+  if (targetUrl.startsWith("/")) {
+    targetUrl = `${baseUrl}${targetUrl}`;
+  }
   
   try {
     const res = await fetch(targetUrl, {
-      headers: auth.token ? { Authorization: `Bearer ${auth.token}` } : {},
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
     
     if (!res.ok) {
@@ -319,11 +347,13 @@ export async function downloadViaUrl(url: string, fileName: string): Promise<voi
   } catch (err) {
     console.warn("downloadViaUrl fetch failed, using fallback direct download:", err);
     const separator = targetUrl.includes("?") ? "&" : "?";
-    const directUrl = `${targetUrl}${separator}download=true&fileName=${encodeURIComponent(fileName || "download")}`;
+    let directUrl = `${targetUrl}${separator}download=true&fileName=${encodeURIComponent(fileName || "download")}`;
+    if (token && !directUrl.includes("token=")) {
+      directUrl += `&token=${encodeURIComponent(token)}`;
+    }
     const a = document.createElement("a");
     a.href = directUrl;
     a.download = fileName || "download";
-    a.target = "_blank";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
