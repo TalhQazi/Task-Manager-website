@@ -33,6 +33,7 @@ import {
   CalendarCheck,
   Bug,
   Bell,
+  Video,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -85,6 +86,7 @@ const navItemsBase: NavItem[] = [
   { icon: UserX, label: "Do Not Hire", path: "/manager/do-not-hire" },
   { icon: ClipboardCheck, label: "Onboarding", path: "/manager/onboarding" },
   { icon: BarChart3, label: "Reports", path: "/manager/reports" },
+  { icon: Video, label: "Meetings", path: "/manager/meetings" },
   { icon: MessageSquare, label: "Messages", path: "/manager/messages" },
   { icon: Bell, label: "Notifications", path: "/manager/notifications" },
   {

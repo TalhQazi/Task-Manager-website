@@ -51,6 +51,8 @@ const CRMFiles = lazy(() => import("@/pages/manger/crm/Files"));
 const TravelCalendar = lazy(() => import("@/pages/manger/TravelCalendar"));
 const ManagerBugs = lazy(() => import("@/pages/manger/Bugs"));
 const ManagerAnnouncements = lazy(() => import("@/pages/manger/Announcements"));
+const Meetings = lazy(() => import("@/pages/admin/Meetings"));
+const MeetingRoom = lazy(() => import("@/pages/shared/MeetingRoom"));
 
 function PageLoader() {
   return (
@@ -96,6 +98,8 @@ export default function ManagerController() {
       { path: "reports", element: <Reports /> },
       { path: "founder-messages", element: <FounderMessages /> },
       { path: "messages", element: <Messages /> },
+      { path: "meetings", element: <Meetings /> },
+      { path: "meetings/room/:code", element: <MeetingRoom /> },
       { path: "notifications", element: <Notifications /> },
       { path: "settings", element: <Settings /> },
       { path: "knowledge-vault", element: <KnowledgeVault /> },
@@ -129,6 +133,14 @@ export default function ManagerController() {
 
   if (!auth.isAuthenticated || (auth.role !== "manager" && auth.role !== "team-lead")) {
     return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
+  if (location.pathname.includes("/meetings/room/")) {
+    return (
+      <Suspense fallback={<PageLoader />}>
+        {element}
+      </Suspense>
+    );
   }
 
   return (

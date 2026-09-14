@@ -22,7 +22,8 @@ import {
   Settings,
   Mail,
   MapPin,
-  BookText
+  BookText,
+  Video,
 } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
@@ -47,6 +48,7 @@ const navItemsBase = [
   { icon: CalendarIcon, label: "Leave Requests", path: "/employee/leave-requests" },
   { icon: Calendar, label: "Travel Calendar", path: "/employee/travel-calendar" },
   { icon: MessageCircle, label: "Messages", path: "/employee/messages" },
+  { icon: Video, label: "Meetings", path: "/employee/meetings" },
   { icon: Folder, label: "Images", path: "/employee/asset-library" },
   { icon: FileText, label: "Company Information", path: "/employee/company-information" },
   // { icon: UserCircle, label: "Profile", path: "/employee/profile" },

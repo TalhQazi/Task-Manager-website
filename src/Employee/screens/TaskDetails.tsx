@@ -42,6 +42,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  Video,
 } from "lucide-react";
 import {
   Dialog,
@@ -281,7 +282,7 @@ export default function EmployeeTaskDetails() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [previewUrl, previewGallery, stepPreview]);
-  const [profile, setProfile] = useState<{ avatarUrl?: string } | null>(null);
+  const [profile, setProfile] = useState<{ avatarUrl?: string; [key: string]: any } | null>(null);
 
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [statusDraft, setStatusDraft] = useState<TaskStatus>("pending");
@@ -606,6 +607,31 @@ export default function EmployeeTaskDetails() {
           <Button variant="ghost" size="sm" onClick={onRefresh} disabled={refreshing}
           >
             <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              try {
+                const res = await employeeApiFetch<{ item: any }>("/api/meetings", {
+                  method: "POST",
+                  body: JSON.stringify({
+                    title: `Sync: ${task.title}`,
+                    meetingType: "instant",
+                    taskId: task.id,
+                  }),
+                });
+                if (res?.item?.roomCode) {
+                  navigate(`/employee/meetings/room/${res.item.roomCode}`);
+                }
+              } catch (err: any) {
+                toast.error(err.message || "Could not launch meeting");
+              }
+            }}
+            className="text-indigo-600 border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 hover:text-indigo-700 h-8 gap-1.5"
+          >
+            <Video className="h-4 w-4" />
+            <span>Video Sync</span>
           </Button>
         </div>
         {headerBadges}

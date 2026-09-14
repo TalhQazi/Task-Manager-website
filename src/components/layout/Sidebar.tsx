@@ -37,7 +37,8 @@ import {
   FileCheck,
   ListTodo,
   Contact,
-  Gavel
+  Gavel,
+  Video,
 } from "lucide-react";
 
 import { useNavigate, useLocation } from "react-router-dom";
@@ -77,6 +78,7 @@ const navItemsBase: NavItem[] = [
   },
   { icon: Landmark, label: "Companies", path: "/admin/companies" },
   { icon: Building2, label: "Vendors", path: "/admin/vendors" },
+  { icon: Video, label: "Meetings", path: "/admin/meetings" },
   { icon: MessageSquare, label: "Messaging", path: "/admin/messaging" },
   { icon: Bell, label: "Notifications", path: "/admin/notifications" },
   { icon: ClipboardList, label: "Onboarding", path: "/admin/onboarding" },

@@ -172,6 +172,7 @@ export async function getEmployeeProfile() {
       company?: string;
       location?: string;
       status?: string;
+      avatarUrl?: string;
       current_status?: "AVAILABLE" | "LUNCH" | "BREAK";
       lunch_start_time?: string | null;
       lunch_expected_end?: string | null;

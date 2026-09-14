@@ -30,6 +30,8 @@ const EmployeeEmailSettings = lazy(() => import("../screens/EmailSettings"));
 const EmployeeItinerary = lazy(() => import("../screens/EmployeeItinerary"));
 const EmployeeEODReports = lazy(() => import("../screens/EmployeeEODReports"));
 const ComplianceCenter = lazy(() => import("@/pages/manger/ComplianceCenter"));
+const EmployeeMeetings = lazy(() => import("../screens/Meetings"));
+const MeetingRoom = lazy(() => import("@/pages/shared/MeetingRoom"));
 
 function PageLoader() {
   return (
@@ -57,6 +59,7 @@ function EmployeeController() {
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes>
+        <Route path="/meetings/room/:code" element={<MeetingRoom />} />
         <Route element={<EmployeeLayout />}>
           <Route path="/" element={<EmployeeDashboard />} />
           <Route path="/dashboard" element={<EmployeeDashboard />} />
@@ -66,6 +69,7 @@ function EmployeeController() {
           <Route path="/schedule" element={<EmployeeSchedule />} />
           <Route path="/clocked" element={<EmployeeClocked />} />
           <Route path="/messages" element={<EmployeeMessages />} />
+          <Route path="/meetings" element={<EmployeeMeetings />} />
           <Route path="/asset-library" element={<EmployeeAssetLibrary />} />
           <Route path="/company-information" element={<EmployeeCompanyInformation />} />
           <Route path="/profile" element={<EmployeeProfile />} />

@@ -48,6 +48,8 @@ const AssetLibrary = lazy(() => import("@/pages/admin/AssetLibrary"));
 const CompanyInformation = lazy(() => import("@/pages/admin/CompanyInformation"));
 const EODReports = lazy(() => import("@/pages/admin/EODReports"));
 const LeaveRequests = lazy(() => import("@/pages/admin/LeaveRequests"));
+const Meetings = lazy(() => import("@/pages/admin/Meetings"));
+const MeetingRoom = lazy(() => import("@/pages/shared/MeetingRoom"));
 const EmployeeEODHistory = lazy(() => import("@/pages/admin/EmployeeEODHistory"));
 const SignaCore = lazy(() => import("@/pages/admin/SignaCore"));
 const UphMaintenance = lazy(() => import("@/pages/admin/UphMaintenance"));
@@ -139,6 +141,8 @@ export default function AdminRoutes() {
       { path: "break-history", element: <BreakTracking /> },
       { path: "attendance", element: <Attendance /> },
       { path: "messaging", element: <Messaging /> },
+      { path: "meetings", element: <Meetings /> },
+      { path: "meetings/room/:code", element: <MeetingRoom /> },
       { path: "announcements", element: <Announcements /> },
       { path: "video-messages", element: <VideoMessages /> },
       { path: "notifications", element: <Notifications /> },
@@ -210,6 +214,14 @@ export default function AdminRoutes() {
 
   if (!auth.isAuthenticated || (auth.role !== "admin" && auth.role !== "super-admin")) {
     return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
+  if (location.pathname.includes("/meetings/room/")) {
+    return (
+      <Suspense fallback={<PageLoader />}>
+        {element}
+      </Suspense>
+    );
   }
 
   return (
