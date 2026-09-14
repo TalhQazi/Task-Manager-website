@@ -32,6 +32,7 @@ type Asset = {
   currentVersionNumber?: number;
   urlThumbnail?: string;
   urlPreview?: string;
+  urlOriginal?: string;
   updatedAt?: string;
   attachment?: { fileName?: string; url?: string; mimeType?: string; size?: number };
 };
@@ -115,6 +116,14 @@ export default function EmployeeAssetLibrary({
 
   const downloadAsset = async (asset: Asset) => {
     try {
+      const activeUrl = asset.attachment?.url || asset.urlOriginal;
+      if (activeUrl) {
+        const safeUrl = toProxiedUrl(activeUrl) || activeUrl;
+        const fileName = asset.originalFilename || asset.attachment?.fileName || asset.title || "asset";
+        await downloadViaUrl(safeUrl, fileName);
+        return;
+      }
+
       const res = await employeeApiFetch<{ url: string; fileName: string }>(
         `/api/asset-library/assets/${encodeURIComponent(asset.id)}/download`,
         { method: "POST" }
@@ -122,7 +131,7 @@ export default function EmployeeAssetLibrary({
 
       const safeUrl = toProxiedUrl(res.url) || res.url;
       if (safeUrl) {
-        await downloadViaUrl(safeUrl, res.fileName || asset.attachment?.fileName || "asset");
+        await downloadViaUrl(safeUrl, res.fileName || asset.attachment?.fileName || asset.title || "asset");
       }
     } catch (err) {
       console.error("Download failed:", err);
