@@ -6,8 +6,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/admin/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/admin/ui/dialog";
 import { Plus, Search, MoreHorizontal, Eye, Edit, Trash2, FileText, AlertTriangle, Paperclip, Download } from "lucide-react";
-import { createResource, deleteResource, listResource, updateResource, getApiBaseUrl } from "@/lib/admin/apiClient";
+import { createResource, deleteResource, listResource, updateResource, toProxiedUrl, downloadViaUrl } from "@/lib/admin/apiClient";
 import { getAuthState } from "@/lib/auth";
+
+interface LegalAttachment {
+  fileName: string;
+  url: string;
+  mimeType: string;
+  size: number;
+}
 
 interface LegalDocument {
   id: string;
@@ -18,10 +25,21 @@ interface LegalDocument {
   caseReference?: string;
   status?: "Draft" | "Final" | "Filed";
   author?: string;
-  attachments?: Array<{ fileName: string; url: string; mimeType: string; size: number }>;
+  attachments?: LegalAttachment[];
   createdAt?: string;
   updatedAt?: string;
 }
+
+const resolveAttachmentUrl = (url: string) => toProxiedUrl(url) || url;
+
+const isImageAttachment = (att: LegalAttachment) =>
+  att.mimeType?.startsWith("image/") || /\.(png|jpe?g|gif|webp|svg|bmp|ico)$/i.test(att.fileName || "");
+
+const isPdfAttachment = (att: LegalAttachment) =>
+  att.mimeType === "application/pdf" || /\.pdf$/i.test(att.fileName || "");
+
+const isVideoAttachment = (att: LegalAttachment) =>
+  att.mimeType?.startsWith("video/") || /\.(mp4|webm|mov|ogg)$/i.test(att.fileName || "");
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1, delayChildren: 0.1 } } };
 const itemVariants = { hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 100, damping: 12 } } };
@@ -45,6 +63,9 @@ export default function Documents() {
   const [editOpen, setEditOpen] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewAttachment, setPreviewAttachment] = useState<LegalAttachment | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
   
   const [selectedItem, setSelectedItem] = useState<LegalDocument | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -60,7 +81,7 @@ export default function Documents() {
     caseReference: string;
     status: string;
     author: string;
-    attachments: Array<{ fileName: string; url: string; mimeType: string; size: number }>;
+    attachments: LegalAttachment[];
   }>({
     title: "",
     description: "",
@@ -184,6 +205,24 @@ export default function Documents() {
       ...prev,
       attachments: (prev.attachments || []).filter((_, i) => i !== idx)
     }));
+  };
+
+  const openAttachmentPreview = (att: LegalAttachment) => {
+    setPreviewAttachment(att);
+    setPreviewOpen(true);
+  };
+
+  const handleDownloadAttachment = async (att: LegalAttachment) => {
+    if (!att?.url) return;
+    try {
+      setIsDownloading(true);
+      await downloadViaUrl(att.url, att.fileName || "download");
+    } catch (err) {
+      console.error(err);
+      setApiError(err instanceof Error ? err.message : "Failed to download file");
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const filteredItems = useMemo(() => {
@@ -320,7 +359,27 @@ export default function Documents() {
                 filteredItems.map((c) => (
                   <TableRow key={c.id} className="border-white/10 hover:bg-white/5 transition-colors">
                     <TableCell className="font-mono text-sm text-slate-300">{c.documentNumber}</TableCell>
-                    <TableCell className="font-medium text-white">{c.title}</TableCell>
+                    <TableCell className="font-medium text-white">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="truncate">{c.title}</span>
+                        {c.attachments && c.attachments.length > 0 && (
+                          <button
+                            type="button"
+                            title="Preview attachment"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openAttachmentPreview(c.attachments![0]);
+                            }}
+                            className="inline-flex items-center gap-1 shrink-0 text-blue-400 hover:text-blue-300"
+                          >
+                            <Paperclip className="h-3.5 w-3.5" />
+                            {c.attachments.length > 1 && (
+                              <span className="text-[10px]">{c.attachments.length}</span>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="font-medium text-white">{c.fileType}</TableCell>
                     <TableCell className="text-slate-300">{c.caseReference}</TableCell>
                     <TableCell><Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">{c.status}</Badge></TableCell>
@@ -332,6 +391,14 @@ export default function Documents() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="bg-[#1e293b] border-white/10 text-white">
                           <DropdownMenuItem onClick={() => { setSelectedItem(c); setViewOpen(true); }} className="hover:bg-white/10 focus:bg-white/10 cursor-pointer"><Eye className="h-4 w-4 mr-2" /> View Details</DropdownMenuItem>
+                          {c.attachments && c.attachments.length > 0 && (
+                            <DropdownMenuItem
+                              onClick={() => openAttachmentPreview(c.attachments![0])}
+                              className="hover:bg-white/10 focus:bg-white/10 cursor-pointer"
+                            >
+                              <FileText className="h-4 w-4 mr-2" /> Preview File
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem onClick={() => handleEditOpen(c)} className="hover:bg-white/10 focus:bg-white/10 cursor-pointer"><Edit className="h-4 w-4 mr-2" /> Edit</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => { setSelectedItem(c); setDeleteOpen(true); }} className="text-rose-400 hover:bg-rose-500/10 focus:bg-rose-500/10 cursor-pointer"><Trash2 className="h-4 w-4 mr-2" /> Delete</DropdownMenuItem>
                         </DropdownMenuContent>
@@ -383,27 +450,84 @@ export default function Documents() {
                     <Paperclip className="h-3 w-3" /> Attachments
                   </div>
                   <div className="space-y-1.5">
-                    {selectedItem.attachments.map((att, idx) => {
-                      const fileUrl = att.url.startsWith("http") ? att.url : `${getApiBaseUrl().replace(/\/$/, "")}${att.url}`;
-                      return (
-                        <div key={idx} className="flex justify-between items-center text-xs bg-white/5 p-2 rounded border border-white/10">
-                          <span className="truncate max-w-[280px] text-slate-300">{att.fileName} ({att.size ? (att.size / 1024).toFixed(1) : 0} KB)</span>
-                          <a 
-                            href={fileUrl} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-blue-400 hover:underline hover:text-blue-300 flex items-center gap-1 font-medium ml-2"
-                          >
-                            <Download className="h-3.5 w-3.5" /> Download
-                          </a>
-                        </div>
-                      );
-                    })}
+                    {selectedItem.attachments.map((att, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => openAttachmentPreview(att)}
+                        className="w-full flex justify-between items-center text-xs bg-white/5 p-2 rounded border border-white/10 hover:bg-white/10 hover:border-blue-500/30 transition-colors text-left"
+                      >
+                        <span className="truncate max-w-[280px] text-slate-300">{att.fileName} ({att.size ? (att.size / 1024).toFixed(1) : 0} KB)</span>
+                        <span className="text-blue-400 flex items-center gap-1 font-medium ml-2 shrink-0">
+                          <Eye className="h-3.5 w-3.5" /> Preview
+                        </span>
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Attachment Preview Modal */}
+      <Dialog open={previewOpen} onOpenChange={(open) => { setPreviewOpen(open); if (!open) setPreviewAttachment(null); }}>
+        <DialogContent className="bg-[#0f172a] border-white/10 text-white sm:max-w-3xl max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <FileText className="h-4 w-4 text-blue-400 shrink-0" />
+              <span className="truncate">{previewAttachment?.fileName || "File Preview"}</span>
+            </DialogTitle>
+            <DialogDescription className="text-slate-400">
+              {previewAttachment?.mimeType || "Document"}
+              {previewAttachment?.size ? ` · ${(previewAttachment.size / 1024).toFixed(1)} KB` : ""}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-auto flex items-center justify-center min-h-[280px] bg-black/40 rounded-xl border border-white/10 p-2">
+            {previewAttachment && isImageAttachment(previewAttachment) ? (
+              <img
+                src={resolveAttachmentUrl(previewAttachment.url)}
+                alt={previewAttachment.fileName}
+                className="max-h-[60vh] max-w-full object-contain rounded-lg"
+              />
+            ) : previewAttachment && isVideoAttachment(previewAttachment) ? (
+              <video
+                controls
+                src={resolveAttachmentUrl(previewAttachment.url)}
+                className="max-h-[60vh] max-w-full rounded-lg"
+              />
+            ) : previewAttachment && isPdfAttachment(previewAttachment) ? (
+              <iframe
+                src={resolveAttachmentUrl(previewAttachment.url)}
+                title={previewAttachment.fileName}
+                className="w-full h-[60vh] rounded-lg border-0 bg-white"
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-3 p-8 text-center">
+                <FileText className="h-12 w-12 text-slate-500" />
+                <p className="text-sm text-slate-300">{previewAttachment?.fileName}</p>
+                <p className="text-xs text-slate-500">Preview is not available for this file type. You can download it instead.</p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="ghost" onClick={() => setPreviewOpen(false)} className="hover:bg-white/10 text-white">
+              Close
+            </Button>
+            {previewAttachment?.url && (
+              <Button
+                onClick={() => handleDownloadAttachment(previewAttachment)}
+                disabled={isDownloading}
+                className="bg-blue-600 hover:bg-blue-500 text-white"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {isDownloading ? "Downloading..." : "Download"}
+              </Button>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 
