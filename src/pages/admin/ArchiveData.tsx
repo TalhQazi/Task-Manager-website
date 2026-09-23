@@ -32,6 +32,7 @@ import {
   AlertCircle,
   Calendar,
   User,
+  Users,
   Search,
   ChevronLeft,
   ChevronRight,
@@ -66,6 +67,7 @@ const itemTypeIcons: Record<string, any> = {
   attachment: Paperclip,
   task: FileText,
   user: User,
+  tenant: Users,
 };
 
 const itemTypeColors: Record<string, string> = {
@@ -73,6 +75,7 @@ const itemTypeColors: Record<string, string> = {
   attachment: "bg-purple-100 text-purple-700 border-purple-200",
   task: "bg-amber-100 text-amber-700 border-amber-200",
   user: "bg-slate-100 text-slate-700 border-slate-200",
+  tenant: "bg-teal-100 text-teal-700 border-teal-200",
 };
 
 export default function ArchiveData() {
@@ -227,6 +230,7 @@ export default function ArchiveData() {
                 <SelectItem value="attachment">Attachments</SelectItem>
                 <SelectItem value="task">Tasks</SelectItem>
                 <SelectItem value="user">Users</SelectItem>
+                <SelectItem value="tenant">Tenants / Customers</SelectItem>
               </SelectContent>
             </Select>
             <Button
@@ -243,13 +247,13 @@ export default function ArchiveData() {
         </Card>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           {[
             { label: "Total Archived", count: pagination.total, color: "bg-gradient-to-br from-slate-50 to-slate-100 border-slate-200" },
             { label: "Comments", count: items.filter((i) => i.itemType === "comment").length, color: "bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200" },
             { label: "Attachments", count: items.filter((i) => i.itemType === "attachment").length, color: "bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200" },
             { label: "Tasks", count: items.filter((i) => i.itemType === "task").length, color: "bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200" },
-            { label: "Users", count: items.filter((i) => i.itemType === "user").length, color: "bg-gradient-to-br from-slate-50 to-slate-100 border-slate-200" },
+            { label: "Tenants", count: items.filter((i) => i.itemType === "tenant").length, color: "bg-gradient-to-br from-teal-50 to-teal-100 border-teal-200" },
           ].map((stat) => (
             <Card key={stat.label} className={`shadow-sm border ${stat.color}`}>
               <CardContent className="p-3 sm:p-4">
@@ -400,6 +404,26 @@ export default function ArchiveData() {
                                   <span>{itemData.email}</span>
                                   <span className="px-1.5 py-0.5 rounded bg-muted capitalize">{itemData.role}</span>
                                   <span className="px-1.5 py-0.5 rounded bg-muted">username: {itemData.username}</span>
+                                </div>
+                              </div>
+                            )}
+                            {item.itemType === "tenant" && (
+                              <div className="space-y-1">
+                                <p className="text-sm font-medium break-words">
+                                  {itemData.name || "—"}
+                                </p>
+                                <div className="flex items-center gap-2 flex-wrap text-[11px] text-muted-foreground">
+                                  {itemData.email && <span>{itemData.email}</span>}
+                                  {itemData.phone && <span>{itemData.phone}</span>}
+                                  {itemData.type && (
+                                    <span className="px-1.5 py-0.5 rounded bg-muted">{itemData.type}</span>
+                                  )}
+                                  {itemData.status && (
+                                    <span className="px-1.5 py-0.5 rounded bg-muted">{itemData.status}</span>
+                                  )}
+                                  {itemData.assignedProperty && (
+                                    <span>Property: {itemData.assignedProperty}</span>
+                                  )}
                                 </div>
                               </div>
                             )}

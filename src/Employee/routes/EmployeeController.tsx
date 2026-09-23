@@ -1,7 +1,9 @@
 import { lazy, Suspense } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { EmployeeLayout } from "../components/layout/EmployeeLayout";
 import { getEmployeeAuth } from "../lib/auth";
+import { getAuthState } from "@/lib/auth";
+import { resolveMeetingRoomPath } from "@/pages/shared/MeetingJoinRedirect";
 import EmployeePayroll from "../screens/payroll";
 import TaxDocs from "../screens/TaxDocs";
 import TimeLogs from "../screens/TimeLogs";
@@ -49,11 +51,32 @@ function PageLoader() {
 }
 
 function EmployeeController() {
+  const location = useLocation();
   const employeeAuth = getEmployeeAuth();
-  
-  // Redirect to employee login if not authenticated
+
+  // Redirect to login if not authenticated as employee.
+  // If a manager/admin opens an /employee meeting link, send them to their own room instead of bouncing to dashboard.
   if (!employeeAuth) {
-    return <Navigate to="/login/employee" replace />;
+    const roomMatch = location.pathname.match(/\/meetings\/room\/([^/]+)/);
+    if (roomMatch?.[1]) {
+      const panelPath = resolveMeetingRoomPath(roomMatch[1]);
+      if (panelPath && !panelPath.startsWith("/employee/")) {
+        return <Navigate to={panelPath} replace />;
+      }
+      // Logged-in staff without a resolvable panel — use universal join
+      const auth = getAuthState();
+      if (auth.isAuthenticated) {
+        return <Navigate to={`/join/meeting/${encodeURIComponent(roomMatch[1])}`} replace />;
+      }
+    }
+
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ from: location }}
+      />
+    );
   }
 
   return (

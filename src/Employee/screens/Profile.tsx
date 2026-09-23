@@ -1877,9 +1877,13 @@ const hasTaxInfo =
                     onChange={(e) => setUserSettings(prev => ({ ...prev, timezone: e.target.value }))}
                   >
                     <option value="America/New_York">Eastern Time (New York)</option>
+                    <option value="America/Chicago">Central Time (Chicago)</option>
+                    <option value="America/Denver">Mountain Time (Denver)</option>
+                    <option value="America/Los_Angeles">Pacific Time (Los Angeles)</option>
                     <option value="Europe/London">Greenwich Mean Time (London)</option>
                     <option value="Europe/Paris">Central European Time (Paris)</option>
                     <option value="Europe/Berlin">Central European Time (Berlin)</option>
+                    <option value="Asia/Karachi">Pakistan Standard Time (Karachi)</option>
                     <option value="Asia/Kolkata">India Standard Time (Kolkata)</option>
                     <option value="Asia/Shanghai">China Standard Time (Beijing)</option>
                     <option value="Asia/Tokyo">Japan Standard Time (Tokyo)</option>

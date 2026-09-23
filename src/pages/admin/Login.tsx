@@ -53,6 +53,17 @@ export default function Login() {
   useEffect(() => {
     const auth = getAuthState();
     if (auth.isAuthenticated && auth.role) {
+      // Honor meeting invite / deep-link redirects instead of always dumping to dashboard
+      if (
+        redirectTo &&
+        redirectTo !== "/" &&
+        redirectTo !== "/login" &&
+        (redirectTo.includes("/meetings/room/") || redirectTo.startsWith("/join/meeting/"))
+      ) {
+        navigate(redirectTo, { replace: true });
+        return;
+      }
+
       const to =
         auth.role === "developer"
           ? "/developer"
@@ -61,8 +72,7 @@ export default function Login() {
             : "/manager";
       navigate(to, { replace: true });
     }
-  }, [navigate]);
-
+  }, [navigate, redirectTo]);
   const onLogin = async () => {
     if (!formData.username || !formData.password) return;
     setIsLoading(true);
@@ -100,7 +110,16 @@ export default function Login() {
         });
         localStorage.setItem("token", token);
         loadFromBackend().catch(() => {});
-        navigate("/employee", { replace: true });
+        const employeeNext =
+          redirectTo &&
+          redirectTo !== "/" &&
+          redirectTo !== "/login" &&
+          (redirectTo.startsWith("/employee") ||
+            redirectTo.startsWith("/join/meeting/") ||
+            redirectTo.includes("/meetings/room/"))
+            ? redirectTo
+            : "/employee";
+        navigate(employeeNext, { replace: true });
         return;
       }
 
@@ -116,13 +135,26 @@ export default function Login() {
         role === "developer" ? "/developer" :
         role === "admin" || role === "super-admin" ? "/admin" :
         "/manager";
-      const nextPath =
-        redirectTo && redirectTo !== "/" && redirectTo !== "/login"
-          ? redirectTo
-          : defaultLanding;
+
+      let nextPath = defaultLanding;
+      if (redirectTo && redirectTo !== "/" && redirectTo !== "/login") {
+        if (redirectTo.startsWith("/join/meeting/") || redirectTo.includes("/meetings/room/")) {
+          nextPath = redirectTo;
+        } else if (
+          (role === "admin" || role === "super-admin") && redirectTo.startsWith("/admin")
+        ) {
+          nextPath = redirectTo;
+        } else if (
+          (role === "manager" || role === "team-lead") && redirectTo.startsWith("/manager")
+        ) {
+          nextPath = redirectTo;
+        } else if (role === "developer" && redirectTo.startsWith("/developer")) {
+          nextPath = redirectTo;
+        }
+      }
+
       loadFromBackend().catch(() => {});
-      navigate(nextPath, { replace: true });
-    } catch (e) {
+      navigate(nextPath, { replace: true });    } catch (e) {
       setError(e instanceof Error ? e.message : "Login failed");
     } finally {
       setIsLoading(false);

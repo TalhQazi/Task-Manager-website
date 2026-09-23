@@ -31,6 +31,13 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 
 interface MeetingItem {
@@ -40,6 +47,7 @@ interface MeetingItem {
   description?: string;
   meetingType: "instant" | "scheduled";
   scheduledStartTime?: string;
+  timezone?: string;
   durationMinutes: number;
   hostId: string;
   hostName: string;
@@ -51,6 +59,78 @@ interface MeetingItem {
   startedAt?: string;
   endedAt?: string;
   createdAt: string;
+}
+
+const TIMEZONE_OPTIONS = [
+  { value: "America/New_York", label: "Eastern Time (New York)" },
+  { value: "America/Chicago", label: "Central Time (Chicago)" },
+  { value: "America/Denver", label: "Mountain Time (Denver)" },
+  { value: "America/Los_Angeles", label: "Pacific Time (Los Angeles)" },
+  { value: "Europe/London", label: "Greenwich Mean Time (London)" },
+  { value: "Europe/Paris", label: "Central European Time (Paris)" },
+  { value: "Europe/Berlin", label: "Central European Time (Berlin)" },
+  { value: "Asia/Karachi", label: "Pakistan Standard Time (Karachi)" },
+  { value: "Asia/Kolkata", label: "India Standard Time (Kolkata)" },
+  { value: "Asia/Dubai", label: "Gulf Standard Time (Dubai)" },
+  { value: "Asia/Shanghai", label: "China Standard Time (Beijing)" },
+  { value: "Asia/Tokyo", label: "Japan Standard Time (Tokyo)" },
+  { value: "Australia/Sydney", label: "Eastern Australia Time (Sydney)" },
+  { value: "UTC", label: "Coordinated Universal Time (UTC)" },
+];
+
+function detectBrowserTimezone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch {
+    return "UTC";
+  }
+}
+
+function getTimezoneOffsetMs(timeZone: string, date: Date): number {
+  const dtf = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+  const parts = dtf.formatToParts(date);
+  const values: Record<string, number> = {};
+  for (const p of parts) {
+    if (p.type !== "literal") values[p.type] = parseInt(p.value, 10);
+  }
+  const asUTC = Date.UTC(
+    values.year,
+    values.month - 1,
+    values.day,
+    values.hour === 24 ? 0 : values.hour,
+    values.minute,
+    values.second
+  );
+  return asUTC - date.getTime();
+}
+
+/** Convert wall-clock date+time in a given IANA timezone to UTC ISO. */
+function zonedLocalToUtcIso(dateStr: string, timeStr: string, timeZone: string): string {
+  const [y, mo, d] = dateStr.split("-").map(Number);
+  const [h, mi] = timeStr.split(":").map(Number);
+  let utcMs = Date.UTC(y, mo - 1, d, h, mi, 0);
+  const offset = getTimezoneOffsetMs(timeZone, new Date(utcMs));
+  utcMs -= offset;
+  const offset2 = getTimezoneOffsetMs(timeZone, new Date(utcMs));
+  if (offset2 !== offset) utcMs = Date.UTC(y, mo - 1, d, h, mi, 0) - offset2;
+  return new Date(utcMs).toISOString();
+}
+
+function formatMeetingLocalTime(iso: string) {
+  const d = new Date(iso);
+  const localTz = detectBrowserTimezone();
+  const datePart = d.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+  const timePart = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return `${datePart} at ${timePart} (${localTz})`;
 }
 
 export default function AdminMeetings() {
@@ -71,13 +151,17 @@ export default function AdminMeetings() {
   const [agenda, setAgenda] = useState("");
   const [scheduleDate, setScheduleDate] = useState("");
   const [scheduleTime, setScheduleTime] = useState("");
+  const [scheduleTimezone, setScheduleTimezone] = useState(detectBrowserTimezone);
   const [duration, setDuration] = useState(30);
   const [employees, setEmployees] = useState<any[]>([]);
   const [selectedAttendees, setSelectedAttendees] = useState<string[]>([]);
+  const [attendeeSearch, setAttendeeSearch] = useState("");
 
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
-  const pathPrefix = location.pathname.startsWith("/manger") ? "/manger/meetings" : "/admin/meetings";
+  const pathPrefix = location.pathname.startsWith("/manager") || location.pathname.startsWith("/manger")
+    ? "/manager/meetings"
+    : "/admin/meetings";
 
   // Fetch meetings
   const fetchMeetings = async () => {
@@ -151,7 +235,8 @@ export default function AdminMeetings() {
 
     try {
       setIsSubmitting(true);
-      const startTime = new Date(`${scheduleDate}T${scheduleTime}`).toISOString();
+      const tz = scheduleTimezone || detectBrowserTimezone();
+      const startTime = zonedLocalToUtcIso(scheduleDate, scheduleTime, tz);
 
       const invited = selectedAttendees.map((id) => {
         const emp = employees.find((e) => String(e.id || e._id) === id);
@@ -163,21 +248,27 @@ export default function AdminMeetings() {
         };
       });
 
-      const res = await apiFetch<{ item: MeetingItem }>("/api/meetings", {
+      const res = await apiFetch<{ item: MeetingItem; emailResult?: { sent: number; failed: number } }>("/api/meetings", {
         method: "POST",
         body: JSON.stringify({
           title: topic.trim(),
           description: agenda.trim(),
           meetingType: "scheduled",
           scheduledStartTime: startTime,
+          timezone: tz,
           durationMinutes: Number(duration),
           invitedParticipants: invited,
         }),
       });
 
+      const emailed = res.emailResult?.sent ?? 0;
+      const emailFailed = res.emailResult?.failed ?? 0;
       toast({
         title: "Meeting Scheduled!",
-        description: `Room code: ${res.item?.roomCode}. Team members can now view and join.`,
+        description:
+          invited.length > 0
+            ? `Room code: ${res.item?.roomCode}. Invite emails sent: ${emailed}${emailFailed ? `, failed: ${emailFailed}` : ""}.`
+            : `Room code: ${res.item?.roomCode}. No attendees selected for email invites.`,
       });
 
       setIsScheduleModalOpen(false);
@@ -185,7 +276,9 @@ export default function AdminMeetings() {
       setAgenda("");
       setScheduleDate("");
       setScheduleTime("");
+      setScheduleTimezone(detectBrowserTimezone());
       setSelectedAttendees([]);
+      setAttendeeSearch("");
       fetchMeetings();
     } catch (err: any) {
       toast({
@@ -212,7 +305,7 @@ export default function AdminMeetings() {
 
   // Copy meeting link
   const copyMeetingLink = (roomCode: string) => {
-    const url = `${window.location.origin}${pathPrefix}/room/${roomCode}`;
+    const url = `${window.location.origin}/join/meeting/${roomCode}`;
     navigator.clipboard.writeText(url);
     setCopiedCode(roomCode);
     toast({ title: "Link Copied", description: "Meeting URL copied to clipboard" });
@@ -232,6 +325,33 @@ export default function AdminMeetings() {
   }, [meetings, searchQuery]);
 
   const liveMeetingsCount = meetings.filter((m) => m.status === "active").length;
+
+  const filteredEmployees = useMemo(() => {
+    const q = attendeeSearch.trim().toLowerCase();
+    const list = employees.filter((emp) => {
+      const name = String(emp?.name || emp?.username || "").trim();
+      const email = String(emp?.email || "").trim();
+      const role = String(emp?.role || "").trim();
+      if (!q) return true;
+      return (
+        name.toLowerCase().includes(q) ||
+        email.toLowerCase().includes(q) ||
+        role.toLowerCase().includes(q)
+      );
+    });
+    // Stable sort: named first, then by name
+    return [...list].sort((a, b) => {
+      const an = String(a?.name || a?.username || a?.email || "").toLowerCase();
+      const bn = String(b?.name || b?.username || b?.email || "").toLowerCase();
+      return an.localeCompare(bn);
+    });
+  }, [employees, attendeeSearch]);
+
+  const timezoneSelectValue = TIMEZONE_OPTIONS.some((t) => t.value === scheduleTimezone)
+    ? scheduleTimezone
+    : TIMEZONE_OPTIONS.some((t) => t.value === detectBrowserTimezone())
+      ? detectBrowserTimezone()
+      : "UTC";
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
@@ -441,8 +561,12 @@ export default function AdminMeetings() {
                     <div className="flex items-center gap-2">
                       <Clock className="w-3.5 h-3.5 text-neutral-400" />
                       <span>
-                        {scheduledDate.toLocaleDateString([], { month: "short", day: "numeric" })} at{" "}
-                        {scheduledDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} ({m.durationMinutes}m)
+                        {formatMeetingLocalTime(m.scheduledStartTime!)} · {m.durationMinutes}m
+                        {m.timezone ? (
+                          <span className="block text-[10px] text-muted-foreground/80 mt-0.5">
+                            Scheduled in {m.timezone}
+                          </span>
+                        ) : null}
                       </span>
                     </div>
                   )}
@@ -494,7 +618,7 @@ export default function AdminMeetings() {
 
       {/* Schedule Meeting Dialog */}
       <Dialog open={isScheduleModalOpen} onOpenChange={setIsScheduleModalOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Calendar className="w-5 h-5 text-indigo-500" /> Schedule Team Meeting
@@ -550,34 +674,83 @@ export default function AdminMeetings() {
             </div>
 
             <div>
+              <label className="text-xs font-semibold text-foreground mb-1 block">Timezone *</label>
+              <Select value={timezoneSelectValue} onValueChange={setScheduleTimezone}>
+                <SelectTrigger className="h-9 text-xs bg-background text-foreground border-input">
+                  <SelectValue placeholder="Select timezone" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover text-popover-foreground border-border max-h-64 z-[100]">
+                  {!TIMEZONE_OPTIONS.some((t) => t.value === scheduleTimezone) && scheduleTimezone && (
+                    <SelectItem value={scheduleTimezone} className="text-xs focus:bg-accent focus:text-accent-foreground">
+                      {scheduleTimezone} (detected)
+                    </SelectItem>
+                  )}
+                  {TIMEZONE_OPTIONS.map((tz) => (
+                    <SelectItem
+                      key={tz.value}
+                      value={tz.value}
+                      className="text-xs focus:bg-accent focus:text-accent-foreground cursor-pointer"
+                    >
+                      {tz.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Enter the meeting time in this timezone. Invitees always see it converted to their local time.
+              </p>
+            </div>
+
+            <div>
               <label className="text-xs font-semibold text-foreground mb-1 block">Duration</label>
-              <select
-                value={duration}
-                onChange={(e) => setDuration(Number(e.target.value))}
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs"
-              >
-                <option value={15}>15 Minutes</option>
-                <option value={30}>30 Minutes</option>
-                <option value={45}>45 Minutes</option>
-                <option value={60}>1 Hour</option>
-                <option value={90}>1.5 Hours</option>
-              </select>
+              <Select value={String(duration)} onValueChange={(v) => setDuration(Number(v))}>
+                <SelectTrigger className="h-9 text-xs bg-background text-foreground border-input">
+                  <SelectValue placeholder="Select duration" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover text-popover-foreground border-border z-[100]">
+                  <SelectItem value="15" className="text-xs">15 Minutes</SelectItem>
+                  <SelectItem value="30" className="text-xs">30 Minutes</SelectItem>
+                  <SelectItem value="45" className="text-xs">45 Minutes</SelectItem>
+                  <SelectItem value="60" className="text-xs">1 Hour</SelectItem>
+                  <SelectItem value="90" className="text-xs">1.5 Hours</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Attendees selector */}
             <div>
-              <label className="text-xs font-semibold text-foreground mb-1.5 block">Invite Team Members</label>
-              <div className="max-h-36 overflow-y-auto border border-border/80 rounded-xl p-2 space-y-1.5 bg-muted/30">
+              <div className="flex items-center justify-between gap-2 mb-1.5">
+                <label className="text-xs font-semibold text-foreground">Invite Team Members</label>
+                <span className="text-[10px] text-muted-foreground">
+                  {selectedAttendees.length} selected
+                </span>
+              </div>
+              <Input
+                value={attendeeSearch}
+                onChange={(e) => setAttendeeSearch(e.target.value)}
+                placeholder="Search by name, email, or role..."
+                className="h-8 text-xs mb-2"
+              />
+              <div className="max-h-40 overflow-y-auto border border-border rounded-xl p-1.5 space-y-0.5 bg-card">
                 {employees.length === 0 ? (
                   <div className="text-[11px] text-muted-foreground p-2">Loading team members...</div>
+                ) : filteredEmployees.length === 0 ? (
+                  <div className="text-[11px] text-muted-foreground p-2">No team members match your search.</div>
                 ) : (
-                  employees.map((emp) => {
+                  filteredEmployees.map((emp) => {
                     const empId = String(emp.id || emp._id);
                     const isChecked = selectedAttendees.includes(empId);
+                    const displayName =
+                      String(emp.name || emp.username || emp.email || "Team Member").trim() || "Team Member";
+                    const displayRole = String(emp.role || "employee").trim() || "employee";
                     return (
                       <label
                         key={empId}
-                        className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-accent cursor-pointer text-xs"
+                        className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer text-xs transition-colors ${
+                          isChecked
+                            ? "bg-indigo-500/15 text-foreground ring-1 ring-indigo-500/30"
+                            : "text-foreground hover:bg-muted/80"
+                        }`}
                       >
                         <input
                           type="checkbox"
@@ -589,10 +762,14 @@ export default function AdminMeetings() {
                               setSelectedAttendees((prev) => prev.filter((id) => id !== empId));
                             }
                           }}
-                          className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+                          className="h-3.5 w-3.5 shrink-0 rounded border-border bg-background accent-indigo-500"
                         />
-                        <span className="font-medium text-foreground">{emp.name || emp.username}</span>
-                        <span className="text-[10px] text-muted-foreground capitalize">({emp.role || "employee"})</span>
+                        <span className="font-medium text-foreground truncate min-w-0 flex-1">
+                          {displayName}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground capitalize shrink-0">
+                          ({displayRole})
+                        </span>
                       </label>
                     );
                   })

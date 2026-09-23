@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useSocket } from "@/contexts/SocketContext";
 import { getAuthState } from "@/lib/auth";
 import { getEmployeeAuth } from "@/Employee/lib/auth";
-import { apiFetch, getApiBaseUrl } from "@/lib/admin/apiClient";
+import { apiFetch } from "@/lib/admin/apiClient";
 import {
   Mic,
   MicOff,
@@ -19,15 +19,15 @@ import {
   Maximize2,
   Minimize2,
   LayoutGrid,
-  UserCheck,
-  Volume2,
   VolumeX,
   Send,
   X,
   Shield,
   Clock,
-  Sparkles,
   Info,
+  Captions,
+  Image as ImageIcon,
+  Languages,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,12 +64,42 @@ const ICE_SERVERS: RTCConfiguration = {
   ],
 };
 
+const CAPTION_LANGUAGES = [
+  { code: "en-US", label: "English (US)" },
+  { code: "en-GB", label: "English (UK)" },
+  { code: "ur-PK", label: "Urdu (Pakistan)" },
+  { code: "hi-IN", label: "Hindi (India)" },
+  { code: "ar-SA", label: "Arabic" },
+  { code: "es-ES", label: "Spanish" },
+  { code: "fr-FR", label: "French" },
+  { code: "de-DE", label: "German" },
+  { code: "zh-CN", label: "Chinese (Simplified)" },
+  { code: "ja-JP", label: "Japanese" },
+];
+
+type BgMode = "none" | "blur" | "blue" | "gray" | "green" | "office";
+
+const BG_OPTIONS: { id: BgMode; label: string; color?: string }[] = [
+  { id: "none", label: "None" },
+  { id: "blur", label: "Blur" },
+  { id: "blue", label: "Blue", color: "#1e3a5f" },
+  { id: "gray", label: "Gray", color: "#374151" },
+  { id: "green", label: "Green", color: "#064e3b" },
+  { id: "office", label: "Warm", color: "#78350f" },
+];
+
+function getMeetingsPathPrefix(pathname: string) {
+  if (pathname.startsWith("/employee")) return "/employee/meetings";
+  if (pathname.startsWith("/manager") || pathname.startsWith("/manger")) return "/manager/meetings";
+  return "/admin/meetings";
+}
+
 export default function MeetingRoom() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { socket, isConnected } = useSocket();
+  const { socket } = useSocket();
 
   const [meetingData, setMeetingData] = useState<any>(null);
   const [participants, setParticipants] = useState<Map<string, ParticipantInfo>>(new Map());
@@ -94,14 +124,27 @@ export default function MeetingRoom() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [mediaReady, setMediaReady] = useState(false);
+  const [bgMode, setBgMode] = useState<BgMode>("none");
+  const [showBgMenu, setShowBgMenu] = useState(false);
+  const [captionsEnabled, setCaptionsEnabled] = useState(false);
+  const [captionLanguage, setCaptionLanguage] = useState("en-US");
+  const [showCaptionLangMenu, setShowCaptionLangMenu] = useState(false);
+  const [captionText, setCaptionText] = useState("");
 
   // Refs
   const localStreamRef = useRef<MediaStream | null>(null);
+  const rawCameraStreamRef = useRef<MediaStream | null>(null);
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const screenTrackRef = useRef<MediaStreamTrack | null>(null);
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const audioContextRef = useRef<AudioContext | null>(null);
   const chatBottomRef = useRef<HTMLDivElement | null>(null);
+  const bgCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const bgRafRef = useRef<number | null>(null);
+  const bgVideoRef = useRef<HTMLVideoElement | null>(null);
+  const recognitionRef = useRef<any>(null);
+  const joinedRoomRef = useRef(false);
 
   // Determine current user
   const currentUser = useMemo(() => {
@@ -133,7 +176,7 @@ export default function MeetingRoom() {
 
   const isHost = Boolean(
     meetingData?.hostId === currentUser.id ||
-      ["super-admin", "admin"].includes(currentUser.role)
+      ["super-admin", "admin", "manager"].includes(currentUser.role)
   );
 
   // Fetch meeting metadata
@@ -171,6 +214,41 @@ export default function MeetingRoom() {
     }
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
+
+  // Helper: attach/replace local A/V tracks on an existing peer connection
+  const syncLocalTracksToPeer = useCallback(async (pc: RTCPeerConnection) => {
+    if (!localStreamRef.current) return;
+    const senders = pc.getSenders();
+    for (const track of localStreamRef.current.getTracks()) {
+      const existing = senders.find((s) => s.track?.kind === track.kind);
+      if (existing) {
+        await existing.replaceTrack(track);
+      } else {
+        pc.addTrack(track, localStreamRef.current);
+      }
+    }
+  }, []);
+
+  const renegotiatePeer = useCallback(
+    async (targetSocketId: string, pc: RTCPeerConnection) => {
+      if (!socket) return;
+      try {
+        const offer = await pc.createOffer({
+          offerToReceiveAudio: true,
+          offerToReceiveVideo: true,
+        });
+        await pc.setLocalDescription(offer);
+        socket.emit("meeting:signal", {
+          toSocketId: targetSocketId,
+          signalData: pc.localDescription,
+          type: "offer",
+        });
+      } catch (err) {
+        console.error("Error renegotiating WebRTC:", err);
+      }
+    },
+    [socket]
+  );
 
   // Helper: setup WebRTC PeerConnection with a remote socket
   const createPeerConnection = useCallback(
@@ -236,87 +314,242 @@ export default function MeetingRoom() {
     [socket]
   );
 
-  // Initialize camera and microphone
+  // Stop virtual background processing loop
+  const stopBgProcessor = useCallback(() => {
+    if (bgRafRef.current != null) {
+      cancelAnimationFrame(bgRafRef.current);
+      bgRafRef.current = null;
+    }
+    if (bgVideoRef.current) {
+      bgVideoRef.current.pause();
+      bgVideoRef.current.srcObject = null;
+      bgVideoRef.current = null;
+    }
+  }, []);
+
+  // Apply camera stream (raw or virtual-bg processed) to local preview + peers
+  const applyOutgoingStream = useCallback(
+    async (stream: MediaStream) => {
+      localStreamRef.current = stream;
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+      }
+
+      const peers = Array.from(peerConnectionsRef.current.entries());
+      for (const [socketId, pc] of peers) {
+        await syncLocalTracksToPeer(pc);
+        await renegotiatePeer(socketId, pc);
+      }
+    },
+    [renegotiatePeer, syncLocalTracksToPeer]
+  );
+
+  const startBgProcessor = useCallback(
+    async (mode: BgMode) => {
+      stopBgProcessor();
+      const raw = rawCameraStreamRef.current;
+      if (!raw || mode === "none") {
+        if (raw) await applyOutgoingStream(raw);
+        return;
+      }
+
+      const videoTrack = raw.getVideoTracks()[0];
+      if (!videoTrack) {
+        await applyOutgoingStream(raw);
+        return;
+      }
+
+      const canvas = bgCanvasRef.current || document.createElement("canvas");
+      bgCanvasRef.current = canvas;
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      if (!ctx) {
+        await applyOutgoingStream(raw);
+        return;
+      }
+
+      const hiddenVideo = document.createElement("video");
+      hiddenVideo.playsInline = true;
+      hiddenVideo.muted = true;
+      hiddenVideo.srcObject = new MediaStream([videoTrack]);
+      bgVideoRef.current = hiddenVideo;
+      await hiddenVideo.play().catch(() => {});
+
+      const option = BG_OPTIONS.find((o) => o.id === mode);
+      let running = true;
+
+      const draw = () => {
+        if (!running || !bgVideoRef.current) return;
+        const v = bgVideoRef.current;
+        const w = v.videoWidth || 640;
+        const h = v.videoHeight || 480;
+        if (canvas.width !== w || canvas.height !== h) {
+          canvas.width = w;
+          canvas.height = h;
+        }
+
+        if (mode === "blur") {
+          ctx.filter = "blur(14px)";
+          ctx.drawImage(v, 0, 0, w, h);
+          ctx.filter = "none";
+          // Soft person overlay (slightly sharper center oval)
+          ctx.save();
+          ctx.beginPath();
+          ctx.ellipse(w / 2, h / 2, w * 0.32, h * 0.42, 0, 0, Math.PI * 2);
+          ctx.clip();
+          ctx.drawImage(v, 0, 0, w, h);
+          ctx.restore();
+        } else {
+          ctx.fillStyle = option?.color || "#1e3a5f";
+          ctx.fillRect(0, 0, w, h);
+          ctx.save();
+          ctx.beginPath();
+          ctx.ellipse(w / 2, h / 2, w * 0.34, h * 0.44, 0, 0, Math.PI * 2);
+          ctx.clip();
+          ctx.drawImage(v, 0, 0, w, h);
+          ctx.restore();
+        }
+
+        bgRafRef.current = requestAnimationFrame(draw);
+      };
+
+      draw();
+
+      const processedTrack = canvas.captureStream(24).getVideoTracks()[0];
+      const audioTracks = raw.getAudioTracks();
+      const outgoing = new MediaStream([processedTrack, ...audioTracks]);
+      await applyOutgoingStream(outgoing);
+
+      // Keep loop alive via closure; stopBgProcessor cancels raf
+      const originalStop = stopBgProcessor;
+      // Mark for cleanup when mode changes — raf cancel stops drawing
+      void originalStop;
+      void running;
+    },
+    [applyOutgoingStream, stopBgProcessor]
+  );
+
+  // Initialize camera and microphone BEFORE joining the room
   useEffect(() => {
     let active = true;
 
     async function initMedia() {
+      let stream: MediaStream | null = null;
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
+        stream = await navigator.mediaDevices.getUserMedia({
           video: { width: { ideal: 1280 }, height: { ideal: 720 } },
           audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
         });
-
-        if (!active) {
-          stream.getTracks().forEach((t) => t.stop());
+      } catch (err: any) {
+        console.warn("A/V getUserMedia failed, trying audio-only:", err);
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+          });
+          if (active) {
+            setIsVideoEnabled(false);
+            setCameraError("Camera unavailable. Microphone is active — you can still join with audio and chat.");
+          }
+        } catch (audioErr: any) {
+          console.warn("Audio-only getUserMedia also failed:", audioErr);
+          if (active) {
+            setIsAudioEnabled(false);
+            setIsVideoEnabled(false);
+            setCameraError("Camera or Microphone permission was not granted. You can still participate using text chat.");
+            setMediaReady(true);
+          }
           return;
         }
-
-        localStreamRef.current = stream;
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
-        }
-
-        // Setup audio analyzer for local voice detection
-        try {
-          const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-          if (AudioContextClass) {
-            const ctx = new AudioContextClass();
-            audioContextRef.current = ctx;
-            const src = ctx.createMediaStreamSource(stream);
-            const analyser = ctx.createAnalyser();
-            analyser.fftSize = 256;
-            src.connect(analyser);
-
-            const dataArray = new Uint8Array(analyser.frequencyBinCount);
-            const checkAudio = () => {
-              if (!active) return;
-              analyser.getByteFrequencyData(dataArray);
-              let sum = 0;
-              for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
-              const avg = sum / dataArray.length;
-
-              if (avg > 25 && isAudioEnabled) {
-                setSpeakingSockets((prev) => new Set(prev).add("local"));
-              } else {
-                setSpeakingSockets((prev) => {
-                  if (prev.has("local")) {
-                    const next = new Set(prev);
-                    next.delete("local");
-                    return next;
-                  }
-                  return prev;
-                });
-              }
-              requestAnimationFrame(checkAudio);
-            };
-            requestAnimationFrame(checkAudio);
-          }
-        } catch (audioErr) {
-          console.warn("Audio analyser initialization notice:", audioErr);
-        }
-      } catch (err: any) {
-        console.warn("Camera/mic permission denied or unavailable:", err);
-        setCameraError("Camera or Microphone permission was not granted. You can still participate using text chat.");
       }
+
+      if (!active) {
+        stream?.getTracks().forEach((t) => t.stop());
+        return;
+      }
+
+      if (!stream) {
+        setMediaReady(true);
+        return;
+      }
+
+      rawCameraStreamRef.current = stream;
+      localStreamRef.current = stream;
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+      }
+
+      // Setup audio analyzer for local voice detection
+      try {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioContextClass) {
+          const ctx = new AudioContextClass();
+          audioContextRef.current = ctx;
+          const src = ctx.createMediaStreamSource(stream);
+          const analyser = ctx.createAnalyser();
+          analyser.fftSize = 256;
+          src.connect(analyser);
+
+          const dataArray = new Uint8Array(analyser.frequencyBinCount);
+          const checkAudio = () => {
+            if (!active) return;
+            analyser.getByteFrequencyData(dataArray);
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+            const avg = sum / dataArray.length;
+
+            if (avg > 25) {
+              setSpeakingSockets((prev) => new Set(prev).add("local"));
+            } else {
+              setSpeakingSockets((prev) => {
+                if (prev.has("local")) {
+                  const next = new Set(prev);
+                  next.delete("local");
+                  return next;
+                }
+                return prev;
+              });
+            }
+            requestAnimationFrame(checkAudio);
+          };
+          requestAnimationFrame(checkAudio);
+        }
+      } catch (audioErr) {
+        console.warn("Audio analyser initialization notice:", audioErr);
+      }
+
+      setMediaReady(true);
     }
 
     initMedia();
 
     return () => {
       active = false;
-      if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach((t) => t.stop());
+      stopBgProcessor();
+      if (rawCameraStreamRef.current) {
+        rawCameraStreamRef.current.getTracks().forEach((t) => t.stop());
+      }
+      if (localStreamRef.current && localStreamRef.current !== rawCameraStreamRef.current) {
+        localStreamRef.current.getTracks().forEach((t) => {
+          if (t.readyState === "live") t.stop();
+        });
       }
       if (audioContextRef.current && audioContextRef.current.state !== "closed") {
         audioContextRef.current.close().catch(() => {});
       }
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {
+          /* ignore */
+        }
+      }
     };
-  }, []);
+  }, [stopBgProcessor]);
 
-  // Socket.io room lifecycle & WebRTC signaling listeners
+  // Socket.io room lifecycle & WebRTC signaling — wait until media is ready
   useEffect(() => {
-    if (!socket || !code) return;
+    if (!socket || !code || !mediaReady) return;
+    if (joinedRoomRef.current) return;
+    joinedRoomRef.current = true;
 
     // Join room
     socket.emit("meeting:join", {
@@ -328,11 +561,11 @@ export default function MeetingRoom() {
     });
 
     // Existing participants received on join
-    const handleExisting = ({ participants: existingList, self }: any) => {
+    const handleExisting = ({ participants: existingList }: any) => {
       const map = new Map<string, ParticipantInfo>();
       existingList.forEach((p: ParticipantInfo) => {
         map.set(p.socketId, p);
-        // Create offer to existing participant
+        // Create offer to existing participant (local tracks already available)
         createPeerConnection(p.socketId, true);
       });
       setParticipants(map);
@@ -361,6 +594,8 @@ export default function MeetingRoom() {
       try {
         if (type === "offer") {
           await pc.setRemoteDescription(new RTCSessionDescription(signalData));
+          // Ensure our tracks are on this PC before answering
+          await syncLocalTracksToPeer(pc);
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
           socket.emit("meeting:signal", {
@@ -480,6 +715,7 @@ export default function MeetingRoom() {
     socket.on("meeting:user-left", handleUserLeft);
 
     return () => {
+      joinedRoomRef.current = false;
       socket.emit("meeting:leave", { roomCode: code });
       socket.off("meeting:existing-participants", handleExisting);
       socket.off("meeting:user-joined", handleUserJoined);
@@ -496,7 +732,8 @@ export default function MeetingRoom() {
       peerConnectionsRef.current.forEach((pc) => pc.close());
       peerConnectionsRef.current.clear();
     };
-  }, [socket, code, currentUser, isHost, createPeerConnection, toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- join once per room after media ready
+  }, [socket, code, mediaReady, createPeerConnection, syncLocalTracksToPeer]);
 
   // Scroll chat to bottom
   useEffect(() => {
@@ -505,9 +742,11 @@ export default function MeetingRoom() {
 
   // Toggle Microphone
   const toggleAudio = () => {
-    if (!localStreamRef.current) return;
     const nextState = !isAudioEnabled;
-    localStreamRef.current.getAudioTracks().forEach((track) => {
+    localStreamRef.current?.getAudioTracks().forEach((track) => {
+      track.enabled = nextState;
+    });
+    rawCameraStreamRef.current?.getAudioTracks().forEach((track) => {
       track.enabled = nextState;
     });
     setIsAudioEnabled(nextState);
@@ -521,9 +760,11 @@ export default function MeetingRoom() {
 
   // Toggle Camera
   const toggleVideo = () => {
-    if (!localStreamRef.current) return;
     const nextState = !isVideoEnabled;
-    localStreamRef.current.getVideoTracks().forEach((track) => {
+    localStreamRef.current?.getVideoTracks().forEach((track) => {
+      track.enabled = nextState;
+    });
+    rawCameraStreamRef.current?.getVideoTracks().forEach((track) => {
       track.enabled = nextState;
     });
     setIsVideoEnabled(nextState);
@@ -544,7 +785,9 @@ export default function MeetingRoom() {
         screenTrackRef.current = null;
       }
       // Revert peer connections back to camera track
-      const cameraTrack = localStreamRef.current?.getVideoTracks()[0];
+      const cameraTrack =
+        localStreamRef.current?.getVideoTracks()[0] ||
+        rawCameraStreamRef.current?.getVideoTracks()[0];
       if (cameraTrack) {
         peerConnectionsRef.current.forEach((pc) => {
           const sender = pc.getSenders().find((s) => s.track && s.track.kind === "video");
@@ -553,6 +796,9 @@ export default function MeetingRoom() {
         if (localVideoRef.current && localStreamRef.current) {
           localVideoRef.current.srcObject = localStreamRef.current;
         }
+      }
+      if (bgMode !== "none") {
+        startBgProcessor(bgMode).catch(() => {});
       }
       setIsScreenSharing(false);
       if (socket && code) {
@@ -644,20 +890,127 @@ export default function MeetingRoom() {
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((t) => t.stop());
     }
+    if (rawCameraStreamRef.current) {
+      rawCameraStreamRef.current.getTracks().forEach((t) => t.stop());
+    }
     if (screenTrackRef.current) {
       screenTrackRef.current.stop();
     }
-    const pathPrefix = location.pathname.startsWith("/employee")
-      ? "/employee/meetings"
-      : location.pathname.startsWith("/manger")
-      ? "/manger/meetings"
-      : "/admin/meetings";
-    navigate(pathPrefix);
+    stopBgProcessor();
+    navigate(getMeetingsPathPrefix(location.pathname));
+  };
+
+  const handleSelectBackground = async (mode: BgMode) => {
+    setBgMode(mode);
+    setShowBgMenu(false);
+    if (isScreenSharing) return;
+    try {
+      await startBgProcessor(mode);
+    } catch (err) {
+      console.warn("Background change failed:", err);
+      toast({
+        title: "Background unavailable",
+        description: "Could not apply virtual background on this device.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const stopCaptions = () => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.onend = null;
+        recognitionRef.current.stop();
+      } catch {
+        /* ignore */
+      }
+      recognitionRef.current = null;
+    }
+    setCaptionText("");
+  };
+
+  const startCaptions = (lang: string) => {
+    const SpeechRecognitionCtor =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognitionCtor) {
+      toast({
+        title: "Captions not supported",
+        description: "Live captions require Chrome, Edge, or Safari.",
+        variant: "destructive",
+      });
+      setCaptionsEnabled(false);
+      return;
+    }
+
+    stopCaptions();
+    const recognition = new SpeechRecognitionCtor();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = lang;
+
+    recognition.onresult = (event: any) => {
+      let interim = "";
+      let finalText = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) finalText += transcript + " ";
+        else interim += transcript;
+      }
+      setCaptionText((finalText || interim).trim());
+    };
+
+    recognition.onerror = (event: any) => {
+      if (event.error === "not-allowed") {
+        toast({
+          title: "Microphone blocked",
+          description: "Allow microphone access to use captions.",
+          variant: "destructive",
+        });
+        setCaptionsEnabled(false);
+      }
+    };
+
+    recognition.onend = () => {
+      // Auto-restart while captions remain enabled
+      if (recognitionRef.current === recognition) {
+        try {
+          recognition.start();
+        } catch {
+          /* ignore */
+        }
+      }
+    };
+
+    recognitionRef.current = recognition;
+    try {
+      recognition.start();
+    } catch (err) {
+      console.warn("Caption start failed:", err);
+    }
+  };
+
+  const toggleCaptions = () => {
+    if (captionsEnabled) {
+      stopCaptions();
+      setCaptionsEnabled(false);
+      setShowCaptionLangMenu(false);
+    } else {
+      setCaptionsEnabled(true);
+      startCaptions(captionLanguage);
+    }
+  };
+
+  const handleCaptionLanguageChange = (lang: string) => {
+    setCaptionLanguage(lang);
+    setShowCaptionLangMenu(false);
+    if (captionsEnabled) {
+      startCaptions(lang);
+    }
   };
 
   // Copy meeting link
   const copyMeetingLink = async () => {
-    const url = window.location.href;
+    const url = `${window.location.origin}/join/meeting/${code}`;
     await navigator.clipboard.writeText(url);
     setIsCopied(true);
     toast({ title: "Link Copied", description: "Meeting link copied to clipboard!" });
@@ -742,11 +1095,25 @@ export default function MeetingRoom() {
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden relative">
         {/* Video Stage */}
-        <main className="flex-1 p-2 sm:p-4 flex items-center justify-center overflow-auto bg-black/40">
+        <main className="flex-1 p-2 sm:p-4 flex items-center justify-center overflow-auto bg-black/40 relative">
           {cameraError && (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-amber-500/20 border border-amber-500/40 text-amber-200 text-xs px-3 py-2 rounded-lg flex items-center gap-2">
               <Info className="w-4 h-4 shrink-0" />
               <span>{cameraError}</span>
+            </div>
+          )}
+
+          {!mediaReady && (
+            <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 text-sm text-neutral-300">
+              Enabling camera & microphone...
+            </div>
+          )}
+
+          {captionsEnabled && captionText && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 max-w-3xl w-[90%] pointer-events-none">
+              <div className="bg-black/75 backdrop-blur-md text-white text-sm sm:text-base px-4 py-2.5 rounded-xl text-center border border-white/10 shadow-lg">
+                {captionText}
+              </div>
             </div>
           )}
 
@@ -992,7 +1359,7 @@ export default function MeetingRoom() {
       </div>
 
       {/* Bottom Zoom-style Control Toolbar */}
-      <footer className="h-20 bg-neutral-900/95 backdrop-blur-lg border-t border-neutral-800 flex items-center justify-between px-3 sm:px-6 z-30 shrink-0">
+      <footer className="h-20 bg-neutral-900/95 backdrop-blur-lg border-t border-neutral-800 flex items-center justify-between px-3 sm:px-6 z-40 shrink-0 relative">
         {/* Left: Audio & Video Controls */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Mic button */}
@@ -1009,7 +1376,7 @@ export default function MeetingRoom() {
             <span className="text-[10px] font-medium mt-1">{isAudioEnabled ? "Mute" : "Unmute"}</span>
           </button>
 
-          {/* Video button */}
+          {/* Camera button */}
           <button
             type="button"
             onClick={toggleVideo}
@@ -1020,11 +1387,58 @@ export default function MeetingRoom() {
             }`}
           >
             {isVideoEnabled ? <Video className="w-5 h-5 text-emerald-400" /> : <VideoOff className="w-5 h-5" />}
-            <span className="text-[10px] font-medium mt-1">{isVideoEnabled ? "Stop Video" : "Start Video"}</span>
+            <span className="text-[10px] font-medium mt-1">Camera</span>
           </button>
+
+          {/* Background */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                setShowBgMenu((v) => !v);
+                setShowCaptionLangMenu(false);
+              }}
+              className={`flex flex-col items-center justify-center w-12 h-14 sm:w-14 sm:h-16 rounded-xl transition-all ${
+                bgMode !== "none"
+                  ? "text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20"
+                  : "text-neutral-200 hover:bg-neutral-800"
+              }`}
+            >
+              <ImageIcon className="w-5 h-5" />
+              <span className="text-[10px] font-medium mt-1">BG</span>
+            </button>
+            {showBgMenu && (
+              <div className="absolute bottom-full left-0 mb-2 w-44 rounded-xl border border-neutral-700 bg-neutral-900 shadow-2xl p-2 z-50">
+                <div className="text-[10px] uppercase tracking-wider text-neutral-500 px-2 pb-1.5">Camera background</div>
+                {BG_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => handleSelectBackground(opt.id)}
+                    className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs text-left transition ${
+                      bgMode === opt.id ? "bg-indigo-600/30 text-indigo-200" : "hover:bg-neutral-800 text-neutral-200"
+                    }`}
+                  >
+                    <span
+                      className="w-3.5 h-3.5 rounded-full border border-white/20 shrink-0"
+                      style={{
+                        background:
+                          opt.id === "none"
+                            ? "transparent"
+                            : opt.id === "blur"
+                            ? "linear-gradient(135deg,#94a3b8,#475569)"
+                            : opt.color,
+                      }}
+                    />
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Center: Collaboration Controls (Screen Share, Participants, Chat, Hand) */}
+        {/* Center: Collaboration Controls (Screen Share, Participants, Chat, Hand, Captions) */}
         <div className="flex items-center gap-1 sm:gap-2">
           {/* Screen Share */}
           <button
@@ -1092,10 +1506,56 @@ export default function MeetingRoom() {
             <Hand className="w-5 h-5" />
             <span className="text-[10px] font-medium mt-1 hidden sm:inline">{isHandRaised ? "Lower Hand" : "Raise Hand"}</span>
           </button>
+
+          {/* Captions */}
+          <div className="relative flex items-center">
+            <button
+              type="button"
+              onClick={toggleCaptions}
+              className={`flex flex-col items-center justify-center w-12 h-14 sm:w-14 sm:h-16 rounded-xl transition-all ${
+                captionsEnabled
+                  ? "text-sky-400 bg-sky-500/10 hover:bg-sky-500/20"
+                  : "text-neutral-200 hover:bg-neutral-800"
+              }`}
+            >
+              <Captions className="w-5 h-5" />
+              <span className="text-[10px] font-medium mt-1 hidden sm:inline">Caption</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowCaptionLangMenu((v) => !v);
+                setShowBgMenu(false);
+              }}
+              title="Caption language"
+              className="hidden sm:flex flex-col items-center justify-center w-8 h-14 sm:h-16 rounded-xl text-neutral-400 hover:text-white hover:bg-neutral-800"
+            >
+              <Languages className="w-4 h-4" />
+            </button>
+            {showCaptionLangMenu && (
+              <div className="absolute bottom-full right-0 mb-2 w-52 max-h-64 overflow-y-auto rounded-xl border border-neutral-700 bg-neutral-900 shadow-2xl p-2 z-50">
+                <div className="text-[10px] uppercase tracking-wider text-neutral-500 px-2 pb-1.5">Caption language</div>
+                {CAPTION_LANGUAGES.map((lang) => (
+                  <button
+                    key={lang.code}
+                    type="button"
+                    onClick={() => handleCaptionLanguageChange(lang.code)}
+                    className={`w-full px-2.5 py-2 rounded-lg text-xs text-left transition ${
+                      captionLanguage === lang.code
+                        ? "bg-sky-600/30 text-sky-200"
+                        : "hover:bg-neutral-800 text-neutral-200"
+                    }`}
+                  >
+                    {lang.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Right: End / Leave Button */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 pr-1">
           {isHost ? (
             <div className="flex items-center gap-1.5">
               <Button

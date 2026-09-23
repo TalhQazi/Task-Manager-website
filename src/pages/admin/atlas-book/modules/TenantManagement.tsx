@@ -4,9 +4,10 @@ import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/admin/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/admin/ui/dialog";
-import { Users, Plus, Search, RefreshCw, Mail, Phone, UserCheck, ShieldAlert } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/admin/ui/dialog";
+import { Users, Plus, Search, RefreshCw, Mail, Phone, Trash2, AlertTriangle } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
+import { toast } from "@/components/admin/ui/use-toast";
 
 export default function TenantManagement() {
   const [items, setItems] = useState<any[]>([]);
@@ -19,6 +20,8 @@ export default function TenantManagement() {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("profile");
   
@@ -83,6 +86,53 @@ export default function TenantManagement() {
       }
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const openDelete = (item: any) => {
+    setSelectedTenant(item);
+    setDeleteOpen(true);
+  };
+
+  const handleArchiveDelete = async () => {
+    const tenantId = selectedTenant?._id || selectedTenant?.id;
+    if (!tenantId) {
+      toast({
+        title: "Archive failed",
+        description: "Missing tenant id",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      setDeleting(true);
+      const res = await apiFetch(`/api/atlasbook/tenants/${tenantId}`, {
+        method: "DELETE",
+      });
+      if (res?.success) {
+        toast({
+          title: "Moved to archive",
+          description: `${selectedTenant.name} was archived. You can permanently delete it from Archive Data.`,
+        });
+        setDeleteOpen(false);
+        setDetailsOpen(false);
+        setSelectedTenant(null);
+        load();
+      } else {
+        toast({
+          title: "Archive failed",
+          description: res?.message || "Could not archive tenant",
+          variant: "destructive",
+        });
+      }
+    } catch (e) {
+      toast({
+        title: "Archive failed",
+        description: e instanceof Error ? e.message : "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -161,11 +211,22 @@ export default function TenantManagement() {
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground italic">No lease history</TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" onClick={() => {
-                        setSelectedTenant(item);
-                        setActiveTab("profile");
-                        setDetailsOpen(true);
-                      }}>Details</Button>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => {
+                          setSelectedTenant(item);
+                          setActiveTab("profile");
+                          setDetailsOpen(true);
+                        }}>Details</Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                          onClick={() => openDelete(item)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Delete
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -448,6 +509,36 @@ export default function TenantManagement() {
           )}
           <DialogFooter>
             <Button onClick={() => setDetailsOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Archive / Soft Delete Confirmation */}
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-rose-600">
+              <AlertTriangle className="h-5 w-5" />
+              Move to Archive?
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground pt-2">
+              <strong>{selectedTenant?.name}</strong> will be removed from the active list and moved to Archive Data.
+              You can permanently delete it later from Archive.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={deleting}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleArchiveDelete}
+              disabled={deleting}
+              className="gap-2"
+            >
+              <Trash2 className="h-4 w-4" />
+              {deleting ? "Archiving..." : "Move to Archive"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

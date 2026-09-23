@@ -1,4 +1,5 @@
 import React, { useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { useActiveTheme } from "./ThemeEngineContext";
 import { useResponsiveThemeAsset } from "./hooks/useResponsiveThemeAsset";
 import { useSeasonalCelebration } from "./hooks/useSeasonalCelebration";
@@ -11,10 +12,13 @@ interface HolidayThemeShellProps {
 }
 
 export const HolidayThemeShell: React.FC<HolidayThemeShellProps> = ({ children }) => {
+  const location = useLocation();
   const { activeTheme, assets, effectivePreferences, currentFps, isPerformanceDegraded } =
     useActiveTheme();
   const { deviceVariant, getAssetUrl } = useResponsiveThemeAsset(assets);
   const { triggerCelebration } = useSeasonalCelebration();
+
+  const isMeetingRoom = location.pathname.includes("/meetings/room/");
 
   useEffect(() => {
     const handleCelebration = (e: Event) => {
@@ -28,6 +32,7 @@ export const HolidayThemeShell: React.FC<HolidayThemeShellProps> = ({ children }
   }, [triggerCelebration]);
 
   const isImmersive =
+    !isMeetingRoom &&
     effectivePreferences.immersiveModeEnabled &&
     activeTheme.themeKey !== "default-neutral" &&
     !(typeof window !== "undefined" && window.location.pathname.startsWith("/login"));
@@ -248,8 +253,8 @@ export const HolidayThemeShell: React.FC<HolidayThemeShellProps> = ({ children }
         />
       )}
 
-      {/* Floating Theme Control Widget */}
-      <ThemeControlWidget />
+      {/* Hide theme widget during meetings so it does not cover End / Leave */}
+      {!isMeetingRoom && <ThemeControlWidget />}
 
       {/* =========================================================================
           LAYER 10 (z-index: 1000+): Modals and system popups reserved space.

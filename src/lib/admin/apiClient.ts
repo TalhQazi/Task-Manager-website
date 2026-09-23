@@ -124,8 +124,11 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   }
 
   if (!res.ok) {
-    const body = (await parseJsonSafe(res)) as ApiErrorBody | string | null;
-    const msg = typeof body === "string" ? body : body?.error?.message;
+    const body = (await parseJsonSafe(res)) as (ApiErrorBody & { message?: string }) | string | null;
+    const msg =
+      typeof body === "string"
+        ? body
+        : body?.error?.message || body?.message;
     throw new Error(msg || `Request failed (${res.status})`);
   }
 

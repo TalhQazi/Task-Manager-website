@@ -24,12 +24,29 @@ interface MeetingItem {
   description?: string;
   meetingType: "instant" | "scheduled";
   scheduledStartTime?: string;
+  timezone?: string;
   durationMinutes: number;
   hostId: string;
   hostName: string;
   invitedParticipants: { userId?: string; name?: string; email?: string; role?: string }[];
   status: "scheduled" | "active" | "ended";
   createdAt: string;
+}
+
+function formatMeetingLocalTime(iso: string, scheduledTz?: string) {
+  const d = new Date(iso);
+  let localTz = "local";
+  try {
+    localTz = Intl.DateTimeFormat().resolvedOptions().timeZone || "local";
+  } catch {
+    /* ignore */
+  }
+  const datePart = d.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+  const timePart = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return {
+    primary: `${datePart} at ${timePart} (${localTz})`,
+    scheduledNote: scheduledTz ? `Scheduled in ${scheduledTz}` : null,
+  };
 }
 
 export default function EmployeeMeetings() {
@@ -87,7 +104,7 @@ export default function EmployeeMeetings() {
   };
 
   const copyMeetingLink = (roomCode: string) => {
-    const url = `${window.location.origin}/employee/meetings/room/${roomCode}`;
+    const url = `${window.location.origin}/join/meeting/${roomCode}`;
     navigator.clipboard.writeText(url);
     setCopiedCode(roomCode);
     toast({ title: "Link Copied", description: "Meeting URL copied to clipboard" });
@@ -178,12 +195,17 @@ export default function EmployeeMeetings() {
 
                     <div className="text-xs text-muted-foreground space-y-1 pt-2">
                       <div>Host: <strong className="text-foreground">{m.hostName}</strong></div>
-                      {scheduledDate && (
-                        <div>
-                          {scheduledDate.toLocaleDateString([], { month: "short", day: "numeric" })} at{" "}
-                          {scheduledDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                        </div>
-                      )}
+                      {scheduledDate && (() => {
+                        const fmt = formatMeetingLocalTime(m.scheduledStartTime!, m.timezone);
+                        return (
+                          <div>
+                            <div>{fmt.primary}</div>
+                            {fmt.scheduledNote && (
+                              <div className="text-[10px] text-muted-foreground/80">{fmt.scheduledNote}</div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
 
