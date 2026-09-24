@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { apiFetch } from "@/lib/admin/apiClient";
+import { apiFetch, toProxiedUrl } from "@/lib/admin/apiClient";
 import {
   Video,
   Plus,
@@ -19,6 +19,9 @@ import {
   CheckCircle2,
   Radio,
   ArrowRight,
+  Film,
+  Download,
+  Play,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +43,16 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 
+interface MeetingRecording {
+  url: string;
+  fileName?: string;
+  durationSeconds?: number;
+  sizeBytes?: number;
+  recordedBy?: string;
+  recordedByName?: string;
+  createdAt?: string;
+}
+
 interface MeetingItem {
   id: string;
   roomCode: string;
@@ -54,11 +67,21 @@ interface MeetingItem {
   hostEmail?: string;
   hostRole?: string;
   invitedParticipants: { userId?: string; name?: string; email?: string; role?: string }[];
+  joinedParticipants?: {
+    userId?: string;
+    name?: string;
+    email?: string;
+    role?: string;
+    joinedAt?: string;
+    leftAt?: string | null;
+  }[];
   taskId?: string;
   status: "scheduled" | "active" | "ended";
   startedAt?: string;
   endedAt?: string;
   createdAt: string;
+  recordingUrl?: string;
+  recordings?: MeetingRecording[];
 }
 
 const TIMEZONE_OPTIONS = [
@@ -133,6 +156,36 @@ function formatMeetingLocalTime(iso: string) {
   return `${datePart} at ${timePart} (${localTz})`;
 }
 
+function formatDurationBetween(start?: string | null, end?: string | null, fallbackMinutes?: number) {
+  if (start && end) {
+    const ms = Math.max(0, new Date(end).getTime() - new Date(start).getTime());
+    const totalMins = Math.round(ms / 60000);
+    if (totalMins < 60) return `${totalMins}m`;
+    const h = Math.floor(totalMins / 60);
+    const m = totalMins % 60;
+    return m ? `${h}h ${m}m` : `${h}h`;
+  }
+  if (fallbackMinutes) return `${fallbackMinutes}m scheduled`;
+  return "—";
+}
+
+function uniquePeople(
+  people: { name?: string; email?: string; role?: string }[] | undefined
+): { name: string; role?: string }[] {
+  if (!people?.length) return [];
+  const seen = new Set<string>();
+  const out: { name: string; role?: string }[] = [];
+  for (const p of people) {
+    const name = String(p.name || p.email || "").trim();
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ name, role: p.role });
+  }
+  return out;
+}
+
 export default function AdminMeetings() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -158,6 +211,7 @@ export default function AdminMeetings() {
   const [attendeeSearch, setAttendeeSearch] = useState("");
 
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [recordingsMeeting, setRecordingsMeeting] = useState<MeetingItem | null>(null);
 
   const pathPrefix = location.pathname.startsWith("/manager") || location.pathname.startsWith("/manger")
     ? "/manager/meetings"
@@ -316,12 +370,26 @@ export default function AdminMeetings() {
   const filteredMeetings = useMemo(() => {
     if (!searchQuery.trim()) return meetings;
     const q = searchQuery.toLowerCase();
-    return meetings.filter(
-      (m) =>
+    return meetings.filter((m) => {
+      const inviteeHit = (m.invitedParticipants || []).some(
+        (p) =>
+          String(p.name || "").toLowerCase().includes(q) ||
+          String(p.email || "").toLowerCase().includes(q)
+      );
+      const joinerHit = (m.joinedParticipants || []).some(
+        (p) =>
+          String(p.name || "").toLowerCase().includes(q) ||
+          String(p.email || "").toLowerCase().includes(q)
+      );
+      return (
         m.title.toLowerCase().includes(q) ||
         m.roomCode.toLowerCase().includes(q) ||
-        m.hostName.toLowerCase().includes(q)
-    );
+        m.hostName.toLowerCase().includes(q) ||
+        String(m.description || "").toLowerCase().includes(q) ||
+        inviteeHit ||
+        joinerHit
+      );
+    });
   }, [meetings, searchQuery]);
 
   const liveMeetingsCount = meetings.filter((m) => m.status === "active").length;
@@ -499,6 +567,215 @@ export default function AdminMeetings() {
             </Button>
           )}
         </div>
+      ) : activeTab === "past" ? (
+        <div className="space-y-3">
+          {filteredMeetings.map((m) => {
+            const invitees = uniquePeople(m.invitedParticipants);
+            const joiners = uniquePeople(m.joinedParticipants);
+            const recordingCount = m.recordings?.length || (m.recordingUrl ? 1 : 0);
+            const when =
+              m.endedAt || m.startedAt || m.scheduledStartTime || m.createdAt;
+
+            return (
+              <div
+                key={m.id}
+                className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm hover:shadow-md transition"
+              >
+                <div className="flex flex-col lg:flex-row lg:items-start gap-4">
+                  <div className="flex-1 min-w-0 space-y-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="outline" className="text-[10px] border-neutral-500/30 text-muted-foreground">
+                        Completed
+                      </Badge>
+                      <Badge variant="outline" className="text-[10px] capitalize">
+                        {m.meetingType || "meeting"}
+                      </Badge>
+                      <span className="text-xs font-mono text-muted-foreground">#{m.roomCode}</span>
+                      {recordingCount > 0 && (
+                        <Badge className="bg-rose-500/15 text-rose-500 border-rose-500/20 text-[10px]">
+                          {recordingCount} recording{recordingCount === 1 ? "" : "s"}
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-0.5">
+                        Topic
+                      </div>
+                      <h3 className="font-semibold text-base leading-snug" title={m.title}>
+                        {m.title}
+                      </h3>
+                      {m.description ? (
+                        <p className="text-xs text-muted-foreground mt-1">{m.description}</p>
+                      ) : null}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      <div className="rounded-xl bg-muted/40 border border-border/50 p-3 space-y-1.5">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Shield className="w-3.5 h-3.5" />
+                          <span className="font-semibold text-foreground">Host</span>
+                        </div>
+                        <div className="text-foreground font-medium">{m.hostName || "—"}</div>
+                        {(m.hostEmail || m.hostRole) && (
+                          <div className="text-[10px] text-muted-foreground">
+                            {[m.hostRole, m.hostEmail].filter(Boolean).join(" · ")}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="rounded-xl bg-muted/40 border border-border/50 p-3 space-y-1.5">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Clock className="w-3.5 h-3.5" />
+                          <span className="font-semibold text-foreground">When</span>
+                        </div>
+                        <div className="text-foreground">
+                          {when ? formatMeetingLocalTime(when) : "—"}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground">
+                          Duration: {formatDurationBetween(m.startedAt, m.endedAt, m.durationMinutes)}
+                          {m.timezone ? ` · TZ ${m.timezone}` : ""}
+                        </div>
+                        {m.startedAt && (
+                          <div className="text-[10px] text-muted-foreground">
+                            Started: {formatMeetingLocalTime(m.startedAt)}
+                          </div>
+                        )}
+                        {m.endedAt && (
+                          <div className="text-[10px] text-muted-foreground">
+                            Ended: {formatMeetingLocalTime(m.endedAt)}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      <div className="rounded-xl bg-muted/40 border border-border/50 p-3">
+                        <div className="flex items-center gap-2 text-muted-foreground mb-2">
+                          <Users className="w-3.5 h-3.5" />
+                          <span className="font-semibold text-foreground">
+                            Invitees ({invitees.length})
+                          </span>
+                        </div>
+                        {invitees.length === 0 ? (
+                          <p className="text-[11px] text-muted-foreground">No invitees listed.</p>
+                        ) : (
+                          <ul className="space-y-1 max-h-28 overflow-y-auto">
+                            {invitees.map((p) => (
+                              <li key={p.name} className="flex items-center justify-between gap-2">
+                                <span className="text-foreground truncate">{p.name}</span>
+                                {p.role && (
+                                  <span className="text-[10px] text-muted-foreground capitalize shrink-0">
+                                    {p.role}
+                                  </span>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+
+                      <div className="rounded-xl bg-muted/40 border border-border/50 p-3">
+                        <div className="flex items-center gap-2 text-muted-foreground mb-2">
+                          <Users className="w-3.5 h-3.5 text-emerald-500" />
+                          <span className="font-semibold text-foreground">
+                            Joiners ({joiners.length})
+                          </span>
+                        </div>
+                        {joiners.length === 0 ? (
+                          <p className="text-[11px] text-muted-foreground">
+                            No join history saved for this meeting.
+                          </p>
+                        ) : (
+                          <ul className="space-y-1 max-h-28 overflow-y-auto">
+                            {joiners.map((p) => (
+                              <li key={p.name} className="flex items-center justify-between gap-2">
+                                <span className="text-foreground truncate">{p.name}</span>
+                                {p.role && (
+                                  <span className="text-[10px] text-muted-foreground capitalize shrink-0">
+                                    {p.role}
+                                  </span>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </div>
+
+                    {recordingCount > 0 && (
+                      <div className="rounded-xl bg-rose-500/5 border border-rose-500/20 p-3 text-xs">
+                        <div className="flex items-center gap-2 text-rose-500 mb-2">
+                          <Film className="w-3.5 h-3.5" />
+                          <span className="font-semibold">
+                            Recordings ({recordingCount})
+                          </span>
+                        </div>
+                        <ul className="space-y-1">
+                          {(m.recordings?.length
+                            ? m.recordings
+                            : [{ fileName: "meeting-recording.webm", recordedByName: m.hostName, url: m.recordingUrl! }]
+                          ).map((rec, idx) => (
+                            <li key={`${rec.url}-${idx}`} className="flex items-center justify-between gap-2 text-muted-foreground">
+                              <span className="truncate text-foreground">
+                                {rec.fileName || `Recording ${idx + 1}`}
+                                {rec.recordedByName ? ` · ${rec.recordedByName}` : ""}
+                              </span>
+                              {typeof rec.durationSeconds === "number" && rec.durationSeconds > 0 && (
+                                <span className="text-[10px] shrink-0">
+                                  {Math.floor(rec.durationSeconds / 60)}:
+                                  {(rec.durationSeconds % 60).toString().padStart(2, "0")}
+                                </span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex lg:flex-col gap-2 shrink-0">
+                    {recordingCount > 0 && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => setRecordingsMeeting(m)}
+                        className="h-9 text-xs gap-1.5 bg-rose-600 hover:bg-rose-500 text-white"
+                      >
+                        <Play className="w-3.5 h-3.5" />
+                        Play Recordings
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => copyMeetingLink(m.roomCode)}
+                      className="h-9 text-xs gap-1.5"
+                    >
+                      {copiedCode === m.roomCode ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-500" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                      Copy Link
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteMeeting(m.id)}
+                      className="h-9 text-xs gap-1.5 text-muted-foreground hover:text-rose-500"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredMeetings.map((m) => {
@@ -577,24 +854,47 @@ export default function AdminMeetings() {
                       <span>{m.invitedParticipants.length} attendee(s) invited</span>
                     </div>
                   )}
+
+                  {(m.recordings?.length || m.recordingUrl) && (
+                    <div className="flex items-center gap-2">
+                      <Film className="w-3.5 h-3.5 text-rose-400" />
+                      <span>
+                        {m.recordings?.length || 1} recording{(m.recordings?.length || 1) === 1 ? "" : "s"} available
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Bottom Card Actions */}
                 <div className="pt-3 border-t border-border/50 flex items-center justify-between gap-2 mt-auto">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => copyMeetingLink(m.roomCode)}
-                    className="h-8 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
-                  >
-                    {copiedCode === m.roomCode ? (
-                      <Check className="w-3.5 h-3.5 text-emerald-500" />
-                    ) : (
-                      <Copy className="w-3.5 h-3.5" />
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => copyMeetingLink(m.roomCode)}
+                      className="h-8 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
+                    >
+                      {copiedCode === m.roomCode ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-500" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                      <span>Copy Link</span>
+                    </Button>
+                    {(m.recordings?.length || m.recordingUrl) && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setRecordingsMeeting(m)}
+                        className="h-8 text-xs gap-1.5 text-rose-500 border-rose-500/30 hover:bg-rose-500/10"
+                      >
+                        <Play className="w-3.5 h-3.5" />
+                        Recordings
+                      </Button>
                     )}
-                    <span>Copy Link</span>
-                  </Button>
+                  </div>
 
                   <Button
                     type="button"
@@ -791,6 +1091,78 @@ export default function AdminMeetings() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Recordings playback dialog */}
+      <Dialog open={Boolean(recordingsMeeting)} onOpenChange={(open) => !open && setRecordingsMeeting(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Film className="w-5 h-5 text-rose-500" />
+              Recordings — {recordingsMeeting?.title}
+            </DialogTitle>
+            <DialogDescription>
+              Play or download recordings saved from this meeting.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+            {(recordingsMeeting?.recordings?.length
+              ? recordingsMeeting.recordings
+              : recordingsMeeting?.recordingUrl
+              ? [
+                  {
+                    url: recordingsMeeting.recordingUrl,
+                    fileName: "meeting-recording.webm",
+                    recordedByName: recordingsMeeting.hostName,
+                  } as MeetingRecording,
+                ]
+              : []
+            ).map((rec, idx) => {
+              const playUrl = toProxiedUrl(rec.url) || rec.url;
+              const mins = Math.floor((rec.durationSeconds || 0) / 60);
+              const secs = (rec.durationSeconds || 0) % 60;
+              return (
+                <div
+                  key={`${rec.url}-${idx}`}
+                  className="rounded-xl border border-border bg-card p-3 space-y-2"
+                >
+                  <div className="flex items-center justify-between gap-2 text-xs">
+                    <div className="min-w-0">
+                      <div className="font-medium text-foreground truncate">
+                        {rec.fileName || `Recording ${idx + 1}`}
+                      </div>
+                      <div className="text-muted-foreground">
+                        {rec.recordedByName || "Host"}
+                        {rec.durationSeconds
+                          ? ` · ${mins}:${secs.toString().padStart(2, "0")}`
+                          : ""}
+                        {rec.createdAt
+                          ? ` · ${new Date(rec.createdAt).toLocaleString()}`
+                          : ""}
+                      </div>
+                    </div>
+                    <a
+                      href={playUrl}
+                      download={rec.fileName || `meeting-recording-${idx + 1}.webm`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-border text-xs hover:bg-accent"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      Download
+                    </a>
+                  </div>
+                  <video
+                    controls
+                    src={playUrl}
+                    className="w-full rounded-lg bg-black max-h-72"
+                  />
+                </div>
+              );
+            })}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useSocket } from "@/contexts/SocketContext";
 import { getAuthState } from "@/lib/auth";
 import { getEmployeeAuth } from "@/Employee/lib/auth";
-import { apiFetch } from "@/lib/admin/apiClient";
+import { apiFetch, toProxiedUrl } from "@/lib/admin/apiClient";
 import {
   Mic,
   MicOff,
@@ -28,11 +28,19 @@ import {
   Captions,
   Image as ImageIcon,
   Languages,
+  Circle,
+  Square,
+  Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
+import {
+  compositeVirtualBackground,
+  getSelfieSegmenter,
+  loadBackgroundImage,
+} from "./virtualBackground";
 
 interface ParticipantInfo {
   socketId: string;
@@ -77,15 +85,30 @@ const CAPTION_LANGUAGES = [
   { code: "ja-JP", label: "Japanese" },
 ];
 
-type BgMode = "none" | "blur" | "blue" | "gray" | "green" | "office";
+type BgMode =
+  | "none"
+  | "blur"
+  | "office"
+  | "boardroom"
+  | "bookshelf"
+  | "lobby"
+  | "city"
+  | "studio";
 
-const BG_OPTIONS: { id: BgMode; label: string; color?: string }[] = [
-  { id: "none", label: "None" },
-  { id: "blur", label: "Blur" },
-  { id: "blue", label: "Blue", color: "#1e3a5f" },
-  { id: "gray", label: "Gray", color: "#374151" },
-  { id: "green", label: "Green", color: "#064e3b" },
-  { id: "office", label: "Warm", color: "#78350f" },
+const BG_OPTIONS: {
+  id: BgMode;
+  label: string;
+  image?: string;
+  preview?: string;
+}[] = [
+  { id: "none", label: "None", preview: "linear-gradient(135deg,#27272a,#18181b)" },
+  { id: "blur", label: "Blur", preview: "linear-gradient(135deg,#94a3b8,#475569)" },
+  { id: "office", label: "Modern Office", image: "/meeting-bgs/office.jpg" },
+  { id: "boardroom", label: "Boardroom", image: "/meeting-bgs/boardroom.jpg" },
+  { id: "bookshelf", label: "Bookshelf", image: "/meeting-bgs/bookshelf.jpg" },
+  { id: "lobby", label: "Office Lobby", image: "/meeting-bgs/lobby.jpg" },
+  { id: "city", label: "City Skyline", image: "/meeting-bgs/city.jpg" },
+  { id: "studio", label: "Soft Studio", image: "/meeting-bgs/soft-studio.jpg" },
 ];
 
 function getMeetingsPathPrefix(pathname: string) {
@@ -131,6 +154,10 @@ export default function MeetingRoom() {
   const [captionLanguage, setCaptionLanguage] = useState("en-US");
   const [showCaptionLangMenu, setShowCaptionLangMenu] = useState(false);
   const [captionText, setCaptionText] = useState("");
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [isUploadingRecording, setIsUploadingRecording] = useState(false);
+  const [roomRecordingActive, setRoomRecordingActive] = useState(false);
 
   // Refs
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -141,10 +168,19 @@ export default function MeetingRoom() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const chatBottomRef = useRef<HTMLDivElement | null>(null);
   const bgCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const bgPersonCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const bgRafRef = useRef<number | null>(null);
   const bgVideoRef = useRef<HTMLVideoElement | null>(null);
+  const bgImageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
+  const bgActiveRef = useRef(false);
   const recognitionRef = useRef<any>(null);
   const joinedRoomRef = useRef(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<number | null>(null);
+  const recordingCleanupRef = useRef<(() => void) | null>(null);
+  const recordingSecondsRef = useRef(0);
+  const remoteVideoElsRef = useRef<Map<string, HTMLVideoElement>>(new Map());
 
   // Determine current user
   const currentUser = useMemo(() => {
@@ -316,6 +352,7 @@ export default function MeetingRoom() {
 
   // Stop virtual background processing loop
   const stopBgProcessor = useCallback(() => {
+    bgActiveRef.current = false;
     if (bgRafRef.current != null) {
       cancelAnimationFrame(bgRafRef.current);
       bgRafRef.current = null;
@@ -359,10 +396,54 @@ export default function MeetingRoom() {
         return;
       }
 
+      const option = BG_OPTIONS.find((o) => o.id === mode);
+      let bgImage: HTMLImageElement | null = null;
+
+      if (option?.image) {
+        const cached = bgImageCacheRef.current.get(option.image);
+        if (cached?.complete) {
+          bgImage = cached;
+        } else {
+          try {
+            bgImage = await loadBackgroundImage(option.image);
+            bgImageCacheRef.current.set(option.image, bgImage);
+          } catch (err) {
+            console.warn("Background image load failed:", err);
+            toast({
+              title: "Background unavailable",
+              description: "Could not load this scene. Try Blur instead.",
+              variant: "destructive",
+            });
+            return;
+          }
+        }
+      }
+
+      let segmenter: Awaited<ReturnType<typeof getSelfieSegmenter>>;
+      try {
+        segmenter = await getSelfieSegmenter();
+      } catch (err) {
+        console.warn("Selfie segmentation unavailable:", err);
+        toast({
+          title: "Background engine loading failed",
+          description: "Check your network connection and try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const canvas = bgCanvasRef.current || document.createElement("canvas");
       bgCanvasRef.current = canvas;
       const ctx = canvas.getContext("2d", { willReadFrequently: true });
       if (!ctx) {
+        await applyOutgoingStream(raw);
+        return;
+      }
+
+      const personCanvas = bgPersonCanvasRef.current || document.createElement("canvas");
+      bgPersonCanvasRef.current = personCanvas;
+      const personCtx = personCanvas.getContext("2d", { willReadFrequently: true });
+      if (!personCtx) {
         await applyOutgoingStream(raw);
         return;
       }
@@ -374,11 +455,45 @@ export default function MeetingRoom() {
       bgVideoRef.current = hiddenVideo;
       await hiddenVideo.play().catch(() => {});
 
-      const option = BG_OPTIONS.find((o) => o.id === mode);
-      let running = true;
+      // Wait for first frame dimensions
+      await new Promise<void>((resolve) => {
+        if (hiddenVideo.videoWidth > 0) {
+          resolve();
+          return;
+        }
+        const onMeta = () => {
+          hiddenVideo.removeEventListener("loadeddata", onMeta);
+          resolve();
+        };
+        hiddenVideo.addEventListener("loadeddata", onMeta);
+        setTimeout(resolve, 800);
+      });
 
-      const draw = () => {
-        if (!running || !bgVideoRef.current) return;
+      bgActiveRef.current = true;
+      let busy = false;
+
+      segmenter.onResults((results) => {
+        if (!bgActiveRef.current) return;
+        const w = canvas.width || hiddenVideo.videoWidth || 640;
+        const h = canvas.height || hiddenVideo.videoHeight || 480;
+        if (canvas.width !== w || canvas.height !== h) {
+          canvas.width = w;
+          canvas.height = h;
+        }
+        compositeVirtualBackground(
+          ctx,
+          personCanvas,
+          personCtx,
+          results,
+          w,
+          h,
+          bgImage,
+          mode === "blur"
+        );
+      });
+
+      const tick = async () => {
+        if (!bgActiveRef.current || !bgVideoRef.current) return;
         const v = bgVideoRef.current;
         const w = v.videoWidth || 640;
         const h = v.videoHeight || 480;
@@ -387,45 +502,35 @@ export default function MeetingRoom() {
           canvas.height = h;
         }
 
-        if (mode === "blur") {
-          ctx.filter = "blur(14px)";
-          ctx.drawImage(v, 0, 0, w, h);
-          ctx.filter = "none";
-          // Soft person overlay (slightly sharper center oval)
-          ctx.save();
-          ctx.beginPath();
-          ctx.ellipse(w / 2, h / 2, w * 0.32, h * 0.42, 0, 0, Math.PI * 2);
-          ctx.clip();
-          ctx.drawImage(v, 0, 0, w, h);
-          ctx.restore();
-        } else {
-          ctx.fillStyle = option?.color || "#1e3a5f";
-          ctx.fillRect(0, 0, w, h);
-          ctx.save();
-          ctx.beginPath();
-          ctx.ellipse(w / 2, h / 2, w * 0.34, h * 0.44, 0, 0, Math.PI * 2);
-          ctx.clip();
-          ctx.drawImage(v, 0, 0, w, h);
-          ctx.restore();
+        if (!busy && v.readyState >= 2) {
+          busy = true;
+          try {
+            await segmenter.send({ image: v });
+          } catch (err) {
+            console.warn("Segmentation frame failed:", err);
+          } finally {
+            busy = false;
+          }
         }
 
-        bgRafRef.current = requestAnimationFrame(draw);
+        bgRafRef.current = requestAnimationFrame(() => {
+          void tick();
+        });
       };
 
-      draw();
+      void tick();
 
       const processedTrack = canvas.captureStream(24).getVideoTracks()[0];
       const audioTracks = raw.getAudioTracks();
       const outgoing = new MediaStream([processedTrack, ...audioTracks]);
       await applyOutgoingStream(outgoing);
 
-      // Keep loop alive via closure; stopBgProcessor cancels raf
-      const originalStop = stopBgProcessor;
-      // Mark for cleanup when mode changes — raf cancel stops drawing
-      void originalStop;
-      void running;
+      toast({
+        title: mode === "blur" ? "Background blur on" : "Virtual background on",
+        description: "Scene fills the full video behind you.",
+      });
     },
-    [applyOutgoingStream, stopBgProcessor]
+    [applyOutgoingStream, stopBgProcessor, toast]
   );
 
   // Initialize camera and microphone BEFORE joining the room
@@ -714,6 +819,17 @@ export default function MeetingRoom() {
     socket.on("meeting:ended", handleMeetingEnded);
     socket.on("meeting:user-left", handleUserLeft);
 
+    const handleRemoteRecording = ({ recording, byName }: any) => {
+      setRoomRecordingActive(Boolean(recording));
+      if (recording) {
+        toast({
+          title: "Recording in progress",
+          description: `${byName || "Someone"} started recording this meeting.`,
+        });
+      }
+    };
+    socket.on("meeting:recording-state", handleRemoteRecording);
+
     return () => {
       joinedRoomRef.current = false;
       socket.emit("meeting:leave", { roomCode: code });
@@ -727,6 +843,7 @@ export default function MeetingRoom() {
       socket.off("meeting:kicked", handleKicked);
       socket.off("meeting:ended", handleMeetingEnded);
       socket.off("meeting:user-left", handleUserLeft);
+      socket.off("meeting:recording-state", handleRemoteRecording);
 
       // Close all peer connections
       peerConnectionsRef.current.forEach((pc) => pc.close());
@@ -885,8 +1002,262 @@ export default function MeetingRoom() {
     }
   };
 
+  const formatRecordingTimer = (secs: number) => {
+    const m = Math.floor(secs / 60)
+      .toString()
+      .padStart(2, "0");
+    const s = (secs % 60).toString().padStart(2, "0");
+    return `${m}:${s}`;
+  };
+
+  const buildMeetingCaptureStream = useCallback(async () => {
+    const width = 1280;
+    const height = 720;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas unavailable for recording");
+
+    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const dest = audioCtx.createMediaStreamDestination();
+
+    const connectAudio = (stream: MediaStream | null | undefined) => {
+      if (!stream?.getAudioTracks().length) return;
+      try {
+        const src = audioCtx.createMediaStreamSource(stream);
+        src.connect(dest);
+      } catch {
+        /* ignore duplicate / ended tracks */
+      }
+    };
+
+    connectAudio(localStreamRef.current);
+    remoteStreams.forEach((stream) => connectAudio(stream));
+
+    let raf = 0;
+    const paint = () => {
+      ctx.fillStyle = "#0a0a0a";
+      ctx.fillRect(0, 0, width, height);
+
+      const remoteParticipants = Array.from(participants.values());
+      const tiles: { el: HTMLVideoElement | null; label: string }[] = [
+        { el: localVideoRef.current, label: `${currentUser.name} (You)` },
+      ];
+      remoteParticipants.forEach((p) => {
+        tiles.push({
+          el: remoteVideoElsRef.current.get(p.socketId) || null,
+          label: p.name,
+        });
+      });
+
+      const count = Math.max(1, tiles.length);
+      const cols = count === 1 ? 1 : count <= 4 ? 2 : 3;
+      const rows = Math.ceil(count / cols);
+      const tileW = width / cols;
+      const tileH = height / rows;
+
+      tiles.forEach((tile, idx) => {
+        const col = idx % cols;
+        const row = Math.floor(idx / cols);
+        const x = col * tileW;
+        const y = row * tileH;
+        const el = tile.el;
+
+        if (el && el.readyState >= 2 && el.videoWidth > 0) {
+          const scale = Math.max(tileW / el.videoWidth, tileH / el.videoHeight);
+          const dw = el.videoWidth * scale;
+          const dh = el.videoHeight * scale;
+          const dx = x + (tileW - dw) / 2;
+          const dy = y + (tileH - dh) / 2;
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(x, y, tileW, tileH);
+          ctx.clip();
+          ctx.drawImage(el, dx, dy, dw, dh);
+          ctx.restore();
+        } else {
+          ctx.fillStyle = "#171717";
+          ctx.fillRect(x, y, tileW, tileH);
+          ctx.fillStyle = "#a3a3a3";
+          ctx.font = "28px sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText(tile.label.slice(0, 2).toUpperCase(), x + tileW / 2, y + tileH / 2);
+        }
+
+        ctx.fillStyle = "rgba(0,0,0,0.55)";
+        ctx.fillRect(x + 8, y + tileH - 36, Math.min(tileW - 16, 220), 24);
+        ctx.fillStyle = "#fff";
+        ctx.font = "14px sans-serif";
+        ctx.textAlign = "left";
+        ctx.fillText(tile.label, x + 14, y + tileH - 19);
+      });
+
+      raf = requestAnimationFrame(paint);
+    };
+    paint();
+
+    const videoStream = canvas.captureStream(20);
+    const combined = new MediaStream([
+      ...videoStream.getVideoTracks(),
+      ...dest.stream.getAudioTracks(),
+    ]);
+
+    const stop = () => {
+      cancelAnimationFrame(raf);
+      videoStream.getTracks().forEach((t) => t.stop());
+      audioCtx.close().catch(() => {});
+    };
+
+    return { stream: combined, stop };
+  }, [currentUser.name, participants, remoteStreams]);
+
+  const uploadRecordingBlob = async (blob: Blob, durationSeconds: number) => {
+    if (!code) return;
+    setIsUploadingRecording(true);
+    try {
+      const form = new FormData();
+      const fileName = `meeting-${code}-${Date.now()}.webm`;
+      const mime = blob.type && blob.type.startsWith("video/") ? blob.type : "video/webm";
+      const file = new File([blob], fileName, { type: mime });
+      form.append("recording", file);
+      form.append("durationSeconds", String(durationSeconds));
+
+      await apiFetch(`/api/meetings/code/${encodeURIComponent(code)}/recording`, {
+        method: "POST",
+        body: form,
+      });
+
+      toast({
+        title: "Recording saved",
+        description: "You can play or download it from the Meetings page.",
+      });
+    } catch (err: any) {
+      console.error("Recording upload failed:", err);
+      // Fallback: local download so the recording is not lost
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `meeting-${code}-${Date.now()}.webm`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast({
+        title: "Upload failed — downloaded locally",
+        description: err?.message || "Could not save recording to the server.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingRecording(false);
+    }
+  };
+
+  const stopMeetingRecording = useCallback(async () => {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || recorder.state === "inactive") {
+      setIsRecording(false);
+      return;
+    }
+
+    await new Promise<void>((resolve) => {
+      recorder.onstop = () => resolve();
+      try {
+        recorder.stop();
+      } catch {
+        resolve();
+      }
+    });
+
+    if (recordingTimerRef.current) {
+      window.clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    recordingCleanupRef.current?.();
+    recordingCleanupRef.current = null;
+    mediaRecorderRef.current = null;
+
+    const duration = recordingSecondsRef.current;
+    setIsRecording(false);
+    setRoomRecordingActive(false);
+    if (socket && code) {
+      socket.emit("meeting:recording-state", { roomCode: code, recording: false });
+    }
+
+    const chunks = recordingChunksRef.current;
+    recordingChunksRef.current = [];
+    if (!chunks.length) return;
+
+    const blob = new Blob(chunks, { type: chunks[0]?.type || "video/webm" });
+    await uploadRecordingBlob(blob, duration);
+  }, [code, socket]);
+
+  const startMeetingRecording = async () => {
+    if (isRecording || isUploadingRecording) return;
+    try {
+      const { stream, stop } = await buildMeetingCaptureStream();
+      recordingCleanupRef.current = stop;
+      recordingChunksRef.current = [];
+
+      const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")
+        ? "video/webm;codecs=vp9,opus"
+        : MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")
+        ? "video/webm;codecs=vp8,opus"
+        : MediaRecorder.isTypeSupported("video/webm")
+        ? "video/webm"
+        : "";
+
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) recordingChunksRef.current.push(e.data);
+      };
+
+      recorder.start(1000);
+      setIsRecording(true);
+      setRoomRecordingActive(true);
+      setRecordingSeconds(0);
+      recordingSecondsRef.current = 0;
+      recordingTimerRef.current = window.setInterval(() => {
+        recordingSecondsRef.current += 1;
+        setRecordingSeconds(recordingSecondsRef.current);
+      }, 1000);
+
+      if (socket && code) {
+        socket.emit("meeting:recording-state", { roomCode: code, recording: true });
+      }
+
+      toast({
+        title: "Recording started",
+        description: "The meeting layout and audio are being recorded.",
+      });
+    } catch (err: any) {
+      recordingCleanupRef.current?.();
+      recordingCleanupRef.current = null;
+      toast({
+        title: "Could not start recording",
+        description: err?.message || "Recording is not supported in this browser.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const toggleMeetingRecording = () => {
+    if (isRecording) {
+      void stopMeetingRecording();
+    } else {
+      void startMeetingRecording();
+    }
+  };
+
   // Leave Meeting
-  const handleLeaveMeeting = () => {
+  const handleLeaveMeeting = async () => {
+    if (isRecording) {
+      try {
+        await stopMeetingRecording();
+      } catch {
+        /* continue leaving */
+      }
+    }
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((t) => t.stop());
     }
@@ -1051,6 +1422,17 @@ export default function MeetingRoom() {
               <Shield className="w-3 h-3" /> Host
             </Badge>
           )}
+          {(isRecording || roomRecordingActive) && (
+            <Badge className="bg-rose-600 text-white text-[10px] font-bold px-2 py-0.5 animate-pulse inline-flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-white" />
+              REC {isRecording ? formatRecordingTimer(recordingSeconds) : ""}
+            </Badge>
+          )}
+          {isUploadingRecording && (
+            <Badge className="bg-indigo-600/30 text-indigo-200 border-indigo-500/40 text-[10px] inline-flex items-center gap-1">
+              <Upload className="w-3 h-3 animate-pulse" /> Saving…
+            </Badge>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -1145,7 +1527,9 @@ export default function MeetingRoom() {
                 playsInline
                 muted
                 className={`w-full h-full object-cover ${
-                  isScreenSharing ? "" : "-scale-x-100"
+                  // Mirror only raw camera. Virtual-BG canvas already handles orientation
+                  // so CSS flip would invert the person + scene.
+                  isScreenSharing || bgMode !== "none" ? "" : "-scale-x-100"
                 } ${!isVideoEnabled && !isScreenSharing ? "hidden" : "block"}`}
               />
 
@@ -1190,6 +1574,10 @@ export default function MeetingRoom() {
                   isSpeaking={isSpeaking}
                   isHostUser={isHost}
                   onKick={() => handleKickParticipant(p.socketId)}
+                  onVideoEl={(el) => {
+                    if (el) remoteVideoElsRef.current.set(p.socketId, el);
+                    else remoteVideoElsRef.current.delete(p.socketId);
+                  }}
                 />
               );
             })}
@@ -1408,31 +1796,43 @@ export default function MeetingRoom() {
               <span className="text-[10px] font-medium mt-1">BG</span>
             </button>
             {showBgMenu && (
-              <div className="absolute bottom-full left-0 mb-2 w-44 rounded-xl border border-neutral-700 bg-neutral-900 shadow-2xl p-2 z-50">
-                <div className="text-[10px] uppercase tracking-wider text-neutral-500 px-2 pb-1.5">Camera background</div>
-                {BG_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => handleSelectBackground(opt.id)}
-                    className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs text-left transition ${
-                      bgMode === opt.id ? "bg-indigo-600/30 text-indigo-200" : "hover:bg-neutral-800 text-neutral-200"
-                    }`}
-                  >
-                    <span
-                      className="w-3.5 h-3.5 rounded-full border border-white/20 shrink-0"
-                      style={{
-                        background:
-                          opt.id === "none"
-                            ? "transparent"
-                            : opt.id === "blur"
-                            ? "linear-gradient(135deg,#94a3b8,#475569)"
-                            : opt.color,
-                      }}
-                    />
-                    {opt.label}
-                  </button>
-                ))}
+              <div className="absolute bottom-full left-0 mb-2 w-64 rounded-xl border border-neutral-700 bg-neutral-900 shadow-2xl p-2.5 z-50">
+                <div className="text-[10px] uppercase tracking-wider text-neutral-500 px-1 pb-2">
+                  Virtual background
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {BG_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => handleSelectBackground(opt.id)}
+                      className={`group relative overflow-hidden rounded-lg border text-left transition ${
+                        bgMode === opt.id
+                          ? "border-indigo-400 ring-1 ring-indigo-400/50"
+                          : "border-neutral-700 hover:border-neutral-500"
+                      }`}
+                    >
+                      <div
+                        className="h-14 w-full bg-cover bg-center"
+                        style={{
+                          backgroundImage: opt.image
+                            ? `url(${opt.image})`
+                            : opt.preview || undefined,
+                          backgroundColor: "#27272a",
+                        }}
+                      />
+                      <div className="px-2 py-1.5 bg-neutral-900/95">
+                        <span
+                          className={`text-[10px] font-medium ${
+                            bgMode === opt.id ? "text-indigo-300" : "text-neutral-300"
+                          }`}
+                        >
+                          {opt.label}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -1505,6 +1905,24 @@ export default function MeetingRoom() {
           >
             <Hand className="w-5 h-5" />
             <span className="text-[10px] font-medium mt-1 hidden sm:inline">{isHandRaised ? "Lower Hand" : "Raise Hand"}</span>
+          </button>
+
+          {/* Record */}
+          <button
+            type="button"
+            onClick={toggleMeetingRecording}
+            disabled={isUploadingRecording}
+            className={`flex flex-col items-center justify-center w-12 h-14 sm:w-16 sm:h-16 rounded-xl transition-all ${
+              isRecording
+                ? "text-rose-400 bg-rose-500/15 hover:bg-rose-500/25"
+                : "text-neutral-200 hover:bg-neutral-800"
+            } disabled:opacity-50`}
+            title={isRecording ? "Stop recording" : "Start recording"}
+          >
+            {isRecording ? <Square className="w-5 h-5 fill-current" /> : <Circle className="w-5 h-5 text-rose-500 fill-rose-500" />}
+            <span className="text-[10px] font-medium mt-1 hidden sm:inline">
+              {isUploadingRecording ? "Saving" : isRecording ? "Stop" : "Record"}
+            </span>
           </button>
 
           {/* Captions */}
@@ -1602,12 +2020,14 @@ function RemoteVideoTile({
   isSpeaking,
   isHostUser,
   onKick,
+  onVideoEl,
 }: {
   participant: ParticipantInfo;
   stream?: MediaStream;
   isSpeaking: boolean;
   isHostUser: boolean;
   onKick: () => void;
+  onVideoEl?: (el: HTMLVideoElement | null) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -1616,6 +2036,11 @@ function RemoteVideoTile({
       videoRef.current.srcObject = stream;
     }
   }, [stream]);
+
+  useEffect(() => {
+    onVideoEl?.(videoRef.current);
+    return () => onVideoEl?.(null);
+  }, [onVideoEl, stream]);
 
   const hasVideo = participant.videoEnabled !== false && Boolean(stream && stream.getVideoTracks().length > 0);
 

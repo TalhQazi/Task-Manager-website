@@ -15,6 +15,11 @@ export const ThemeControlWidget: React.FC = () => {
     toggleParticles,
   } = useActiveTheme();
 
+  // Never cover meeting End/Leave controls
+  if (typeof window !== "undefined" && window.location.pathname.includes("/meetings/room/")) {
+    return null;
+  }
+
   const themes = [
     { key: "auto", label: "Auto (Date Schedule)" },
     { key: "halloween-2026", label: "Spooky Twilight (Halloween)" },

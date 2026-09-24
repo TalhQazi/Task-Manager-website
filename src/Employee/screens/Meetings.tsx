@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { employeeApiFetch } from "@/Employee/lib/api";
+import { toProxiedUrl } from "@/lib/admin/apiClient";
 import {
   Video,
   Radio,
@@ -11,11 +12,21 @@ import {
   Shield,
   ArrowRight,
   Search,
+  Film,
+  Play,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 interface MeetingItem {
   id: string;
@@ -31,6 +42,14 @@ interface MeetingItem {
   invitedParticipants: { userId?: string; name?: string; email?: string; role?: string }[];
   status: "scheduled" | "active" | "ended";
   createdAt: string;
+  recordingUrl?: string;
+  recordings?: {
+    url: string;
+    fileName?: string;
+    durationSeconds?: number;
+    recordedByName?: string;
+    createdAt?: string;
+  }[];
 }
 
 function formatMeetingLocalTime(iso: string, scheduledTz?: string) {
@@ -57,6 +76,7 @@ export default function EmployeeMeetings() {
   const [isLoading, setIsLoading] = useState(true);
   const [joinCodeInput, setJoinCodeInput] = useState("");
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [recordingsMeeting, setRecordingsMeeting] = useState<MeetingItem | null>(null);
 
   const fetchMeetings = async () => {
     try {
@@ -210,20 +230,34 @@ export default function EmployeeMeetings() {
                   </div>
 
                   <div className="pt-4 mt-3 border-t border-border/60 flex items-center justify-between gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => copyMeetingLink(m.roomCode)}
-                      className="h-8 text-xs gap-1.5"
-                    >
-                      {copiedCode === m.roomCode ? (
-                        <Check className="w-3.5 h-3.5 text-emerald-500" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5" />
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => copyMeetingLink(m.roomCode)}
+                        className="h-8 text-xs gap-1.5"
+                      >
+                        {copiedCode === m.roomCode ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-500" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                        Copy Link
+                      </Button>
+                      {(m.recordings?.length || m.recordingUrl) && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setRecordingsMeeting(m)}
+                          className="h-8 text-xs gap-1.5 text-rose-500 border-rose-500/30"
+                        >
+                          <Film className="w-3.5 h-3.5" />
+                          Rec
+                        </Button>
                       )}
-                      Copy Link
-                    </Button>
+                    </div>
 
                     <Button
                       type="button"
@@ -243,6 +277,43 @@ export default function EmployeeMeetings() {
           </div>
         )}
       </div>
+
+      <Dialog open={Boolean(recordingsMeeting)} onOpenChange={(open) => !open && setRecordingsMeeting(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Film className="w-5 h-5 text-rose-500" />
+              Recordings — {recordingsMeeting?.title}
+            </DialogTitle>
+            <DialogDescription>Play or download saved meeting recordings.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 max-h-[70vh] overflow-y-auto">
+            {(recordingsMeeting?.recordings?.length
+              ? recordingsMeeting.recordings
+              : recordingsMeeting?.recordingUrl
+              ? [{ url: recordingsMeeting.recordingUrl, fileName: "meeting-recording.webm" }]
+              : []
+            ).map((rec, idx) => {
+              const playUrl = toProxiedUrl(rec.url) || rec.url;
+              return (
+                <div key={`${rec.url}-${idx}`} className="rounded-xl border p-3 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-medium truncate">{rec.fileName || `Recording ${idx + 1}`}</span>
+                    <a
+                      href={playUrl}
+                      download={rec.fileName || `recording-${idx + 1}.webm`}
+                      className="inline-flex items-center gap-1 text-rose-500"
+                    >
+                      <Download className="w-3.5 h-3.5" /> Download
+                    </a>
+                  </div>
+                  <video controls src={playUrl} className="w-full rounded-lg bg-black max-h-72" />
+                </div>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
