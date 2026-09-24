@@ -54,9 +54,26 @@ export default function EmployeeEODReports() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [periodFilter, setPeriodFilter] = useState<"week" | "all">("week");
   const [selectedReport, setSelectedReport] = useState<EODReport | null>(null);
   const [commentText, setCommentText] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
+
+  const getWeekRange = (d = new Date()) => {
+    const day = new Date(d);
+    day.setHours(0, 0, 0, 0);
+    const dayOfWeek = day.getDay();
+    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const start = new Date(day);
+    start.setDate(day.getDate() + mondayOffset);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+    return { start, end };
+  };
+
+  const { start: weekStart, end: weekEnd } = getWeekRange();
 
   useEffect(() => {
     loadMyEODReports();
@@ -153,6 +170,13 @@ export default function EmployeeEODReports() {
     }
   };
 
+  const isInCurrentWeek = (dateStr: string) => {
+    const raw = String(dateStr || "").trim();
+    const d = new Date(raw.includes("T") ? raw : `${raw}T12:00:00`);
+    if (!Number.isFinite(d.getTime())) return false;
+    return d >= weekStart && d <= weekEnd;
+  };
+
   const filteredReports = reports.filter((report) => {
     const data = parseEODData(report.rawInput);
     const searchMatch =
@@ -161,22 +185,28 @@ export default function EmployeeEODReports() {
       (data.tasksCompleted || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
       (data.notes || "").toLowerCase().includes(searchQuery.toLowerCase());
     const statusMatch = statusFilter === "all" || report.status === statusFilter;
-    return searchMatch && statusMatch;
+    const periodMatch = periodFilter === "all" || isInCurrentWeek(report.date);
+    return searchMatch && statusMatch && periodMatch;
   });
 
-  const totalSubmitted = reports.filter((r) => r.status === "submitted").length;
-  const totalLate = reports.filter((r) => r.status === "late").length;
-  const totalComments = reports.reduce((sum, r) => sum + (r.comments?.length || 0), 0);
-  const totalHoursWorked = reports.reduce((sum, r) => sum + (r.totalHours || 0), 0);
+  const totalSubmitted = filteredReports.filter((r) => r.status === "submitted").length;
+  const totalLate = filteredReports.filter((r) => r.status === "late").length;
+  const totalComments = filteredReports.reduce((sum, r) => sum + (r.comments?.length || 0), 0);
+  const totalHoursWorked = filteredReports.reduce((sum, r) => sum + (r.totalHours || 0), 0);
+
+  const weekLabel = `${weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${weekEnd.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">My EOD Reports</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">My Weekly Reports</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            View your daily end-of-day reports, work hours, and feedback from management.
+            View your end-of-day reports by week, work hours, and feedback from management.
+            {periodFilter === "week" && (
+              <span className="ml-1 text-foreground/80">This week: {weekLabel}</span>
+            )}
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={loadMyEODReports} disabled={loading} className="gap-2">
@@ -190,7 +220,9 @@ export default function EmployeeEODReports() {
         <Card className="bg-card border-border/50 shadow-sm">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Reports Submitted</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                {periodFilter === "week" ? "This Week Submitted" : "Reports Submitted"}
+              </p>
               <p className="text-2xl font-bold mt-1 text-emerald-600 dark:text-emerald-400">{totalSubmitted}</p>
             </div>
             <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600">
@@ -226,7 +258,9 @@ export default function EmployeeEODReports() {
         <Card className="bg-card border-border/50 shadow-sm">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Tracked Hours</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                {periodFilter === "week" ? "Hours This Week" : "Total Tracked Hours"}
+              </p>
               <p className="text-2xl font-bold mt-1 text-indigo-600 dark:text-indigo-400">{totalHoursWorked.toFixed(1)}h</p>
             </div>
             <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600">
@@ -247,6 +281,15 @@ export default function EmployeeEODReports() {
             className="pl-9 h-10"
           />
         </div>
+        <select
+          value={periodFilter}
+          onChange={(e) => setPeriodFilter(e.target.value as "week" | "all")}
+          className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          aria-label="Filter by period"
+        >
+          <option value="week">This Week</option>
+          <option value="all">All Time</option>
+        </select>
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}

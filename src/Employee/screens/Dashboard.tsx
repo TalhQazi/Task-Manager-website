@@ -22,6 +22,9 @@ interface TeamLeadMapping {
 interface DashboardData {
   earnings: number;
   hoursWorked: number;
+  period?: string;
+  weekStart?: string;
+  weekEnd?: string;
   alerts: string[];
   actions: Array<{
     type: string;
@@ -529,7 +532,7 @@ export default function EmployeeDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         <Link to="/employee/payroll">
           <EmployeeStatCard
-            title="CURRENT EARNINGS"
+            title="WEEKLY EARNINGS"
             value={`$${(dashboardQuery.data?.earnings || 0).toFixed(2)}`}
             icon={DollarSign}
             variant="green"
@@ -537,7 +540,7 @@ export default function EmployeeDashboard() {
         </Link>
         <Link to="/employee/timeLogs">
           <EmployeeStatCard
-            title="HOURS WORKED"
+            title="HOURS THIS WEEK"
             value={`${(dashboardQuery.data?.hoursWorked || 0).toFixed(1)} hrs`}
             icon={Clock}
             variant="blue"

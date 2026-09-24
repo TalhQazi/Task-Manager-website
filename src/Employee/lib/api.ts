@@ -402,6 +402,11 @@ export async function addTaskComment(taskId: string, message: string) {
 export async function getEmployeeDashboard() {
   return employeeApiFetch<{
     item: {
+      earnings: number;
+      hoursWorked: number;
+      period?: string;
+      weekStart?: string;
+      weekEnd?: string;
       tasks: { total: number; completed: number; pending: number; inProgress: number };
       clock: { clockIn: string; clockOut: string; status: string };
       scheduleCount: number;
