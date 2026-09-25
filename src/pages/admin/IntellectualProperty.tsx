@@ -357,7 +357,7 @@ export function IntellectualProperty() {
                     </div>
 
                     <p className="text-[10px] text-muted-foreground leading-relaxed">
-                      Emails are automatically sent to all active <strong>Admins</strong>, <strong>Super-Admins</strong>, and <strong>Managers</strong> when a patent enters any of the configured notification windows. The <strong>Test Email</strong> button sends a sample alert to your own inbox.
+                      Emails are automatically sent to active <strong>Super-Admins</strong> when a patent is exactly <strong>7</strong>, <strong>5</strong>, or <strong>3</strong> days from expiration (or any custom days you configure below). The <strong>Test Email</strong> button sends a sample alert to your own inbox.
                     </p>
                   </div>
                 </motion.div>
@@ -378,7 +378,7 @@ export function IntellectualProperty() {
                 <span className="text-[10px] px-2 py-0.5 bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 rounded-full">AUTO-ALERT</span>
               </p>
               <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
-                Automated emails are sent to all active <strong>Admins</strong> and <strong>Super-Admins</strong> whenever a patent is filed, or when a patent expiration date is approaching.
+                Automated emails are sent to active <strong>Super-Admins</strong> when a patent is filed, and again at <strong>7 / 5 / 3</strong> days before expiration.
               </p>
             </div>
           </CardContent>
