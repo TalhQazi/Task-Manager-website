@@ -39,6 +39,7 @@ const RolesPermissions = lazy(() => import("@/pages/admin/RolesPermissions"));
 const AsanaImport = lazy(() => import("@/pages/admin/AsanaImport"));
 const AsanaData = lazy(() => import("@/pages/admin/AsanaData"));
 const DigitalAssets = lazy(() => import("@/pages/admin/DigitalAssets").then(m => ({ default: m.DigitalAssets })));
+const AppStoreLinks = lazy(() => import("@/pages/admin/AppStoreLinks"));
 const IntellectualProperty = lazy(() => import("@/pages/admin/IntellectualProperty").then(m => ({ default: m.IntellectualProperty })));
 const NotFound = lazy(() => import("@/pages/admin/NotFound"));
 const ArchiveData = lazy(() => import("@/pages/admin/ArchiveData"));
@@ -90,6 +91,7 @@ const CRMFiles = lazy(() => import("@/pages/admin/crm/Files"));
 const CRMCommandCore = lazy(() => import("@/pages/admin/crm/CommandCore"));
 const TravelCalendar = lazy(() => import("@/pages/admin/TravelCalendar"));
 const Announcements = lazy(() => import("@/pages/admin/Announcements"));
+const Polls = lazy(() => import("@/pages/admin/Polls"));
 const AtlasBookDashboard = lazy(() => import("@/pages/admin/atlas-book/Dashboard"));
 const AtlasBookModulePage = lazy(() => import("@/pages/admin/atlas-book/ModulePage"));
 
@@ -144,6 +146,7 @@ export default function AdminRoutes() {
       { path: "meetings", element: <Meetings /> },
       { path: "meetings/room/:code", element: <MeetingRoom /> },
       { path: "announcements", element: <Announcements /> },
+      { path: "polls", element: <Polls /> },
       { path: "video-messages", element: <VideoMessages /> },
       { path: "notifications", element: <Notifications /> },
       { path: "do-not-hire", element: <DoNotHire /> },
@@ -152,6 +155,7 @@ export default function AdminRoutes() {
       { path: "reports", element: <Reports /> },
       { path: "activity-logs", element: auth.role === "super-admin" ? <ActivityLogs /> : <Navigate to="/admin" replace /> },
       { path: "digital-assets", element: <DigitalAssets /> },
+      { path: "app-store-links", element: <AppStoreLinks /> },
       { path: "intellectual-property", element: <IntellectualProperty /> },
       { path: "asset-library", element: <AssetLibrary /> },
       { path: "company-information", element: <CompanyInformation /> },

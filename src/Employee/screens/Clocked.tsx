@@ -432,7 +432,7 @@ export default function EmployeeClocked() {
                   : "border-gray-500 text-gray-700 bg-gray-50"
               }
             >
-              {isClockedIn ? "Active" : isClockedOut ? "Complete" : "Ready"}
+              {isClockedIn ? "In Progress" : isClockedOut ? "Complete" : "Ready"}
             </Badge>
           </div>
         </CardContent>
@@ -575,7 +575,13 @@ export default function EmployeeClocked() {
                               : "border-gray-500 text-gray-700 bg-gray-50"
                           }
                         >
-                          {entry.status === "complete" || entry.status === "completed" ? "Complete" : entry.status === "incomplete" ? "In Progress" : entry.status}
+                          {entry.status === "complete" || entry.status === "completed"
+                            ? "Complete"
+                            : entry.status === "incomplete" || entry.status === "active"
+                              ? "In Progress"
+                              : entry.status === "overtime"
+                                ? "Overtime"
+                                : entry.status}
                         </Badge>
                       </TableCell>
                     </TableRow>

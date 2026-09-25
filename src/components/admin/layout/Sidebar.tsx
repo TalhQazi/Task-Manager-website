@@ -45,7 +45,6 @@ import {
   Shield,
   UserPlus,
   Video,
-
   ShoppingCart,
   Mail,
   Book,
@@ -55,6 +54,8 @@ import {
   FileCheck,
   ListTodo,
   Contact,
+  Smartphone,
+  BarChart2,
 } from "lucide-react";
 
 
@@ -123,6 +124,7 @@ const navItemsBase: NavItem[] = [
   { icon: UserCircle, label: "Employee Directory", path: "/admin/employees" },
   { icon: Compass, label: "Itinerary History", path: "/admin/itineraries" },
   { icon: Megaphone, label: "Announcements", path: "/admin/announcements" },
+  { icon: BarChart2, label: "Ideas & Polls", path: "/admin/polls" },
   { icon: Video, label: "Video Messages", path: "/admin/video-messages" },
   { icon: Wallet, label: "Payroll", path: "/admin/payroll" },
   { icon: ClipboardList, label: "EOD Reports", path: "/admin/eod-reports" },
@@ -176,7 +178,14 @@ const navItemsBase: NavItem[] = [
   { icon: FolderOpen, label: "Images", path: "/admin/asset-library" },
   { icon: FileText, label: "Company Information", path: "/admin/company-information" },
   { icon: BarChart3, label: "Reports", path: "/admin/reports" },
-  { icon: Globe, label: "Digital Assets", path: "/admin/digital-assets" },
+  {
+    icon: Globe,
+    label: "Digital Assets",
+    children: [
+      { icon: Globe, label: "Websites & Accounts", path: "/admin/digital-assets" },
+      { icon: Smartphone, label: "App Store Links", path: "/admin/app-store-links" },
+    ],
+  },
   { icon: Lightbulb, label: "Intellectual Property", path: "/admin/intellectual-property" },
   { icon: Database, label: "Imported Asana Data", path: "/admin/asana-data" },
   { icon: Archive, label: "Archive Data", path: "/admin/archive-data" },

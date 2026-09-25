@@ -1543,6 +1543,29 @@ const hasTaxInfo =
               )}
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-gray-50 dark:bg-muted/30 rounded-lg border border-border/40">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Onboarding Document</p>
+                  <p className="text-xs text-muted-foreground">
+                    Read this handbook, then upload your signature to acknowledge it.
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-2 shrink-0"
+                  asChild
+                >
+                  <a
+                    href={`${String(import.meta.env.VITE_API_URL || "").replace(/\/$/, "") || "https://task.se7eninc.com"}/uploads/onboarding/employee-handbook.pdf`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <FileText className="h-4 w-4" />
+                    View / Download Document
+                  </a>
+                </Button>
+              </div>
               <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div className="flex items-center gap-2">
                   <Badge className={`${

@@ -34,6 +34,7 @@ import {
   Bug,
   Bell,
   Video,
+  BarChart2,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -57,6 +58,7 @@ const navItemsBase: NavItem[] = [
   { icon: ClipboardList, label: "Tasks", path: "/manager/tasks" },
   { icon: Users, label: "Employees", path: "/manager/employees" },
   { icon: Megaphone, label: "Announcements", path: "/manager/announcements" },
+  { icon: BarChart2, label: "Ideas & Polls", path: "/manager/polls" },
   { icon: Calendar, label: "Scheduling", path: "/manager/scheduling" },
   { icon: Clock, label: "Time Tracking", path: "/manager/time-tracking" },
   { icon: Coffee, label: "Break History", path: "/manager/break-history" },

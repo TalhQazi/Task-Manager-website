@@ -42,6 +42,8 @@ type SystemSettings = {
     finalAdverseAction: Template;
     patentExpiration: Template;
     lunchBreakAlert: Template;
+    meetingInvite?: Template;
+    pollAssignment?: Template;
   };
   taskRewardSystemEnabled?: boolean;
   scheConfig?: {
@@ -153,12 +155,13 @@ export default function SystemEmailSettings() {
   const handleTemplateChange = (key: keyof SystemSettings["templates"], field: keyof Template, value: any) => {
     setFormData((prev) => {
       if (!prev) return null;
+      const existing = prev.templates[key] || { enabled: true, subject: "", body: "" };
       return {
         ...prev,
         templates: {
           ...prev.templates,
           [key]: {
-            ...prev.templates[key],
+            ...existing,
             [field]: value,
           },
         },
@@ -293,7 +296,7 @@ export default function SystemEmailSettings() {
               description="Sent when a new employee or user is registered"
               template={formData.templates.userRegistration}
               onChange={(field, val) => handleTemplateChange("userRegistration", field, val)}
-              placeholders={["{name}"]}
+              placeholders={["{name}", "{websiteUrl}", "{googlePlayUrl}", "{appleStoreUrl}"]}
             />
 
             {/* Manager Registration */}
@@ -302,7 +305,7 @@ export default function SystemEmailSettings() {
               description="Sent when a new manager account is created"
               template={formData.templates.managerRegistration}
               onChange={(field, val) => handleTemplateChange("managerRegistration", field, val)}
-              placeholders={["{name}"]}
+              placeholders={["{name}", "{websiteUrl}", "{googlePlayUrl}", "{appleStoreUrl}"]}
             />
 
             {/* Forgot Password */}
@@ -402,6 +405,20 @@ export default function SystemEmailSettings() {
               template={formData.templates.lunchBreakAlert}
               onChange={(field, val) => handleTemplateChange("lunchBreakAlert", field, val)}
               placeholders={["{name}", "{employeeName}", "{statusUpdate}", "{time}"]}
+            />
+
+            <TemplateCard
+              title="Poll Assignment"
+              description="Sent when a new Ideas & Polls poll is published to an audience"
+              template={
+                formData.templates.pollAssignment || {
+                  enabled: true,
+                  subject: "New Poll: {pollTitle}",
+                  body: "Hello {name},\n\nA new poll has been published.\n\nPoll: {pollTitle}\nDetails: {pollDescription}\nCloses: {closesAt}\n\nPlease log in to vote.",
+                }
+              }
+              onChange={(field, val) => handleTemplateChange("pollAssignment", field, val)}
+              placeholders={["{name}", "{pollTitle}", "{pollDescription}", "{closesAt}"]}
             />
           </div>
         </div>

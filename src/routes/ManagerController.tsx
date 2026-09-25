@@ -51,6 +51,7 @@ const CRMFiles = lazy(() => import("@/pages/manger/crm/Files"));
 const TravelCalendar = lazy(() => import("@/pages/manger/TravelCalendar"));
 const ManagerBugs = lazy(() => import("@/pages/manger/Bugs"));
 const ManagerAnnouncements = lazy(() => import("@/pages/manger/Announcements"));
+const ManagerPolls = lazy(() => import("@/pages/manger/Polls"));
 const Meetings = lazy(() => import("@/pages/admin/Meetings"));
 const MeetingRoom = lazy(() => import("@/pages/shared/MeetingRoom"));
 
@@ -120,6 +121,7 @@ export default function ManagerController() {
       { path: "travel-calendar", element: <TravelCalendar /> },
       { path: "bugs", element: <ManagerBugs /> },
       { path: "announcements", element: <ManagerAnnouncements /> },
+      { path: "polls", element: <ManagerPolls /> },
 
 
       { path: "*", element: <NotFound /> },

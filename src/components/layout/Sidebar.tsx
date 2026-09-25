@@ -39,6 +39,7 @@ import {
   Contact,
   Gavel,
   Video,
+  Smartphone,
 } from "lucide-react";
 
 import { useNavigate, useLocation } from "react-router-dom";
@@ -84,7 +85,14 @@ const navItemsBase: NavItem[] = [
   { icon: ClipboardList, label: "Onboarding", path: "/admin/onboarding" },
   { icon: ClipboardList, label: "New Hire Reporting", path: "/admin/new-hire-reporting" },
   { icon: BarChart3, label: "Reports", path: "/admin/reports" },
-  { icon: Globe, label: "Digital Assets", path: "/admin/digital-assets" },
+  {
+    icon: Globe,
+    label: "Digital Assets",
+    children: [
+      { icon: Globe, label: "Websites & Accounts", path: "/admin/digital-assets" },
+      { icon: Smartphone, label: "App Store Links", path: "/admin/app-store-links" },
+    ],
+  },
   { icon: Lightbulb, label: "Intellectual Property", path: "/admin/intellectual-property" },
   { icon: Database, label: "Imported Asana Data", path: "/admin/asana-data" },
   { icon: Archive, label: "Archive Data", path: "/admin/archive-data" },

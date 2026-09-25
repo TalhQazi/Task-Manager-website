@@ -2880,6 +2880,17 @@ export default function Tasks() {
                             <SelectItem value="overdue" className="text-red-600 focus:bg-red-50 font-bold">Overdue</SelectItem>
                           </SelectContent>
                         </Select>
+                        {selectedTask.status !== "completed" && (
+                          <Button
+                            type="button"
+                            className="w-full h-11 gap-2 rounded-xl font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
+                            disabled={statusSaving}
+                            onClick={() => void updateStatus("completed")}
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+                            {statusSaving ? "Closing..." : "Mark Complete / Close Task"}
+                          </Button>
+                        )}
                       </div>
                       <div className="space-y-3">
                         <label className="text-[11px] font-bold text-muted-foreground/80 uppercase tracking-widest flex items-center gap-2"><Calendar className="w-3.5 h-3.5 ml-0.5" /> Delivery Date</label>
