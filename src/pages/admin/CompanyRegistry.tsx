@@ -44,6 +44,7 @@ import {
   SlidersHorizontal,
   LayoutGrid,
   List,
+  ArrowUpDown,
 } from "lucide-react";
 import { getApiBaseUrl } from "@/lib/admin/apiClient";
 import { getAuthState } from "@/lib/auth";
@@ -62,7 +63,7 @@ interface CompanyRegistryEntry {
   fein: string;
   phone: string;
   email: string;
-  status: "active" | "hold" | "archived";
+  status: "active" | "inactive" | "hold" | "archived";
   notes: string;
   attachments: Attachment[];
   colorTag: "green" | "blue" | "yellow" | "red" | "gray";
@@ -85,6 +86,7 @@ const COLOR_TAGS = {
 
 const STATUS_MAP = {
   active:   { label: "Active",   icon: CheckCircle2, class: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:text-emerald-400" },
+  inactive: { label: "Inactive", icon: AlertCircle,  class: "bg-rose-500/10 text-rose-600 border-rose-500/20 dark:text-rose-400" },
   hold:     { label: "Hold",     icon: Clock,        class: "bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400" },
   archived: { label: "Archived", icon: Archive,      class: "bg-slate-500/10 text-slate-500 border-slate-400/20" },
 };
@@ -199,7 +201,7 @@ function AttachmentCard({
         {isImage ? <Image className="w-4 h-4 text-blue-500" /> : <FileText className="w-4 h-4 text-orange-500" />}
       </div>
       <span className="text-sm font-medium truncate flex-1">{att.name}</span>
-      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
         <button
           onClick={onPreview}
           className="w-7 h-7 rounded-lg flex items-center justify-center text-blue-500 hover:bg-blue-500/10 transition-colors"
@@ -236,6 +238,7 @@ export default function CompanyRegistry() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [colorFilter, setColorFilter] = useState("all");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -283,14 +286,22 @@ export default function CompanyRegistry() {
 
   useEffect(() => { fetchEntries(); }, [fetchEntries]);
 
-  const filteredEntries = useMemo(() => entries.filter((entry) => {
-    const q = searchQuery.toLowerCase();
-    return (
-      (!q || entry.companyName.toLowerCase().includes(q) || entry.fein.toLowerCase().includes(q) || entry.email.toLowerCase().includes(q)) &&
-      (statusFilter === "all" || entry.status === statusFilter) &&
-      (colorFilter === "all" || entry.colorTag === colorFilter)
-    );
-  }), [entries, searchQuery, statusFilter, colorFilter]);
+  const filteredEntries = useMemo(() => {
+    const filtered = entries.filter((entry) => {
+      const q = searchQuery.toLowerCase();
+      return (
+        (!q || entry.companyName.toLowerCase().includes(q) || entry.fein.toLowerCase().includes(q) || entry.email.toLowerCase().includes(q)) &&
+        (statusFilter === "all" || entry.status === statusFilter) &&
+        (colorFilter === "all" || entry.colorTag === colorFilter)
+      );
+    });
+
+    return filtered.sort((a, b) => {
+      const nameA = a.companyName.toLowerCase();
+      const nameB = b.companyName.toLowerCase();
+      return sortOrder === "asc" ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+    });
+  }, [entries, searchQuery, statusFilter, colorFilter, sortOrder]);
 
   const resetForm = () => {
     setFormData({ ...initialFormData });
@@ -396,7 +407,7 @@ export default function CompanyRegistry() {
   /* ── shared form body ── */
   const renderForm = (isOpen: boolean, onClose: () => void, onSubmit: () => void, title: string) => (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto p-0">
+      <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[92vh] overflow-y-auto p-0">
         {/* Modal header bar */}
         <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b bg-background/95 backdrop-blur-sm">
           <h2 className="text-lg font-semibold">{title}</h2>
@@ -458,6 +469,7 @@ export default function CompanyRegistry() {
               <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="active">✅ Active</SelectItem>
+                <SelectItem value="inactive">❌ Inactive</SelectItem>
                 <SelectItem value="hold">⏸️ Hold</SelectItem>
                 <SelectItem value="archived">📦 Archived</SelectItem>
               </SelectContent>
@@ -539,7 +551,7 @@ export default function CompanyRegistry() {
   );
 
   return (
-    <div className="p-4 sm:p-6 space-y-5 max-w-screen-2xl mx-auto">
+    <div className="p-4 sm:p-6 space-y-5 max-w-screen-2xl mx-auto w-full min-w-0 overflow-hidden">
 
       {/* ── Header ── */}
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -564,10 +576,11 @@ export default function CompanyRegistry() {
 
       {/* ── Stats bar ── */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { delay: 0.08 } }}
-        className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+        className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
         {[
           { title: "Total",     value: entries.length,                                      icon: Building2,  variant: "blue" as const },
           { title: "Active",    value: entries.filter((e) => e.status === "active").length,  icon: CheckCircle2, variant: "green" as const },
+          { title: "Inactive",  value: entries.filter((e) => e.status === "inactive").length,icon: AlertCircle,  variant: "red" as const },
           { title: "On Hold",   value: entries.filter((e) => e.status === "hold").length,    icon: Clock,        variant: "amber" as const },
           { title: "Archived",  value: entries.filter((e) => e.status === "archived").length, icon: Archive,      variant: "dark-grey" as const },
         ].map((stat, idx) => (
@@ -610,6 +623,7 @@ export default function CompanyRegistry() {
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
             <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="inactive">Inactive</SelectItem>
             <SelectItem value="hold">Hold</SelectItem>
             <SelectItem value="archived">Archived</SelectItem>
           </SelectContent>
@@ -628,19 +642,32 @@ export default function CompanyRegistry() {
             <SelectItem value="gray">⚫ Archived</SelectItem>
           </SelectContent>
         </Select>
+        <Button 
+          variant="outline" 
+          size="icon" 
+          className="h-9 w-9 shrink-0"
+          onClick={() => setSortOrder(prev => prev === "asc" ? "desc" : "asc")}
+          title={sortOrder === "asc" ? "Sort Z-A" : "Sort A-Z"}
+        >
+          <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+        </Button>
       </motion.div>
 
       {/* ── Table ── */}
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0, transition: { delay: 0.16 } }}>
-        <Card className="overflow-hidden border-border/50 shadow-sm">
+      <motion.div 
+        initial={{ opacity: 0, y: 8 }} 
+        animate={{ opacity: 1, y: 0, transition: { delay: 0.16 } }}
+        className="w-full min-w-0"
+      >
+        <Card className="w-full overflow-hidden border-border/50 shadow-sm">
           <CardContent className="p-0">
             {error ? (
               <div className="flex items-center justify-center gap-2 py-16 text-destructive">
                 <AlertCircle className="w-5 h-5" /> {error}
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-sm">
+              <div className="w-full overflow-x-auto custom-scrollbar">
+                <table className="w-full min-w-[1000px] border-collapse text-sm">
                   <thead>
                     <tr className="border-b border-border/50 bg-muted/40">
                       {["Company Name","Entity","EIN / FEIN","Phone","Email","Status","Tag","Files","Actions"].map((h, i) => (
@@ -759,7 +786,7 @@ export default function CompanyRegistry() {
 
       {/* ── View Drawer ── */}
       <Dialog open={isViewDrawerOpen} onOpenChange={setIsViewDrawerOpen}>
-        <DialogContent className="max-w-lg max-h-[92vh] overflow-y-auto p-0">
+        <DialogContent className="w-[95vw] sm:max-w-lg max-h-[92vh] overflow-y-auto p-0">
           {/* Top band */}
           <div className="px-6 pt-6 pb-4 border-b space-y-3 bg-muted/30">
             <div className="flex items-start gap-3">
@@ -829,7 +856,7 @@ export default function CompanyRegistry() {
 
       {/* ── Preview Modal ── */}
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-        <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto p-0">
+        <DialogContent className="w-[95vw] sm:max-w-3xl max-h-[92vh] overflow-y-auto p-0">
           <div className="sticky top-0 z-10 flex items-center gap-3 px-5 py-3.5 border-b bg-background/95 backdrop-blur-sm">
             <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${previewAttachment && isImg(previewAttachment.type) ? "bg-blue-500/10" : "bg-orange-500/10"}`}>
               {previewAttachment && isImg(previewAttachment.type) ? <Image className="w-4 h-4 text-blue-500" /> : <FileText className="w-4 h-4 text-orange-500" />}
@@ -879,7 +906,7 @@ export default function CompanyRegistry() {
 
       {/* ── Delete Confirm ── */}
       <Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
-        <DialogContent className="max-w-sm p-0">
+        <DialogContent className="w-[95vw] sm:max-w-sm p-0">
           <div className="p-6 space-y-4">
             <div className="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center ring-1 ring-red-500/20 mx-auto">
               <Trash2 className="w-6 h-6 text-red-500" />

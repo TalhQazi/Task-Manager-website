@@ -11,21 +11,35 @@ import { apiFetch } from "@/lib/admin/apiClient";
 export default function UnitManagement() {
   const [items, setItems] = useState<any[]>([]);
   const [properties, setProperties] = useState<any[]>([]);
+  const [tenants, setTenants] = useState<any[]>([]);
+  const [locations, setLocations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   
-  const [form, setForm] = useState({ property: "", unitNumber: "", type: "Residential", status: "Vacant", rentalPrice: "" });
+  const [form, setForm] = useState({ 
+    property: "", 
+    unitNumber: "", 
+    type: "Residential", 
+    status: "Vacant", 
+    rentalPrice: "",
+    assignedCustomer: "",
+    locationName: ""
+  });
 
   const load = async () => {
     try {
       setLoading(true);
-      const [unitsRes, propsRes] = await Promise.all([
+      const [unitsRes, propsRes, tenantsRes, locationsRes] = await Promise.all([
         apiFetch("/api/atlasbook/units"),
-        apiFetch("/api/atlasbook/properties")
+        apiFetch("/api/atlasbook/properties"),
+        apiFetch("/api/atlasbook/tenants").catch(() => null),
+        apiFetch("/api/locations").catch(() => null)
       ]);
       if (unitsRes?.success) setItems(unitsRes.items || []);
       if (propsRes?.success) setProperties(propsRes.items || []);
+      if (tenantsRes?.success) setTenants(tenantsRes.items || []);
+      if (locationsRes?.items) setLocations(locationsRes.items || []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -43,7 +57,15 @@ export default function UnitManagement() {
       });
       if (res?.success) {
         setOpen(false);
-        setForm({ property: "", unitNumber: "", type: "Residential", status: "Vacant", rentalPrice: "" });
+        setForm({ 
+          property: "", 
+          unitNumber: "", 
+          type: "Residential", 
+          status: "Vacant", 
+          rentalPrice: "",
+          assignedCustomer: "",
+          locationName: ""
+        });
         load();
       }
     } catch (e) {
@@ -53,7 +75,9 @@ export default function UnitManagement() {
 
   const filtered = items.filter(i => 
     i.unitNumber?.toLowerCase().includes(q.toLowerCase()) || 
-    i.property?.name?.toLowerCase().includes(q.toLowerCase())
+    i.property?.name?.toLowerCase().includes(q.toLowerCase()) ||
+    i.assignedCustomer?.toLowerCase().includes(q.toLowerCase()) ||
+    i.locationName?.toLowerCase().includes(q.toLowerCase())
   );
 
   return (
@@ -75,7 +99,7 @@ export default function UnitManagement() {
       <Card className="shadow-soft p-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-          <Input placeholder="Search units or properties..." className="pl-10" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Input placeholder="Search units, properties, customers, or locations..." className="pl-10" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
       </Card>
 
@@ -86,6 +110,8 @@ export default function UnitManagement() {
               <TableRow>
                 <TableHead>Unit #</TableHead>
                 <TableHead>Property</TableHead>
+                <TableHead>Customer</TableHead>
+                <TableHead>Location</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Monthly Rent</TableHead>
@@ -94,14 +120,16 @@ export default function UnitManagement() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-10"><RefreshCw className="animate-spin mx-auto" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-10"><RefreshCw className="animate-spin mx-auto" /></TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-10 text-muted-foreground italic">No units found.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-10 text-muted-foreground italic">No units found.</TableCell></TableRow>
               ) : (
                 filtered.map((item) => (
                   <TableRow key={item._id}>
                     <TableCell className="font-bold flex items-center gap-2"><Home size={14} className="text-primary" /> {item.unitNumber}</TableCell>
                     <TableCell className="text-sm">{item.property?.name || "N/A"}</TableCell>
+                    <TableCell className="text-sm font-semibold text-teal-600">{item.assignedCustomer || "None"}</TableCell>
+                    <TableCell className="text-sm">{item.locationName || "None"}</TableCell>
                     <TableCell><Badge variant="outline">{item.type}</Badge></TableCell>
                     <TableCell>
                       <Badge variant={item.status === "Occupied" ? "default" : item.status === "Vacant" ? "secondary" : "outline"}>
@@ -127,7 +155,7 @@ export default function UnitManagement() {
           <DialogHeader>
             <DialogTitle>Add New Unit</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto px-1 custom-scrollbar">
             <div className="space-y-2">
               <label className="text-sm font-medium">Assign to Property</label>
               <select 
@@ -143,6 +171,32 @@ export default function UnitManagement() {
               <label className="text-sm font-medium">Unit Number / ID</label>
               <Input placeholder="e.g., Suite 101" value={form.unitNumber} onChange={e => setForm({...form, unitNumber: e.target.value})} />
             </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Customer / Tenant</label>
+                <select 
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-ring"
+                  value={form.assignedCustomer}
+                  onChange={e => setForm({...form, assignedCustomer: e.target.value})}
+                >
+                  <option value="">None</option>
+                  {tenants.map(t => <option key={t._id} value={t.name}>{t.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Location</label>
+                <select 
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-ring"
+                  value={form.locationName}
+                  onChange={e => setForm({...form, locationName: e.target.value})}
+                >
+                  <option value="">None</option>
+                  {locations.map(loc => <option key={loc.id} value={loc.name}>{loc.name}</option>)}
+                </select>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Monthly Rent</label>

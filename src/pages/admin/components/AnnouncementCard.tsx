@@ -190,6 +190,15 @@ export default function AnnouncementCard({
           <TrendingUp className="h-4 w-4" />
           Analytics
         </button>
+
+        <button
+          onClick={onDelete}
+          className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 text-sm font-medium transition-all duration-150 border border-red-500/20"
+          title="Delete Announcement"
+        >
+          <Trash2 className="h-4 w-4" />
+          Delete
+        </button>
         
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

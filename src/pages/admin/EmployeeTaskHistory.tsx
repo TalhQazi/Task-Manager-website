@@ -4,7 +4,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
 import { Badge } from "@/components/admin/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/admin/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/admin/ui/avatar";
+import { useEmployeeAvatars } from "@/hooks/useEmployeeAvatars";
 import { 
   ArrowLeft, 
   CheckCircle2, 
@@ -15,7 +16,11 @@ import {
   User,
   AlertTriangle
 } from "lucide-react";
-import { listResource } from "@/lib/admin/apiClient";
+import { apiFetch } from "@/lib/admin/apiClient";
+
+const PAGE_SIZE = 25;
+
+type TaskStats = { total: number; completed: number; pending: number; overdue: number };
 
 interface Task {
   id: string;
@@ -28,9 +33,26 @@ interface Task {
   dueDate: string;
   dueTime: string;
   createdAt: string;
+  firstStartedAt?: string | null;
+  startedByName?: string;
+  completedAt?: string | null;
+  completedByName?: string;
   attachmentFileName?: string;
   attachmentNote?: string;
 }
+
+const formatDateTime = (value?: string | null) => {
+  if (!value) return "";
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
 
 const getInitials = (name: string) => {
   return String(name || "")
@@ -83,47 +105,52 @@ const EmployeeTaskHistory = () => {
   const navigate = useNavigate();
   const { employee } = useParams<{ employee: string }>();
   const employeeName = decodeURIComponent(employee || "");
+  const getAvatar = useEmployeeAvatars();
   
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [stats, setStats] = useState<TaskStats>({ total: 0, completed: 0, pending: 0, overdue: 0 });
 
+  // Load this employee's tasks 25 per page (server-side filter + pagination)
   useEffect(() => {
+    if (!employeeName) return;
     const loadTasks = async () => {
       try {
         setLoading(true);
-        const taskList = await listResource<Task>("tasks");
-        const normalizedTasks = taskList.map(normalizeTaskAssignees);
-        
-        // Filter tasks for this employee
-        const employeeTasks = normalizedTasks.filter(
-          (task) =>
-            task.assignees?.includes(employeeName) || task.assignee === employeeName
+        const res = await apiFetch<{ items: Task[]; total?: number; totalPages?: number }>(
+          `/api/tasks?assignee=${encodeURIComponent(employeeName)}&page=${page}&limit=${PAGE_SIZE}`
         );
-        
-        setTasks(employeeTasks);
+        setTasks((res.items || []).map(normalizeTaskAssignees));
+        setTotal(res.total || 0);
+        setTotalPages(res.totalPages || 1);
       } catch (err) {
         console.error("Failed to load tasks:", err);
       } finally {
         setLoading(false);
       }
     };
+    loadTasks();
+  }, [employeeName, page]);
 
-    if (employeeName) {
-      loadTasks();
-    }
+  // Load accurate summary stats once (aggregation, not the visible page)
+  useEffect(() => {
+    if (!employeeName) return;
+    (async () => {
+      try {
+        const res = await apiFetch<{ stats: Record<string, TaskStats> }>("/api/tasks/assignee-stats");
+        const key = Object.keys(res.stats || {}).find((k) => k.toLowerCase().trim() === employeeName.toLowerCase().trim());
+        setStats(key ? res.stats[key] : { total: 0, completed: 0, pending: 0, overdue: 0 });
+      } catch (err) {
+        console.error("Failed to load stats:", err);
+      }
+    })();
   }, [employeeName]);
 
-  const stats = {
-    total: tasks.length,
-    completed: tasks.filter((t) => t.status === "completed").length,
-    pending: tasks.filter((t) => t.status === "pending" || t.status === "in-progress").length,
-    overdue: tasks.filter((t) => t.status === "overdue").length,
-  };
-
-  // Sort tasks by created date (newest first)
-  const sortedTasks = [...tasks].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
+  // Server already returns newest-first
+  const sortedTasks = tasks;
 
   return (
     <>
@@ -146,6 +173,7 @@ const EmployeeTaskHistory = () => {
           </Button>
           <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10 ring-2 ring-primary/20">
+              {getAvatar(employeeName) && <AvatarImage src={getAvatar(employeeName)} alt={employeeName} className="object-cover" />}
               <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white">
                 {getInitials(employeeName)}
               </AvatarFallback>
@@ -190,7 +218,7 @@ const EmployeeTaskHistory = () => {
           <CardHeader className="pb-3">
             <CardTitle className="text-base sm:text-lg flex items-center gap-2">
               <FileText className="h-5 w-5 text-primary" />
-              All Tasks ({sortedTasks.length})
+              All Tasks ({total})
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -250,6 +278,18 @@ const EmployeeTaskHistory = () => {
                         <Clock className="h-3.5 w-3.5" />
                         <span>Due: {toDateOnly(task.dueDate) || "—"} {task.dueTime && `at ${task.dueTime}`}</span>
                       </div>
+                      {task.firstStartedAt && (
+                        <div className="flex items-center gap-1 text-[#3b82f6]">
+                          <Clock className="h-3.5 w-3.5" />
+                          <span>Started: {formatDateTime(task.firstStartedAt)}{task.startedByName ? ` by ${task.startedByName}` : ""}</span>
+                        </div>
+                      )}
+                      {task.completedAt && (
+                        <div className="flex items-center gap-1 text-[#22c55e]">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          <span>Completed: {formatDateTime(task.completedAt)}{task.completedByName ? ` by ${task.completedByName}` : ""}</span>
+                        </div>
+                      )}
                       {task.attachmentFileName && (
                         <div className="flex items-center gap-1">
                           <FileText className="h-3.5 w-3.5" />
@@ -290,6 +330,32 @@ const EmployeeTaskHistory = () => {
                     </div>
                   </motion.div>
                 ))}
+              </div>
+            )}
+
+            {/* Pagination — 25 tasks per page */}
+            {!loading && totalPages > 1 && (
+              <div className="flex items-center justify-between gap-2 p-4 border-t">
+                <span className="text-xs text-muted-foreground">
+                  Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    className="px-3 py-1.5 text-xs rounded-md border disabled:opacity-50 hover:bg-muted/50"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                  >
+                    Previous
+                  </button>
+                  <span className="text-xs text-muted-foreground">Page {page} of {totalPages}</span>
+                  <button
+                    className="px-3 py-1.5 text-xs rounded-md border disabled:opacity-50 hover:bg-muted/50"
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
             )}
           </CardContent>

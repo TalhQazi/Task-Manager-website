@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef } from "react";
+import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/manger/ui/button";
@@ -68,12 +68,15 @@ import {
   MapPin,
   FileText,
   Download,
+  ChevronLeft,
+  ChevronRight,
   Printer,
   Check,
   ChevronsUpDown,
   Clock,
   AlertCircle,
   CheckCircle2,
+  RotateCcw,
   AlertTriangle,
   Users,
   Eye,
@@ -92,6 +95,8 @@ import {
   Maximize2,
   Smile,
   Flame,
+  Video,
+  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
 import { apiFetch, downloadTaskAttachment, toProxiedUrl, getTopContributors, downloadViaUrl, updateComment, deleteComment } from "@/lib/manger/api";
@@ -104,11 +109,18 @@ import { useTaskBlasterContext } from "@/contexts/TaskBlasterContext";
 import jsPDF from "jspdf";
 import { Pagination } from "@/components/Pagination";
 import { useRewards } from "@/contexts/RewardContext";
+import FollowUpControlCenter from "@/components/shared/FollowUpControlCenter";
+import { VideoRecorderModal } from "@/components/admin/VideoRecorderModal";
+import { TaskTimeline } from "@/components/shared/TaskTimeline";
 import { useGlobalTimer } from "@/hooks/useGlobalTimer";
 import { getRemainingTime, getTimerState } from "@/lib/manger/time";
 import CreateExpenseSheet from "@/components/expense/CreateExpenseSheet";
+import CostManager from "@/components/cost-manager/CostManager";
+import TaskExpensesPanel from "@/components/cost-manager/TaskExpensesPanel";
+import { getProjectCostSheet, getTaskCostSheet } from "@/lib/costManager";
 import ExpenseSheetList from "@/components/expense/ExpenseSheetList";
 import DropboxFilePicker, { type DropboxSelectedFile, formatBytes, DropboxIcon } from "@/components/admin/DropboxFilePicker";
+import { renderMessageContent } from "@/lib/linkify";
 
 
 interface Task {
@@ -124,6 +136,12 @@ interface Task {
   dueDate: string;
   dueTime?: string;
   location?: string;
+  introVideoUrl?: string;
+  startedAt?: string | null;
+  firstStartedAt?: string | null;
+  startedByName?: string;
+  completedAt?: string | null;
+  completedByName?: string;
   createdAt: string;
   projectId?: string;
   attachmentFileName?: string;
@@ -151,6 +169,7 @@ type CreateProjectTaskDraft = {
   dueDate: string;
   dueTime?: string;
   location?: string;
+  introVideoUrl?: string;
   createdAt: string;
   attachmentFileName?: string;
   attachmentNote?: string;
@@ -180,6 +199,8 @@ interface Employee {
   status: "active" | "inactive" | "on-leave";
   milestoneLevel?: string;
   milestoneLabel?: string;
+  avatarUrl?: string;
+  avatarDataUrl?: string;
 }
 
 type TaskComment = {
@@ -275,6 +296,13 @@ function normalizeTask(t: TaskApi): Task {
     attachmentNote: extra.attachmentNote,
     attachment: extra.attachment,
     attachments: Array.isArray((t as any).attachments) ? (t as any).attachments : undefined,
+    introVideoUrl: (t as any).introVideoUrl,
+    startedAt: (t as any).startedAt ?? null,
+    firstStartedAt: (t as any).firstStartedAt ?? null,
+    startedByName: (t as any).startedByName,
+    completedAt: (t as any).completedAt ?? null,
+    completedByName: (t as any).completedByName,
+    totalTimeSpent: (t as any).totalTimeSpent ?? 0,
   };
 }
 
@@ -329,7 +357,6 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
         src={src} 
         alt={`${projectName} logo`} 
         className="w-10 h-10 rounded-md object-cover flex-shrink-0 border border-border" 
-        crossOrigin="anonymous"
         onError={() => setError(true)}
       />
     );
@@ -397,6 +424,11 @@ function CommentAttachmentImg({ taskId, projectId, commentId, index, mimeType, f
       <div className="absolute inset-0 bg-black/40 opacity-100 sm:opacity-0 sm:group-hover/att:opacity-100 flex items-center justify-center transition-all duration-200 rounded-lg">
         <Maximize2 className="w-5 h-5 text-white" />
       </div>
+    </div>
+  );
+  if (src && mimeType?.startsWith("video/")) return (
+    <div className="w-full h-auto flex justify-center relative group/att">
+      <video src={src} controls className="w-full h-auto max-h-[180px] object-contain rounded-lg" />
     </div>
   );
   if (src && !mimeType?.startsWith("image/")) return (
@@ -507,7 +539,7 @@ async function filesToAttachments(files: File[]) {
 
 function renderMessageWithMentions(text: string) {
   if (!text) return null;
-  const parts = text.split(/(@\S+)/g);
+  const parts = text.split(/(\s+|@\S+)/g);
   return (
     <>
       {parts.map((part, i) => {
@@ -518,7 +550,7 @@ function renderMessageWithMentions(text: string) {
             </span>
           );
         }
-        return <span key={i}>{part}</span>;
+        return <React.Fragment key={i}>{renderMessageContent(part)}</React.Fragment>;
       })}
     </>
   );
@@ -576,6 +608,7 @@ function TaskContributorsList({ taskId }: { taskId: string }) {
     contributionType: string;
     actions: string[];
     addedAt: string;
+    avatar?: string;
   }>>([]);
   const [loading, setLoading] = useState(true);
 
@@ -617,9 +650,13 @@ function TaskContributorsList({ taskId }: { taskId: string }) {
       {contributors.map((contributor, idx) => (
         <div key={idx} className="flex items-center gap-2.5 bg-background border border-border/60 rounded-lg px-3 py-2 shadow-sm">
           <Avatar className="w-6 h-6">
-            <AvatarFallback className="text-[10px] bg-amber-100 text-amber-700 font-bold">
-              {contributor.name?.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase() || "?"}
-            </AvatarFallback>
+            {contributor.avatar ? (
+              <img src={toProxiedUrl(contributor.avatar) || contributor.avatar} alt={contributor.name || "avatar"} className="w-full h-full object-cover" />
+            ) : (
+              <AvatarFallback className="text-[10px] bg-amber-100 text-amber-700 font-bold">
+                {contributor.name?.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase() || "?"}
+              </AvatarFallback>
+            )}
           </Avatar>
           <div className="flex-1 min-w-0">
             <span className="text-sm font-medium text-foreground/80 truncate">{contributor.name || "Unknown"}</span>
@@ -640,10 +677,15 @@ function TaskContributorsList({ taskId }: { taskId: string }) {
 
 export default function Tasks() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const [costManagerModalOpen, setCostManagerModalOpen] = useState(false);
+  const [costManagerModalSheetId, setCostManagerModalSheetId] = useState<string | null>(null);
+  const [costManagerModalSheetName, setCostManagerModalSheetName] = useState("");
+  const activeTab = searchParams.get("tab") || "all";
   const [searchQuery, setSearchQuery] = useState("");
   const [projectSearchQuery, setProjectSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [assignmentFilter, setAssignmentFilter] = useState<string>("all");
   const [viewByPriority, setViewByPriority] = useState(false);
   const [projectPage, setProjectPage] = useState(1);
   const [taskPage, setTaskPage] = useState(1);
@@ -669,6 +711,7 @@ export default function Tasks() {
   const [editTaskFilePreview, setEditTaskFilePreview] = useState<string | null>(null);
   const [editTaskFiles, setEditTaskFiles] = useState<File[]>([]);
   const [editTaskFilePreviews, setEditTaskFilePreviews] = useState<string[]>([]);
+  const [isVideoRecorderOpen, setIsVideoRecorderOpen] = useState(false);
   // Project edit state
   const [isEditProjectOpen, setIsEditProjectOpen] = useState(false);
   const [isDeleteProjectOpen, setIsDeleteProjectOpen] = useState(false);
@@ -684,6 +727,10 @@ export default function Tasks() {
   const [editAssigneesOpen, setEditAssigneesOpen] = useState(false);
   const [projectCreationAssignees, setProjectCreationAssignees] = useState<string[]>([]);
   const [projectCreationAssigneesOpen, setProjectCreationAssigneesOpen] = useState(false);
+  const [confirmDeleteTaskAttachmentIndex, setConfirmDeleteTaskAttachmentIndex] = useState<number | null>(null);
+  const [deletingTaskAttachment, setDeletingTaskAttachment] = useState<number | null>(null);
+  const [confirmDeleteProjectAttachmentIndex, setConfirmDeleteProjectAttachmentIndex] = useState<number | null>(null);
+  const [deletingProjectAttachment, setDeletingProjectAttachment] = useState<number | null>(null);
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<ProjectWithTasks | null>(null);
@@ -692,6 +739,12 @@ export default function Tasks() {
   const [isLoadingProject, setIsLoadingProject] = useState(false);
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
   const [editSelectedAssignees, setEditSelectedAssignees] = useState<string[]>([]);
+  const [openReactionPopoverId, setOpenReactionPopoverId] = useState<string | null>(null);
+  const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
+
+  useEffect(() => {
+    setAssigneeFilter("all");
+  }, [selectedProject?.id]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -768,13 +821,51 @@ export default function Tasks() {
   // Lightbox / File Preview State
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewName, setPreviewName] = useState<string>("");
+  // Gallery navigation for the preview dialog: browse sibling images without closing it
+  const [previewGallery, setPreviewGallery] = useState<Array<{ url: string; name: string }>>([]);
+  const [previewIdx, setPreviewIdx] = useState(0);
+
+  const openImagePreview = (url: string, name: string, gallery?: Array<{ url: string; name: string }>) => {
+    setPreviewUrl(url);
+    setPreviewName(name);
+    if (gallery && gallery.length > 1) {
+      let idx = gallery.findIndex((g) => g.url === url);
+      if (idx < 0) idx = gallery.findIndex((g) => g.name === name);
+      setPreviewGallery(gallery);
+      setPreviewIdx(idx >= 0 ? idx : 0);
+    } else {
+      setPreviewGallery([]);
+      setPreviewIdx(0);
+    }
+  };
+
+  const stepPreview = useCallback((dir: 1 | -1) => {
+    setPreviewIdx((prev) => {
+      if (previewGallery.length < 2) return prev;
+      const next = (prev + dir + previewGallery.length) % previewGallery.length;
+      setPreviewUrl(previewGallery[next].url);
+      setPreviewName(previewGallery[next].name);
+      return next;
+    });
+  }, [previewGallery]);
+
+  // Arrow-key navigation while the preview is open
+  useEffect(() => {
+    if (!previewUrl || previewGallery.length < 2) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowRight") { e.preventDefault(); stepPreview(1); }
+      if (e.key === "ArrowLeft") { e.preventDefault(); stepPreview(-1); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [previewUrl, previewGallery, stepPreview]);
 
   // Confirmation state for completing/archiving via side badge
   const [confirmCompleteTask, setConfirmCompleteTask] = useState<Task | null>(null);
 
   // Fetch tasks with server-side pagination
   const tasksQuery = useQuery({
-    queryKey: ["tasks", taskPage, projectSearchQuery, statusFilter, priorityFilter, viewByPriority],
+    queryKey: ["tasks", taskPage, projectSearchQuery, statusFilter, priorityFilter, viewByPriority, assignmentFilter],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: taskPage.toString(),
@@ -782,6 +873,7 @@ export default function Tasks() {
         search: projectSearchQuery,
         status: statusFilter,
         priority: priorityFilter,
+        assignment: assignmentFilter,
       });
       if (viewByPriority) params.set("sort", "priority");
       const res = await apiFetch<{ items: TaskApi[], totalPages: number, total: number }>(`/api/tasks?${params.toString()}`);
@@ -797,12 +889,14 @@ export default function Tasks() {
 
   // Fetch projects with server-side pagination
   const projectsQuery = useQuery({
-    queryKey: ["projects", projectPage, projectSearchQuery],
+    queryKey: ["projects", projectPage, projectSearchQuery, statusFilter, assignmentFilter],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: projectPage.toString(),
         limit: PAGE_SIZE.toString(),
         search: projectSearchQuery,
+        status: statusFilter,
+        assignment: assignmentFilter,
       });
       const res = await apiFetch<{ items: Project[], totalPages: number, total: number }>(`/api/projects?${params.toString()}`);
       return {
@@ -816,8 +910,8 @@ export default function Tasks() {
   });
 
   // Reset pages when filters change
-  useEffect(() => { setTaskPage(1); }, [projectSearchQuery, statusFilter, priorityFilter, viewByPriority]);
-  useEffect(() => { setProjectPage(1); }, [projectSearchQuery]);
+  useEffect(() => { setTaskPage(1); }, [projectSearchQuery, statusFilter, priorityFilter, viewByPriority, assignmentFilter]);
+  useEffect(() => { setProjectPage(1); }, [projectSearchQuery, statusFilter, assignmentFilter]);
 
   useEffect(() => {
     if (tasksQuery.data) {
@@ -990,8 +1084,23 @@ export default function Tasks() {
   useEffect(() => {
     const loadEmployees = async () => {
       try {
-        const res = await apiFetch<{ items: Employee[] }>("/api/employees");
-        setEmployees(res.items.filter((e) => e.status === "active"));
+        const res = await apiFetch<{ items: any[] }>("/api/employees");
+        const list = (res.items || []).map((u) => {
+          const avatar = u.avatarUrl || u.avatarDataUrl || "";
+          return {
+            ...u,
+            id: String(u.id || u._id),
+            avatarUrl: avatar ? (toProxiedUrl(avatar) || avatar) : "",
+            avatarDataUrl: avatar ? (toProxiedUrl(avatar) || avatar) : "",
+            initials: u.initials || (u.name || "??")
+              .split(" ")
+              .map((n: string) => n[0])
+              .join("")
+              .toUpperCase()
+              .substring(0, 2)
+          };
+        });
+        setEmployees(list);
       } catch {
         setEmployees([]);
       }
@@ -1000,7 +1109,10 @@ export default function Tasks() {
   }, []);
 
   const activeEmployees = useMemo(() => {
-    return employees.filter((e) => e.status === "active");
+    return employees.filter((e) => {
+      const s = String(e.status || "active").toLowerCase();
+      return s !== "inactive";
+    });
   }, [employees]);
 
   // Resolve an assignee string (could be email or name) to display name
@@ -1011,6 +1123,17 @@ export default function Tasks() {
       const emailKey = val.toLowerCase().trim();
       const nameKey = val.toLowerCase().trim();
       return byEmail.get(emailKey) || byName.get(nameKey) || val;
+    };
+  }, [employees]);
+
+  // Resolve an assignee string (email or name) to their profile picture URL
+  const resolveAssigneeAvatar = useMemo(() => {
+    const byEmail = new Map(employees.map((e) => [e.email.toLowerCase(), e.avatarDataUrl || e.avatarUrl || ""]));
+    const byName  = new Map(employees.map((e) => [e.name.toLowerCase(),  e.avatarDataUrl || e.avatarUrl || ""]));
+    return (val: string): string | undefined => {
+      const key = val.toLowerCase().trim();
+      const raw = byEmail.get(key) || byName.get(key) || "";
+      return raw ? (toProxiedUrl(raw) || raw) : undefined;
     };
   }, [employees]);
 
@@ -1040,9 +1163,10 @@ export default function Tasks() {
     status: "pending" as Task["status"],
     dueDate: "",
     dueTime: "",
-    location: "",
+    location: "Center",
     attachmentFileName: "",
     attachmentNote: "",
+    introVideoUrl: "",
   });
 
   const updateTaskMutation = useMutation({
@@ -1129,7 +1253,8 @@ export default function Tasks() {
       status: "pending",
       dueDate: "",
       dueTime: "",
-      location: "",
+      location: "Center",
+      introVideoUrl: "",
     },
   });
 
@@ -1143,6 +1268,7 @@ export default function Tasks() {
       dueDate: "",
       dueTime: "",
       location: "",
+      introVideoUrl: "",
     },
   });
 
@@ -1182,11 +1308,7 @@ export default function Tasks() {
         method: "PUT",
         body: JSON.stringify({ assignees: reassignAssignees }),
       });
-      toast({
-        
-        title: "Success",
-        description: "Task reassigned successfully",
-      });
+      toast({ title: "Reassign complete", duration: 2000 });
       setIsReassignDialogOpen(false);
       setReassignTask(null);
       setReassignAssignees([]);
@@ -1232,9 +1354,10 @@ export default function Tasks() {
       status: "pending",
       dueDate: "",
       dueTime: "",
-      location: "",
+      location: "Center",
       attachmentFileName: "",
-      attachmentNote: "",
+    attachmentNote: "",
+    introVideoUrl: "",
     });
     setSelectedAssignees([]);
     setProjectCreationAssignees([]);
@@ -1259,6 +1382,7 @@ export default function Tasks() {
       createdAt,
       attachmentFileName: att?.fileName || formData.attachmentFileName || "",
       attachmentNote: formData.attachmentNote || "",
+      introVideoUrl: formData.introVideoUrl || "",
       attachment: att,
       attachments: attachmentsOverride,
     } satisfies CreateProjectTaskDraft;
@@ -1290,9 +1414,10 @@ export default function Tasks() {
       status: "pending",
       dueDate: "",
       dueTime: "",
-      location: "",
+      location: "Center",
       attachmentFileName: "",
-      attachmentNote: "",
+    attachmentNote: "",
+    introVideoUrl: "",
     }));
     setSelectedAssignees([]);
     setAttachmentFile(null);
@@ -1419,6 +1544,7 @@ export default function Tasks() {
         createdAt: nowDate,
         attachmentFileName: first?.fileName || "",
         attachmentNote: formData.attachmentNote,
+        introVideoUrl: formData.introVideoUrl,
         attachment: first,
         attachments,
         dropboxAttachments: dropboxSelectedFiles,
@@ -1450,9 +1576,10 @@ export default function Tasks() {
         status: "pending",
         dueDate: "",
         dueTime: "",
-        location: "",
+        location: "Center",
         attachmentFileName: "",
-        attachmentNote: "",
+    attachmentNote: "",
+    introVideoUrl: "",
       });
       setSelectedAssignees([]);
       setAttachmentFile(null);
@@ -1682,7 +1809,25 @@ export default function Tasks() {
       });
       const normalized = normalizeTask(res.item);
       setSelectedTask(normalized);
+
+      // Update in selectedProject tasks if applicable
+      if (selectedProject && normalized.projectId && selectedProject.id === normalized.projectId) {
+        setSelectedProject((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            tasks: prev.tasks.map((t) => (t.id === normalized.id ? normalized : t)),
+          };
+        });
+      }
+
+      // Update in standalone tasks list (tasks state)
+      setTasks((prev) => prev.map((t) => (t.id === normalized.id ? normalized : t)));
+
       await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      if (normalized.projectId) {
+        await queryClient.invalidateQueries({ queryKey: ["project", normalized.projectId] });
+      }
 
       // Trigger TaskBlaster & Reward System when task is marked as completed
       if (next === "completed" && previousStatus !== "completed") {
@@ -1721,6 +1866,173 @@ export default function Tasks() {
       setCommentError(e instanceof Error ? e.message : "Failed to update status");
     } finally {
       setStatusSaving(false);
+    }
+  };
+
+  const deleteTaskAttachment = async (attachmentIndex: number) => {
+    if (!selectedTask) return;
+    try {
+      setDeletingTaskAttachment(attachmentIndex);
+      const res = await apiFetch<{ ok: boolean; item?: any }>(`/api/tasks/${encodeURIComponent(selectedTask.id)}/attachments/${attachmentIndex}`, {
+        method: "DELETE",
+      });
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      if (selectedTask.projectId) {
+        await queryClient.invalidateQueries({ queryKey: ["project", selectedTask.projectId] });
+      }
+
+      let updatedTask: Task;
+      if (res.item) {
+        updatedTask = normalizeTask(res.item);
+      } else {
+        if (attachmentIndex === -1) {
+          updatedTask = { ...selectedTask, attachment: undefined, attachmentFileName: undefined };
+        } else {
+          const newAttachments = [...(selectedTask.attachments || [])];
+          newAttachments.splice(attachmentIndex, 1);
+          const first = newAttachments[0];
+          updatedTask = {
+            ...selectedTask,
+            attachments: newAttachments,
+            attachment: first ? { fileName: first.fileName, url: first.url, mimeType: first.mimeType, size: first.size } : undefined,
+            attachmentFileName: first?.fileName || undefined,
+          };
+        }
+      }
+
+      setSelectedTask(updatedTask);
+      setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? updatedTask : t)));
+      if (selectedProject) {
+        setSelectedProject((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            tasks: (prev.tasks || []).map((t) => (t.id === updatedTask.id ? updatedTask : t)),
+          };
+        });
+      }
+      toast({ title: "Attachment deleted", description: "The attachment has been removed from the task." });
+    } catch (e) {
+      toast({
+        title: "Delete failed",
+        description: e instanceof Error ? e.message : "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingTaskAttachment(null);
+      setConfirmDeleteTaskAttachmentIndex(null);
+    }
+  };
+
+  const deleteProjectAttachment = async (attachmentIndex: number) => {
+    if (!selectedProject) return;
+    try {
+      setDeletingProjectAttachment(attachmentIndex);
+      await apiFetch(`/api/projects/${encodeURIComponent(selectedProject.id)}/attachments/${attachmentIndex}`, {
+        method: "DELETE",
+      });
+
+      const updatedAtts = [...(selectedProject.attachments || [])];
+      updatedAtts.splice(attachmentIndex, 1);
+      setSelectedProject({
+        ...selectedProject,
+        attachments: updatedAtts,
+      });
+
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      await queryClient.invalidateQueries({ queryKey: ["project", selectedProject.id] });
+      toast({
+        title: "Project file deleted",
+        description: "The attachment has been removed from the project.",
+      });
+    } catch (err) {
+      console.error("Failed to delete project attachment:", err);
+      toast({
+        title: "Failed to delete file",
+        description: err instanceof Error ? err.message : "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingProjectAttachment(null);
+      setConfirmDeleteProjectAttachmentIndex(null);
+    }
+  };
+
+  const handleToggleTaskComplete = async (task: Task, event?: React.MouseEvent) => {
+    const isCompleted = task.status === "completed";
+    const nextStatus: Task["status"] = isCompleted ? "pending" : "completed";
+    try {
+      // Optimistically update local states
+      setTasks((prev) =>
+        prev.map((t) => (t.id === task.id ? { ...t, status: nextStatus } : t))
+      );
+      if (selectedProject) {
+        setSelectedProject((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            tasks: (prev.tasks || []).map((t) =>
+              t.id === task.id ? { ...t, status: nextStatus } : t
+            ),
+          };
+        });
+      }
+      if (selectedTask && selectedTask.id === task.id) {
+        setSelectedTask({ ...selectedTask, status: nextStatus });
+      }
+
+      const res = await apiFetch<{ item: TaskApi }>(
+        `/api/tasks/${encodeURIComponent(task.id)}/status`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ status: nextStatus }),
+        }
+      );
+
+      const normalized = normalizeTask(res.item);
+      setTasks((prev) =>
+        prev.map((t) => (t.id === task.id ? normalized : t))
+      );
+
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      if (task.projectId) {
+        await queryClient.invalidateQueries({ queryKey: ["project", task.projectId] });
+        await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      }
+
+      if (nextStatus === "completed") {
+        const taskForBlaster = {
+          id: normalized.id,
+          title: normalized.title,
+          priority: normalized.priority as any,
+          status: "completed",
+        };
+        const triggered = triggerBlaster(taskForBlaster);
+        if (triggered) incrementCompletedCount();
+
+        if (event) {
+          triggerReward(event.clientX || window.innerWidth / 2, event.clientY || window.innerHeight / 2);
+        } else {
+          triggerReward(window.innerWidth / 2, window.innerHeight / 2);
+        }
+        toast({
+          title: "Task completed! 🎉",
+          description: `"${task.title}" has been marked as complete.`,
+        });
+      } else {
+        toast({
+          title: "Task reopened",
+          description: `"${task.title}" status changed to pending.`,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to toggle task status:", err);
+      toast({
+        title: "Failed to update task status",
+        description: err instanceof Error ? err.message : "Something went wrong",
+        variant: "destructive",
+      });
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
     }
   };
 
@@ -1980,22 +2292,161 @@ export default function Tasks() {
   // Otherwise tasks come from the server-paginated query
   const sourceTasks = selectedProject ? selectedProject.tasks : (tasksQuery.data?.items || []);
 
+  const uniqueAssignees = useMemo(() => {
+    const set = new Set<string>();
+    activeEmployees.forEach((e) => {
+      if (e.name && e.name.trim()) {
+        set.add(e.name.trim());
+      }
+    });
+    sourceTasks.forEach((t: any) => {
+      if (Array.isArray(t.assignees)) {
+        t.assignees.forEach((a: string) => {
+          if (a && typeof a === "string" && a.trim()) {
+            set.add(a.trim());
+          }
+        });
+      }
+    });
+    return Array.from(set).sort();
+  }, [activeEmployees, sourceTasks]);
+
+  // Helper to match an assignee string against assigneeFilter
+  const matchesSelectedAssignee = useCallback((assigneesList: string[], filter: string, teamLead?: string) => {
+    if (!filter || filter === "all") return true;
+    const filterLower = filter.toLowerCase().trim();
+
+    const emp = activeEmployees.find(
+      (e) => (e.name && e.name.toLowerCase().trim() === filterLower) || (e.email && e.email.toLowerCase().trim() === filterLower)
+    );
+
+    const variants = new Set<string>();
+    variants.add(filterLower);
+    if (emp) {
+      if (emp.name) variants.add(emp.name.toLowerCase().trim());
+      if (emp.email) variants.add(emp.email.toLowerCase().trim());
+    }
+
+    if (teamLead && Array.from(variants).some((v) => teamLead.toLowerCase().trim().includes(v))) {
+      return true;
+    }
+
+    if (Array.isArray(assigneesList)) {
+      return assigneesList.some((a) => {
+        if (!a || typeof a !== "string") return false;
+        const aLower = a.toLowerCase().trim();
+        return Array.from(variants).some((v) => aLower === v || aLower.includes(v) || v.includes(aLower));
+      });
+    }
+
+    return false;
+  }, [activeEmployees]);
+
   const filteredTasks = useMemo(() => {
-    if (!selectedProject) return sourceTasks; // already filtered server-side
-    // Client-side filter only for selected-project task view
+    if (!selectedProject) {
+      // Filter standalone tasks on server-paginated items
+      return sourceTasks.filter((task) => {
+        const assigneesText = Array.isArray(task.assignees) ? task.assignees.join(" ") : "";
+        const matchesSearch = !searchQuery || task.title.toLowerCase().includes(searchQuery.toLowerCase()) || assigneesText.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesStatus = statusFilter === "all" || task.status === statusFilter;
+        const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
+        const matchesAssignment =
+          assignmentFilter === "all" ||
+          (assignmentFilter === "assigned" && task.assignees && task.assignees.length > 0) ||
+          (assignmentFilter === "unassigned" && (!task.assignees || task.assignees.length === 0)) ||
+          (assignmentFilter === "me" && (task.assignees || []).some((a: string) => {
+            const term = a.toLowerCase().trim();
+            const meUsername = currentUsername.toLowerCase().trim();
+            const meName = (getAuthState().name || "").toLowerCase().trim();
+            return (meUsername && term === meUsername) || (meName && term === meName);
+          }));
+        const matchesAssignee = matchesSelectedAssignee(task.assignees || [], assigneeFilter);
+        return matchesSearch && matchesStatus && matchesPriority && matchesAssignment && matchesAssignee;
+      });
+    }
+    // Client-side filter for selected-project task view
     return sourceTasks.filter((task) => {
       const assigneesText = Array.isArray(task.assignees) ? task.assignees.join(" ") : "";
       const matchesSearch =
+        !searchQuery ||
         task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         assigneesText.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus = statusFilter === "all" || task.status === statusFilter;
       const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
-      return matchesSearch && matchesStatus && matchesPriority;
+      const matchesAssignment =
+        assignmentFilter === "all" ||
+        (assignmentFilter === "assigned" && task.assignees && task.assignees.length > 0) ||
+        (assignmentFilter === "unassigned" && (!task.assignees || task.assignees.length === 0)) ||
+        (assignmentFilter === "me" && (task.assignees || []).some((a: string) => {
+          const term = a.toLowerCase().trim();
+          const meUsername = currentUsername.toLowerCase().trim();
+          const meName = (getAuthState().name || "").toLowerCase().trim();
+          return (meUsername && term === meUsername) || (meName && term === meName);
+        }));
+      const matchesAssignee = matchesSelectedAssignee(task.assignees || [], assigneeFilter);
+      return matchesSearch && matchesStatus && matchesPriority && matchesAssignment && matchesAssignee;
     });
-  }, [sourceTasks, searchQuery, statusFilter, priorityFilter, selectedProject]);
+  }, [sourceTasks, searchQuery, statusFilter, priorityFilter, assignmentFilter, assigneeFilter, selectedProject, matchesSelectedAssignee]);
 
-  // Projects come from server-paginated query (filtering handled server-side)
-  const filteredProjects = projects;
+  // Filter projects by status, priority, assignment, assignee, and search
+  const filteredProjects = useMemo(() => {
+    const qMain = searchQuery.trim().toLowerCase();
+    const sFilter = statusFilter.toLowerCase();
+    const pFilter = priorityFilter.toLowerCase();
+
+    return projects.filter((p) => {
+      const name = p.name.toLowerCase();
+      const desc = (p.description || "").toLowerCase();
+      const assigneesText = (p.assignees || []).join(" ").toLowerCase();
+      const teamLeadText = (p.teamLead || "").toLowerCase();
+      const status = (p.status || "").toLowerCase();
+      const priority = (p.priority || "").toLowerCase();
+
+      // Status Filter
+      if (sFilter !== "all" && status !== sFilter) {
+        return false;
+      }
+
+      // Priority Filter
+      if (pFilter !== "all" && priority !== pFilter) {
+        return false;
+      }
+
+      // Assignee Filter
+      if (assigneeFilter !== "all") {
+        const directAssigneeMatch = matchesSelectedAssignee(p.assignees || [], assigneeFilter, p.teamLead);
+        const taskAssigneeMatch = Array.isArray(p.tasks) && p.tasks.some((t: any) => matchesSelectedAssignee(t.assignees || [], assigneeFilter));
+        if (!directAssigneeMatch && !taskAssigneeMatch) {
+          return false;
+        }
+      }
+
+      // Assignment Filter ("me", "assigned", "unassigned")
+      if (assignmentFilter === "assigned") {
+        const hasProjectAssignees = (p.assignees && p.assignees.length > 0) || !!p.teamLead;
+        const hasTaskAssignees = Array.isArray(p.tasks) && p.tasks.some((t: any) => t.assignees && t.assignees.length > 0);
+        if (!hasProjectAssignees && !hasTaskAssignees) return false;
+      } else if (assignmentFilter === "unassigned") {
+        const hasProjectAssignees = (p.assignees && p.assignees.length > 0) || !!p.teamLead;
+        const hasTaskAssignees = Array.isArray(p.tasks) && p.tasks.some((t: any) => t.assignees && t.assignees.length > 0);
+        if (hasProjectAssignees || hasTaskAssignees) return false;
+      } else if (assignmentFilter === "me") {
+        const meUsername = currentUsername.toLowerCase().trim();
+        const meName = (getAuthState().name || "").toLowerCase().trim();
+        const meVariants = [meUsername, meName].filter(Boolean);
+        const isProjectMe = (p.assignees || []).some((a: string) => meVariants.includes(a.toLowerCase().trim())) || (p.teamLead && meVariants.includes(p.teamLead.toLowerCase().trim()));
+        const isTaskMe = Array.isArray(p.tasks) && p.tasks.some((t: any) => (t.assignees || []).some((a: string) => meVariants.includes(a.toLowerCase().trim())));
+        if (!isProjectMe && !isTaskMe) return false;
+      }
+
+      // Search Query
+      if (qMain && !name.includes(qMain) && !desc.includes(qMain) && !assigneesText.includes(qMain) && !teamLeadText.includes(qMain)) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [projects, searchQuery, statusFilter, priorityFilter, assignmentFilter, assigneeFilter, matchesSelectedAssignee]);
 
   // Pagination is server-driven when no project is selected; client-driven when project is selected
   const paginatedProjects = filteredProjects;
@@ -2023,11 +2474,8 @@ export default function Tasks() {
             <>
               <Button variant="outline" onClick={() => {
                 setSelectedProject(null);
-                // Clear both project list search and project-task search when returning
-                setProjectSearchQuery("");
+                // Preserve project list search and filters when returning
                 setSearchQuery("");
-                setStatusFilter("all");
-                setPriorityFilter("all");
                 setTaskPage(1);
               }}>
                 Back to Projects
@@ -2074,12 +2522,12 @@ export default function Tasks() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+      <div className="flex flex-col md:flex-row gap-3 md:gap-4 mb-4 items-stretch md:items-center">
+        <div className="relative flex-1 min-w-[220px] w-full">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none z-10" />
           <Input
             placeholder={selectedProject ? "Search tasks in this project..." : "Search projects or tasks..."}
-            className="pl-10"
+            className="pl-10 pr-10 h-10 w-full bg-background border border-border text-foreground text-sm font-medium focus-visible:ring-2 focus-visible:ring-primary shadow-sm rounded-lg"
             value={selectedProject ? searchQuery : projectSearchQuery}
             onChange={(e) => {
               const next = e.target.value;
@@ -2090,30 +2538,79 @@ export default function Tasks() {
               }
             }}
           />
+          {(selectedProject ? searchQuery : projectSearchQuery) && (
+            <button
+              type="button"
+              onClick={() => {
+                if (selectedProject) {
+                  setSearchQuery("");
+                } else {
+                  setProjectSearchQuery("");
+                }
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
+              title="Clear search"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
-        <div className="flex flex-wrap gap-2 sm:gap-3 sm:flex-nowrap sm:overflow-x-auto sm:pb-0">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[130px] sm:w-[140px]">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-[130px] sm:w-[140px]">
-              <SelectValue placeholder="Priority" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Priority</SelectItem>
-              <SelectItem value="high">High</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="low">Low</SelectItem>
-            </SelectContent>
-          </Select>
+        {/* Quick Filter Chips (Replaces Mobile-Buggy Dropdowns) */}
+        <div className="w-full overflow-x-auto no-scrollbar py-1 flex items-center gap-1.5 shrink-0">
+          <Button
+            size="sm"
+            variant={statusFilter === "all" && priorityFilter === "all" && assignmentFilter === "all" ? "default" : "outline"}
+            onClick={() => {
+              setStatusFilter("all");
+              setPriorityFilter("all");
+              setAssignmentFilter("all");
+              setAssigneeFilter("all");
+            }}
+            className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+          >
+            All Tasks
+          </Button>
+          <Button
+            size="sm"
+            variant={assignmentFilter === "me" ? "default" : "outline"}
+            onClick={() => setAssignmentFilter(assignmentFilter === "me" ? "all" : "me")}
+            className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+          >
+            Assigned to Me
+          </Button>
+          <Button
+            size="sm"
+            variant={statusFilter === "pending" ? "default" : "outline"}
+            onClick={() => setStatusFilter(statusFilter === "pending" ? "all" : "pending")}
+            className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+          >
+            Pending
+          </Button>
+          <Button
+            size="sm"
+            variant={statusFilter === "active" ? "default" : "outline"}
+            onClick={() => setStatusFilter(statusFilter === "active" ? "all" : "active")}
+            className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+          >
+            In Progress
+          </Button>
+          <Button
+            size="sm"
+            variant={statusFilter === "completed" ? "default" : "outline"}
+            onClick={() => setStatusFilter(statusFilter === "completed" ? "all" : "completed")}
+            className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+          >
+            Completed
+          </Button>
+          <Button
+            size="sm"
+            variant={priorityFilter === "high" ? "default" : "outline"}
+            onClick={() => setPriorityFilter(priorityFilter === "high" ? "all" : "high")}
+            className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+          >
+            High Priority
+          </Button>
+        </div>
           <Button variant="outline" size="icon" className="shrink-0">
             <Filter className="w-4 h-4" />
           </Button>
@@ -2127,8 +2624,49 @@ export default function Tasks() {
             <Flame className="w-4 h-4" />
             <span className="hidden sm:inline">View by Priority</span>
           </Button>
-        </div>
       </div>
+
+      {/* Premium Tab Switcher */}
+      {!selectedProject && (
+        <div className="flex gap-1 bg-muted/40 p-1 rounded-xl border border-border/60 w-fit mb-4">
+          <Button
+            variant={activeTab === "all" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => {
+              const next = new URLSearchParams(searchParams);
+              next.set("tab", "all");
+              setSearchParams(next);
+            }}
+            className="h-8 text-xs font-semibold px-4 rounded-lg"
+          >
+            All
+          </Button>
+          <Button
+            variant={activeTab === "projects" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => {
+              const next = new URLSearchParams(searchParams);
+              next.set("tab", "projects");
+              setSearchParams(next);
+            }}
+            className="h-8 text-xs font-semibold px-4 rounded-lg"
+          >
+            Projects Only
+          </Button>
+          <Button
+            variant={activeTab === "tasks" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => {
+              const next = new URLSearchParams(searchParams);
+              next.set("tab", "tasks");
+              setSearchParams(next);
+            }}
+            className="h-8 text-xs font-semibold px-4 rounded-lg"
+          >
+            Tasks Only
+          </Button>
+        </div>
+      )}
 
       {/* Top Contributors Section */}
       <div className="bg-gradient-to-r from-amber-50/50 to-orange-50/50 dark:from-amber-950/20 dark:to-orange-950/20 rounded-xl border border-amber-200/60 dark:border-amber-800/30 p-4 mb-4">
@@ -2275,259 +2813,308 @@ export default function Tasks() {
             </div>
             <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> Created {new Date(selectedProject.createdAt).toLocaleDateString()}</span>
           </div>
+          {selectedProject.introVideoUrl && (
+            <div className="mt-4 pt-3 border-t space-y-1.5">
+              <p className="text-[11px] font-bold text-primary uppercase tracking-wider flex items-center gap-1.5"><Video className="w-3.5 h-3.5" /> Project Video</p>
+              {/youtube\.com|youtu\.be|vimeo\.com/i.test(selectedProject.introVideoUrl) ? (
+                <Button variant="outline" size="sm" className="gap-2" onClick={() => window.open(selectedProject.introVideoUrl, "_blank")}>
+                  <Video className="w-4 h-4" /> Watch Video
+                </Button>
+              ) : (
+                <video
+                  src={toProxiedUrl(selectedProject.introVideoUrl) || selectedProject.introVideoUrl}
+                  controls
+                  className="w-full max-h-[320px] object-contain rounded-lg border border-border bg-black"
+                />
+              )}
+            </div>
+          )}
+
+          {/* Project Cost Manager Link */}
+          <ProjectCostSheetLink
+            projectId={selectedProject.id}
+            onOpenSheet={(id, name) => {
+              setCostManagerModalSheetId(id);
+              setCostManagerModalSheetName(name);
+              setCostManagerModalOpen(true);
+            }}
+          />
         </div>
       ) : (
         <>
-          <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
-            <h2 className="font-semibold text-lg mb-3">Projects</h2>
-            {projectsQuery.isLoading ? (
-              <p className="text-muted-foreground">Loading projects...</p>
-            ) : projectsQuery.isError ? (
-              <p className="text-destructive">Failed to load projects</p>
-            ) : projects.length === 0 ? (
-              <p className="text-muted-foreground">No projects found. Create one to begin.</p>
-            ) : (
-              <>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {paginatedProjects.map((project, idx) => {
-                  const assigneeList = Array.isArray(project.assignees) && project.assignees.length > 0
-                    ? project.assignees.map(resolveAssigneeName)
-                    : [];
-                  const taskNum = project.taskCount ?? 0;
-                  const projectNumber = (projectPage - 1) * PAGE_SIZE + idx + 1;
+          {/* Projects Section */}
+          {(activeTab === "all" || activeTab === "projects") && (
+            <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
+              <h2 className="font-semibold text-lg mb-3">Projects</h2>
+              {projectsQuery.isLoading ? (
+                <p className="text-muted-foreground">Loading projects...</p>
+              ) : projectsQuery.isError ? (
+                <p className="text-destructive">Failed to load projects</p>
+              ) : filteredProjects.length === 0 ? (
+                <p className="text-muted-foreground">{(searchQuery || assigneeFilter !== "all" || statusFilter !== "all" || priorityFilter !== "all" || assignmentFilter !== "all") ? "No projects match your filter criteria." : "No projects found. Create one to begin."}</p>
+              ) : (
+                <>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {paginatedProjects.map((project, idx) => {
+                    const assigneeList = Array.isArray(project.assignees) && project.assignees.length > 0
+                      ? project.assignees.map(resolveAssigneeName)
+                      : [];
+                    const taskNum = project.taskCount ?? 0;
+                    const projectNumber = (projectPage - 1) * PAGE_SIZE + idx + 1;
 
-                  return (
-                    <div
-                      key={project.id}
-                      className="group relative p-3 sm:p-4 rounded-xl border border-border/60 hover:border-primary/50 transition-all bg-card shadow-sm hover:shadow-md flex flex-col gap-3"
-                    >
-                      {/* Three dots menu for project edit */}
-                      <div className="absolute top-2 right-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity z-10">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button
-                              className="p-1.5 rounded-lg hover:bg-muted transition-colors"
-                              aria-label="Project actions"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
+                    return (
+                      <div
+                        key={project.id}
+                        className="group relative p-3 sm:p-4 rounded-xl border border-border/60 hover:border-primary/50 transition-all bg-card shadow-sm hover:shadow-md flex flex-col gap-3"
+                      >
+                        {/* Three dots menu for project edit */}
+                        <div className="absolute top-2 right-2 z-10">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+                                aria-label="Project actions"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
 
-                            
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingProject(project);
-                                setEditProjectName(project.name);
-                                setEditProjectDescription(project.description || "");
-                                setEditProjectLogoPreview(project.logo?.url || "");
-                                setEditProjectLogoFile(null);
-                                setIsEditProjectOpen(true);
-                              }}
-                            >
-                              <Edit className="w-4 h-4 mr-2" />
-                              Edit
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
+                              
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingProject(project);
+                                  setEditProjectName(project.name);
+                                  setEditProjectDescription(project.description || "");
+                                  setEditProjectLogoPreview(project.logo?.url || "");
+                                  setEditProjectLogoFile(null);
+                                  setIsEditProjectOpen(true);
+                                }}
+                              >
+                                <Edit className="w-4 h-4 mr-2" />
+                                Edit
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
 
-                      <div className="cursor-pointer flex flex-col flex-1" onClick={() => void loadProject(project.id)}>
-                        <div className="flex items-center gap-3 mb-3 pr-8">
-                          <span className="flex-shrink-0 text-[10px] font-black text-muted-foreground/30 w-4">{projectNumber}</span>
-                          <ProjectLogoImg projectId={project.id} projectName={project.name} logoUrl={project.logo?.url} />
-                          <div className="min-w-0">
-                            <p className="font-bold text-[15px] truncate group-hover:text-primary transition-colors">{project.name}</p>
-                            <p className="text-[11px] text-muted-foreground truncate leading-tight">{project.description || "No description"}</p>
+                        <div className="cursor-pointer flex flex-col flex-1" onClick={() => void loadProject(project.id)}>
+                          <div className="flex items-center gap-3 mb-3 pr-8">
+                            <span className="flex-shrink-0 text-[10px] font-black text-muted-foreground/30 w-4">{projectNumber}</span>
+                            <ProjectLogoImg projectId={project.id} projectName={project.name} logoUrl={project.logo?.url} />
+                            <div className="min-w-0 flex-1 pr-8">
+                              <p className="font-bold text-[15px] truncate group-hover:text-primary transition-colors">{project.name}</p>
+                              <p className="text-[11px] text-muted-foreground truncate leading-tight">{project.description || "No description"}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center justify-between text-[11px] text-muted-foreground/80 mb-3 bg-muted/10 p-1.5 rounded-lg px-2 gap-2">
+                            <span className="truncate flex items-center gap-1"><Users className="w-3 h-3" /> {assigneeList.length > 0 ? (assigneeList.length > 1 ? `${assigneeList[0]} +${assigneeList.length-1}` : assigneeList[0]) : "Member Only"}</span>
+                            <div className="flex items-center gap-3">
+                              <span className="flex-shrink-0 font-bold bg-background px-1.5 py-0.5 rounded border border-border/50">{taskNum} tasks</span>
+                              {(() => {
+                                const { images, files } = getAttachmentCounts(project.attachments);
+                                return (images > 0 || files > 0) && (
+                                  <div className="flex items-center gap-2 border-l pl-2 border-border/40">
+                                    {images > 0 && <span className="flex items-center gap-1 text-primary/70"><Paperclip className="w-2.5 h-2.5" /> {images}</span>}
+                                    {files > 0 && <span className="flex items-center gap-1 text-indigo-600/70"><FileText className="w-2.5 h-2.5" /> {files}</span>}
+                                  </div>
+                                );
+                              })()}
+                            </div>
                           </div>
                         </div>
 
-                        <div className="flex flex-wrap items-center justify-between text-[11px] text-muted-foreground/80 mb-3 bg-muted/10 p-1.5 rounded-lg px-2 gap-2">
-                          <span className="truncate flex items-center gap-1"><Users className="w-3 h-3" /> {assigneeList.length > 0 ? (assigneeList.length > 1 ? `${assigneeList[0]} +${assigneeList.length-1}` : assigneeList[0]) : "Member Only"}</span>
-                          <div className="flex items-center gap-3">
-                            <span className="flex-shrink-0 font-bold bg-background px-1.5 py-0.5 rounded border border-border/50">{taskNum} tasks</span>
-                            {(() => {
-                              const { images, files } = getAttachmentCounts(project.attachments);
-                              return (images > 0 || files > 0) && (
-                                <div className="flex items-center gap-2 border-l pl-2 border-border/40">
-                                  {images > 0 && <span className="flex items-center gap-1 text-primary/70"><Paperclip className="w-2.5 h-2.5" /> {images}</span>}
-                                  {files > 0 && <span className="flex items-center gap-1 text-indigo-600/70"><FileText className="w-2.5 h-2.5" /> {files}</span>}
-                                </div>
-                              );
-                            })()}
-                          </div>
+                        <div className="flex items-center justify-between mt-auto pt-2 border-t border-border/40">
+                          <Badge variant="outline" className="h-6 text-[10px] font-bold bg-muted/5 border-border/60">
+                            {project.status || "Pending"}
+                          </Badge>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-7 w-7 rounded-full hover:bg-primary/10 hover:text-primary transition-colors border border-transparent hover:border-primary/20"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void loadProjectComments(project.id);
+                            }}
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
+                          </Button>
                         </div>
                       </div>
-
-                      <div className="flex items-center justify-between mt-auto pt-2 border-t border-border/40">
-                        <Badge variant="outline" className="h-6 text-[10px] font-bold bg-muted/5 border-border/60">
-                          {project.status || "Pending"}
-                        </Badge>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-7 w-7 rounded-full hover:bg-primary/10 hover:text-primary transition-colors border border-transparent hover:border-primary/20"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void loadProjectComments(project.id);
-                          }}
-                        >
-                          <MessageSquare className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              <Pagination
-                currentPage={projectPage}
-                totalPages={projectTotalPages}
-                onPageChange={setProjectPage}
-                className="mt-4"
-              />
-              </>
-            )}
-          </div>
+                    );
+                  })}
+                </div>
+                <Pagination
+                  currentPage={projectPage}
+                  totalPages={projectTotalPages}
+                  onPageChange={setProjectPage}
+                  className="mt-4"
+                />
+                </>
+              )}
+            </div>
+          )}
 
           {/* Tasks Section */}
-          <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
-            <h2 className="font-semibold text-lg mb-3">Tasks</h2>
-            {tasksQuery.isLoading ? (
-              <p className="text-muted-foreground">Loading tasks...</p>
-            ) : tasksQuery.isError ? (
-              <p className="text-destructive">Failed to load tasks</p>
-            ) : paginatedTasks.length === 0 ? (
-              <p className="text-muted-foreground">No standalone tasks found. Create one to begin.</p>
-            ) : (
-              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-               {paginatedTasks.map((task, index) => {
-  const timer = task.dueDate
-    ? getRemainingTime(task.dueDate, now)
-    : null;
+          {(activeTab === "all" || activeTab === "tasks") && (
+            <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
+              <h2 className="font-semibold text-lg mb-3">Tasks</h2>
+              {tasksQuery.isLoading ? (
+                <p className="text-muted-foreground">Loading tasks...</p>
+              ) : tasksQuery.isError ? (
+                <p className="text-destructive">Failed to load tasks</p>
+              ) : paginatedTasks.length === 0 ? (
+                <p className="text-muted-foreground">No standalone tasks found. Create one to begin.</p>
+              ) : (
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                 {paginatedTasks.map((task, index) => {
+    const timer = task.dueDate
+      ? getRemainingTime(task.dueDate, now)
+      : null;
 
-  const state = timer ? getTimerState(timer.totalMs) : null;
+    const state = timer ? getTimerState(timer.totalMs) : null;
 
-  return (
-    <motion.div
-      key={task.id}
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05 }}
-      className="bg-card rounded-xl border border-muted/50 hover:border-primary/50 transition-all hover:shadow-md overflow-hidden flex flex-col group cursor-pointer"
-      onClick={() => openView(task)}
-    >
-      {/* Card Header */}
-      <div className="p-4 border-b border-muted/30 flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="font-semibold text-foreground line-clamp-1">
-            <span className="text-primary mr-1.5">
-              {task.taskNumber || ((taskPage - 1) * PAGE_SIZE + index + 1)}.
-            </span>
-            {task.executionPriority ? (
-              <span className="inline-flex items-center gap-1 mr-2 align-middle text-[11px] font-bold px-2 py-0.5 rounded-full bg-gradient-to-r from-orange-500 to-red-500 text-white">
-                <Flame className="w-3 h-3" />
-                #{task.executionPriority}
+    return (
+      <motion.div
+        key={task.id}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: index * 0.05 }}
+        className="bg-card rounded-xl border border-muted/50 hover:border-primary/50 transition-all hover:shadow-md overflow-hidden flex flex-col group cursor-pointer"
+        onClick={() => openView(task)}
+      >
+        {/* Card Header */}
+        <div className="p-4 border-b border-muted/30 flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-foreground line-clamp-1">
+              <span className="text-primary mr-1.5">
+                {task.taskNumber || ((taskPage - 1) * PAGE_SIZE + index + 1)}.
               </span>
-            ) : null}
-            {task.title}
-          </p>
-          <p className="text-xs text-muted-foreground mt-1 capitalize">
-            {task.priority} priority
-          </p>
-        </div>
-        {isTeamLead && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={(e) => {
-              e.stopPropagation();
-              openReassignDialog(task);
-            }}
-            className="shrink-0"
-            title="Reassign"
-          >
-            <Users className="w-4 h-4 sm:mr-1" />
-            <span className="hidden sm:inline">Reassign</span>
-          </Button>
-        )}
-      </div>
-
-      {/* Card Body */}
-      <div className="p-4 flex-1 space-y-3">
-
-        {/* ✅ TIMER ADDED HERE */}
-        {timer && (
-          <div
-            className={`text-xs font-mono font-bold ${
-              state === "normal"
-                ? "text-green-600"
-                : state === "warning"
-                ? "text-yellow-500"
-                : state === "critical"
-                ? "text-red-500"
-                : "text-red-600 animate-pulse"
-            }`}
-          >
-            ⏱ {timer.formatted}
+              {task.executionPriority ? (
+                <span className="inline-flex items-center gap-1 mr-2 align-middle text-[11px] font-bold px-2 py-0.5 rounded-full bg-gradient-to-r from-orange-500 to-red-500 text-white">
+                  <Flame className="w-3 h-3" />
+                  #{task.executionPriority}
+                </span>
+              ) : null}
+              {task.title}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1 capitalize">
+              {task.priority} priority
+            </p>
           </div>
-        )}
+          {isTeamLead && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={(e) => {
+                e.stopPropagation();
+                openReassignDialog(task);
+              }}
+              className="shrink-0"
+              title="Reassign"
+            >
+              <Users className="w-4 h-4 sm:mr-1" />
+              <span className="hidden sm:inline">Reassign</span>
+            </Button>
+          )}
+        </div>
 
-        {/* Description */}
-        <p className="text-sm text-muted-foreground line-clamp-2">
-          {task.description}
-        </p>
+        {/* Card Body */}
+        <div className="p-4 flex-1 space-y-3">
 
-        {/* Status & Priority */}
-        <div className="flex gap-2 flex-wrap items-center">
-          <Badge
-            variant="secondary"
-            className={cn("text-xs", statusClasses[task.status])}
-          >
-            {task.status}
-          </Badge>
-          <Badge
-            variant="outline"
-            className={cn("text-xs border", priorityClasses[task.priority])}
-          >
-            {task.priority}
-          </Badge>
+          {/* ✅ TIMER ADDED HERE (Only displayed once task has started / status is not pending) */}
+          {timer && task.status !== "pending" && (
+            <div
+              className={`text-xs font-mono font-bold ${
+                state === "normal"
+                  ? "text-green-600"
+                  : state === "warning"
+                  ? "text-yellow-500"
+                  : state === "critical"
+                  ? "text-red-500"
+                  : "text-red-600 animate-pulse"
+              }`}
+            >
+              ⏱ {timer.formatted}
+            </div>
+          )}
+
+          {/* Description */}
+          <p className="text-sm text-muted-foreground line-clamp-2">
+            {task.description}
+          </p>
+
           {(() => {
-            const { images, files } = getAttachmentCounts(task.attachments, task.attachment);
-            return (images > 0 || files > 0) && (
-              <div className="flex items-center gap-2 ml-auto">
-                {images > 0 && <span className="flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/5 px-1.5 py-0.5 rounded border border-primary/10"><Paperclip className="w-3 h-3" /> {images}</span>}
-                {files > 0 && <span className="flex items-center gap-1 text-[10px] font-bold text-indigo-600 bg-indigo-500/5 px-1.5 py-0.5 rounded border border-indigo-500/10"><FileText className="w-3 h-3" /> {files}</span>}
+            const allAtts = Array.isArray(task.attachments) ? [...task.attachments] : [];
+            if (task.attachment?.url && !allAtts.some(a => a.url === task.attachment.url)) {
+              allAtts.unshift(task.attachment);
+            }
+            const imgAtt = allAtts.find(a => a.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(a.fileName || ""));
+            if (!imgAtt) return null;
+            return (
+              <div className="mt-2 rounded-md overflow-hidden border border-border/50 h-24 bg-muted/20">
+                <TaskAttachmentImg
+                  taskId={task.id}
+                  attachmentUrl={imgAtt.url}
+                  onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
+                />
               </div>
             );
           })()}
-        </div>
-      </div>
 
-      {/* Footer */}
-      <div className="p-4 border-t border-muted/30 bg-muted/10 space-y-2 text-sm">
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <Calendar className="w-3.5 h-3.5" />
-          <span className="text-xs">
-            Due:{" "}
-            {task.dueDate
-              ? new Date(task.dueDate).toLocaleDateString()
-              : "—"}
-          </span>
-        </div>
-      </div>
-    </motion.div>
-  );
-})}
-              </div>
-            )}
+          {/* Status & Priority */}
+          <div className="flex gap-2 flex-wrap items-center">
+            <Badge
+              variant="secondary"
+              className={cn("text-xs", statusClasses[task.status])}
+            >
+              {task.status}
+            </Badge>
+            <Badge
+              variant="outline"
+              className={cn("text-xs border", priorityClasses[task.priority])}
+            >
+              {task.priority}
+            </Badge>
+            {(() => {
+              const { images, files } = getAttachmentCounts(task.attachments, task.attachment);
+              return (images > 0 || files > 0) && (
+                <div className="flex items-center gap-2 ml-auto">
+                  {images > 0 && <span className="flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/5 px-1.5 py-0.5 rounded border border-primary/10"><Paperclip className="w-3 h-3" /> {images}</span>}
+                  {files > 0 && <span className="flex items-center gap-1 text-[10px] font-bold text-indigo-600 bg-indigo-500/5 px-1.5 py-0.5 rounded border border-indigo-500/10"><FileText className="w-3 h-3" /> {files}</span>}
+                </div>
+              );
+            })()}
           </div>
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-muted/30 bg-muted/10 space-y-2 text-sm">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Calendar className="w-3.5 h-3.5" />
+            <span className="text-xs">
+              Due:{" "}
+              {task.dueDate
+                ? new Date(task.dueDate).toLocaleDateString()
+                : "—"}
+            </span>
+          </div>
+        </div>
+      </motion.div>
+    );
+  })}
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
 
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-[620px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-[620px] max-h-[85dvh] sm:max-h-[90vh] overflow-y-auto overscroll-contain pb-6 sm:pb-4">
           <DialogHeader>
             <DialogTitle>Create Project</DialogTitle>
             <DialogDescription>Create a project and assign it.</DialogDescription>
@@ -2558,15 +3145,23 @@ export default function Tasks() {
 
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Project Description</label>
-                <Textarea
-                  placeholder="Short project description"
-                  className="min-h-[80px]"
-                  value={projectDescription}
-                  autoComplete="on"
-                  autoCorrect="on"
-                  spellCheck="true"
-                  onChange={(e) => setProjectDescription(e.target.value)}
-                />
+                <div className="flex flex-col sm:flex-row gap-3 items-end">
+                  <div className="flex-1 w-full">
+                    <Textarea
+                      placeholder="Short project description"
+                      className="min-h-[80px] w-full resize-y"
+                      value={projectDescription}
+                      autoComplete="on"
+                      autoCorrect="on"
+                      spellCheck="true"
+                      onChange={(e) => setProjectDescription(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex sm:flex-col gap-2 shrink-0 w-full sm:w-auto sm:pb-0.5">
+                    <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} disabled={isCreating} className="flex-1 sm:w-32">Cancel</Button>
+                    <Button type="submit" disabled={isCreating} className="flex-1 sm:w-32 gap-2">{isCreating && <Loader2 className="h-4 w-4 animate-spin" />}Create Project</Button>
+                  </div>
+                </div>
               </div>
 
               <div className="sm:col-span-2 space-y-1.5">
@@ -2635,22 +3230,23 @@ export default function Tasks() {
                     accept="*"
                     multiple
                     className="hidden"
-                    onChange={(e) => {
-                      const files = Array.from(e.target.files ?? []);
-                      setProjectAttachmentFiles((prev) => [...prev, ...files]);
-                      files.forEach((file) => {
-                        const reader = new FileReader();
-                        reader.onload = () => {
-                          const result = typeof reader.result === "string" ? reader.result : "";
-                          setProjectAttachmentPreviews((prev) => [...prev, result]);
-                        };
-                        if (file.type.startsWith("image/")) {
-                          reader.readAsDataURL(file);
-                        } else {
-                          setProjectAttachmentPreviews((prev) => [...prev, ""]);
-                        }
-                      });
-                    }}
+                    onChange={async (e) => {
+  const files = Array.from(e.target.files ?? []);
+  if (!files.length) return;
+  const processedFiles = files; // In manager/employee we skip resize to maintain original logic unless needed
+  const previews = await Promise.all(processedFiles.map(file => new Promise((resolve) => {
+    if (file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+      reader.readAsDataURL(file);
+    } else resolve("");
+  })));
+  setProjectAttachmentFiles((prev) => [...prev, ...processedFiles]);
+  if (typeof setProjectAttachmentPreviews === 'function') {
+      setProjectAttachmentPreviews((prev) => [...prev, ...previews]);
+  }
+  e.target.value = "";
+}}
                   />
                   {projectAttachmentFiles.length > 0 && (
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2">
@@ -2713,13 +3309,13 @@ export default function Tasks() {
                   <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                     <Command>
                       <CommandInput placeholder="Search employees..." />
-                      <CommandList>
+                      <CommandList className="max-h-[280px] sm:max-h-[320px] overflow-y-auto custom-scrollbar touch-pan-y overscroll-contain">
                         <CommandEmpty>No employee found.</CommandEmpty>
                         <CommandGroup>
                           {activeEmployees.map((employee) => (
                             <CommandItem
                               key={employee.id}
-                              value={employee.name}
+                              value={`${employee.name} ${employee.role || ""} ${employee.department || ""} ${employee.email || ""}`}
                               onSelect={() => {
                                 setProjectCreationAssignees((prev) =>
                                   prev.includes(employee.name)
@@ -2730,18 +3326,29 @@ export default function Tasks() {
                             >
                               <Check
                                 className={cn(
-                                  "mr-2 h-4 w-4",
+                                  "mr-2 h-4 w-4 shrink-0",
                                   projectCreationAssignees.includes(employee.name)
                                     ? "opacity-100"
                                     : "opacity-0"
                                 )}
                               />
-                              <Avatar className="h-6 w-6 mr-2">
-                                <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                                  {employee.initials}
-                                </AvatarFallback>
+                              <Avatar className="h-6 w-6 mr-2 shrink-0">
+                                {(employee.avatarDataUrl || employee.avatarUrl) ? (
+                                  <img src={employee.avatarDataUrl || employee.avatarUrl} alt={employee.name} className="w-full h-full object-cover rounded-full" />
+                                ) : (
+                                  <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-semibold">
+                                    {employee.initials}
+                                  </AvatarFallback>
+                                )}
                               </Avatar>
-                              {employee.name}
+                              <div className="flex flex-col min-w-0 flex-1">
+                                <span className="truncate text-sm font-medium">{employee.name}</span>
+                                {(employee.role || employee.department || employee.email) && (
+                                  <span className="truncate text-[11px] text-muted-foreground">
+                                    {[employee.role, employee.department || employee.email].filter(Boolean).join(" • ")}
+                                  </span>
+                                )}
+                              </div>
                             </CommandItem>
                           ))}
                         </CommandGroup>
@@ -2805,15 +3412,6 @@ export default function Tasks() {
               )}
             </div>
 
-            <DialogFooter className="flex-col sm:flex-row gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} disabled={isCreating} className="w-full sm:w-auto">
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isCreating} className="w-full sm:w-auto gap-2">
-                  {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Create Project
-                </Button>
-              </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
@@ -2822,7 +3420,7 @@ export default function Tasks() {
           setIsCreateTaskOpen(open);
           if (!open) setIsDirectTask(false);
         }}>
-          <DialogContent className="w-[95vw] sm:max-w-[620px] max-h-[90vh] overflow-y-auto">
+          <DialogContent className="w-[95vw] sm:max-w-[620px] max-h-[85dvh] sm:max-h-[90vh] overflow-y-auto overscroll-contain pb-6 sm:pb-4">
             <DialogHeader>
               <DialogTitle>{isDirectTask ? "Create Standalone Task" : "Create Task"}</DialogTitle>
               <DialogDescription>
@@ -2853,13 +3451,25 @@ export default function Tasks() {
                 </div>
                 <div className="sm:col-span-2 space-y-1.5">
                   <label className="text-sm font-medium">Task Description *</label>
-                  <Textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-                    spellCheck="true"
-                    autoCorrect="on"
-                    autoComplete="on"
-                  />
+                  <div className="flex flex-col sm:flex-row gap-3 items-end">
+                    <div className="flex-1 w-full">
+                      <Textarea
+                        value={formData.description}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+                        spellCheck="true"
+                        autoCorrect="on"
+                        autoComplete="on"
+                        className="min-h-[80px] w-full resize-y"
+                      />
+                    </div>
+                    <div className="flex sm:flex-col gap-2 shrink-0 w-full sm:w-auto sm:pb-0.5">
+                      <Button type="button" variant="outline" onClick={() => { setIsCreateTaskOpen(false); setIsDirectTask(false); }} disabled={isCreating} className="flex-1 sm:w-32">Cancel</Button>
+                      <Button type="submit" disabled={isCreating} className="flex-1 sm:w-32 gap-2">
+                        {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}
+                        Create Task
+                      </Button>
+                    </div>
+                  </div>
                   {validationErrors.description && <p className="text-xs text-destructive">{validationErrors.description}</p>}
                 </div>
                 <div className="sm:col-span-2 space-y-1.5">
@@ -2876,13 +3486,13 @@ export default function Tasks() {
                     <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                       <Command>
                         <CommandInput placeholder="Search employees..." />
-                        <CommandList>
+                        <CommandList className="max-h-[280px] sm:max-h-[320px] overflow-y-auto custom-scrollbar touch-pan-y overscroll-contain">
                           <CommandEmpty>No employee found.</CommandEmpty>
                           <CommandGroup>
                             {activeEmployees.map((employee) => (
                               <CommandItem
                                 key={employee.id}
-                                value={employee.name}
+                                value={`${employee.name} ${employee.role || ""} ${employee.department || ""} ${employee.email || ""}`}
                                 onSelect={() => {
                                   setSelectedAssignees((prev) =>
                                     prev.includes(employee.name)
@@ -2893,16 +3503,27 @@ export default function Tasks() {
                               >
                                 <Check
                                   className={cn(
-                                    "mr-2 h-4 w-4",
+                                    "mr-2 h-4 w-4 shrink-0",
                                     selectedAssignees.includes(employee.name) ? "opacity-100" : "opacity-0"
                                   )}
                                 />
-                                <Avatar className="h-6 w-6 mr-2">
-                                  <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                                    {employee.initials}
-                                  </AvatarFallback>
+                                <Avatar className="h-6 w-6 mr-2 shrink-0">
+                                  {(employee.avatarDataUrl || employee.avatarUrl) ? (
+                                    <img src={employee.avatarDataUrl || employee.avatarUrl} alt={employee.name} className="w-full h-full object-cover rounded-full" />
+                                  ) : (
+                                    <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-semibold">
+                                      {employee.initials}
+                                    </AvatarFallback>
+                                  )}
                                 </Avatar>
-                                {employee.name}
+                                <div className="flex flex-col min-w-0 flex-1">
+                                  <span className="truncate text-sm font-medium">{employee.name}</span>
+                                  {(employee.role || employee.department || employee.email) && (
+                                    <span className="truncate text-[11px] text-muted-foreground">
+                                      {[employee.role, employee.department || employee.email].filter(Boolean).join(" • ")}
+                                    </span>
+                                  )}
+                                </div>
                               </CommandItem>
                             ))}
                           </CommandGroup>
@@ -2938,6 +3559,14 @@ export default function Tasks() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="sm:col-span-2 space-y-1.5">
+                  <label className="text-sm font-medium">Location</label>
+                  <Input
+                    value={formData.location}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, location: e.target.value }))}
+                    placeholder="e.g. Center"
+                  />
+                </div>
               </div>
 
               <div className="space-y-1.5">
@@ -2966,22 +3595,23 @@ export default function Tasks() {
                     accept="*"
                     multiple
                     className="hidden"
-                    onChange={(e) => {
-                      const files = Array.from(e.target.files ?? []);
-                      setAttachmentFiles((prev) => [...prev, ...files]);
-                      files.forEach((file) => {
-                        const reader = new FileReader();
-                        reader.onload = () => {
-                          const result = typeof reader.result === "string" ? reader.result : "";
-                          setAttachmentFilePreviews((prev) => [...prev, result]);
-                        };
-                        if (file.type.startsWith("image/")) {
-                          reader.readAsDataURL(file);
-                        } else {
-                          setAttachmentFilePreviews((prev) => [...prev, ""]);
-                        }
-                      });
-                    }}
+                    onChange={async (e) => {
+  const files = Array.from(e.target.files ?? []);
+  if (!files.length) return;
+  const processedFiles = files; // In manager/employee we skip resize to maintain original logic unless needed
+  const previews = await Promise.all(processedFiles.map(file => new Promise((resolve) => {
+    if (file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+      reader.readAsDataURL(file);
+    } else resolve("");
+  })));
+  setAttachmentFiles((prev) => [...prev, ...processedFiles]);
+  if (typeof setAttachmentFilePreviews === 'function') {
+      setAttachmentFilePreviews((prev) => [...prev, ...previews]);
+  }
+  e.target.value = "";
+}}
                   />
                   {attachmentFiles.length > 0 && (
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2">
@@ -3024,16 +3654,6 @@ export default function Tasks() {
                 </div>
               </div>
 
-              <DialogFooter className="flex-col sm:flex-row gap-2">
-                <Button type="button" variant="outline" onClick={() => {
-                  setIsCreateTaskOpen(false);
-                  setIsDirectTask(false);
-                }} disabled={isCreating} className="w-full sm:w-auto">Cancel</Button>
-                <Button type="submit" disabled={isCreating} className="w-full sm:w-auto gap-2">
-                  {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {isDirectTask ? "Create Task" : "Create Task"}
-                </Button>
-              </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
@@ -3054,7 +3674,7 @@ export default function Tasks() {
                   </div>
                 </DialogHeader>
 
-                <div className="flex-1 flex flex-col md:flex-row overflow-hidden bg-background">
+                <div className="flex-1 flex flex-col lg:flex-row overflow-hidden bg-background">
                   {/* Left Pane: Content & Comments */}
                   <div className="flex-1 overflow-y-auto custom-scrollbar bg-background">
                     <div className="p-4 sm:p-7 space-y-8 max-w-4xl mx-auto">
@@ -3071,41 +3691,89 @@ export default function Tasks() {
                         </div>
                       </div>
 
+                      {/* Task Cost Manager Link */}
+                      <TaskCostSheetLink
+                        taskId={selectedTask.id}
+                        onOpenSheet={(id, name) => {
+                          setCostManagerModalSheetId(id);
+                          setCostManagerModalSheetName(name);
+                          setCostManagerModalOpen(true);
+                        }}
+                      />
+
+                      {/* Task Video */}
+                      {selectedTask.introVideoUrl && (
+                        <div className="space-y-2 pt-2">
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Video className="w-4 h-4" />
+                            <h4 className="text-[13px] font-bold uppercase tracking-wider">Video</h4>
+                          </div>
+                          {/youtube\.com|youtu\.be|vimeo\.com/i.test(selectedTask.introVideoUrl) ? (
+                            <Button variant="outline" size="sm" className="gap-2" onClick={() => window.open(selectedTask.introVideoUrl, "_blank")}>
+                              <Video className="w-4 h-4" /> Watch Video
+                            </Button>
+                          ) : (
+                            <video
+                              src={toProxiedUrl(selectedTask.introVideoUrl) || selectedTask.introVideoUrl}
+                              controls
+                              className="w-full max-h-[320px] object-contain rounded-xl border border-border/60 bg-black"
+                            />
+                          )}
+                        </div>
+                      )}
+
+                      {/* Task Start/Close Timeline */}
+                      <TaskTimeline task={selectedTask} />
+
                       {/* Task Attachments Grid - Same as Admin Panel */}
                       {((selectedTask.attachments && selectedTask.attachments.length > 0) || selectedTask.attachment?.fileName) && (
                         <div className="space-y-3 pt-2">
                           <h4 className="text-[13px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2"><Paperclip className="w-4 h-4" /> Attached Files</h4>
                           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 bg-muted/20 p-3 rounded-xl border border-border/50">
                             {selectedTask.attachments && selectedTask.attachments.length > 0
-                              ? selectedTask.attachments.map((attachment, idx) => (
-                                <div key={idx} className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow cursor-zoom-in" onClick={() => { if (attachment.url) { setPreviewUrl(toProxiedUrl(attachment.url) || attachment.url); setPreviewName(attachment.fileName || "Attachment"); } }}>
-                                  {(attachment.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(attachment.fileName || "")) && attachment.url ? (
-                                    <img src={toProxiedUrl(attachment.url) || attachment.url} alt={attachment.fileName || `Attachment`} className="w-full h-24 object-cover" />
-                                  ) : (
-                                    <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>
-                                  )}
-                                  <div className="p-2 border-t text-[11px] font-medium truncate text-muted-foreground">{attachment.fileName}</div>
+                              ? selectedTask.attachments.map((attachment, idx) => {
+                                const taskImageGallery = (selectedTask.attachments || [])
+                                  .filter((a) => a.url && (a.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(a.fileName || "")))
+                                  .map((a) => ({ url: toProxiedUrl(a.url) || a.url, name: a.fileName || "Attachment" }));
+                                return (
+                                  <div key={idx} className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow cursor-zoom-in" onClick={() => { if (attachment.url) { openImagePreview(toProxiedUrl(attachment.url) || attachment.url, attachment.fileName || "Attachment", taskImageGallery); } }}>
+                                    {(attachment.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(attachment.fileName || "")) && attachment.url ? (
+                                      <img src={toProxiedUrl(attachment.url) || attachment.url} alt={attachment.fileName || `Attachment`} className="w-full h-24 object-cover" />
+                                    ) : (
+                                      <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>
+                                    )}
+                                    <div className="p-2 border-t text-[11px] font-medium truncate text-muted-foreground">{attachment.fileName}</div>
 
-                                  <div className="absolute inset-0 bg-black/40 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[1px]">
-                                    <button
-                                      type="button"
-                                      onClick={(e) => { e.stopPropagation(); setPreviewUrl(toProxiedUrl(attachment.url) || attachment.url); setPreviewName(attachment.fileName || "Attachment"); }}
-                                      className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white"
-                                      title="Preview"
+                                    <div className="absolute inset-0 bg-black/40 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[1px]">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); openImagePreview(toProxiedUrl(attachment.url) || attachment.url, attachment.fileName || "Attachment", taskImageGallery); }}
+                                        className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white"
+                                        title="Preview"
+                                      >
+                                        <Maximize2 className="w-4 h-4" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); void downloadTaskAttachment(selectedTask.id, idx, attachment.fileName || "download"); }}
+                                        className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white"
+                                        title="Download"
+                                      >
+                                        <Download className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                    <button 
+                                      type="button" 
+                                      onClick={(e) => { e.stopPropagation(); setConfirmDeleteTaskAttachmentIndex(idx); }} 
+                                      disabled={deletingTaskAttachment === idx} 
+                                      className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-rose-600/90 hover:bg-rose-700 text-white rounded-full w-7 h-7 flex items-center justify-center shadow-lg z-10 hover:scale-105" 
+                                      title="Delete attachment from task"
                                     >
-                                      <Maximize2 className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={(e) => { e.stopPropagation(); void downloadTaskAttachment(selectedTask.id, idx, attachment.fileName || "download"); }}
-                                      className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white"
-                                      title="Download"
-                                    >
-                                      <Download className="w-4 h-4" />
+                                      {deletingTaskAttachment === idx ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                                     </button>
                                   </div>
-                                </div>
-                              ))
+                                );
+                              })
                               : selectedTask.attachment?.fileName ? (
                                 <div className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow cursor-zoom-in" onClick={() => { if (selectedTask.attachment?.url) { setPreviewUrl(toProxiedUrl(selectedTask.attachment.url) || selectedTask.attachment.url); setPreviewName(selectedTask.attachment.fileName || "Attachment"); } }}>
                                   {selectedTask.attachment.mimeType?.startsWith("image/") && selectedTask.attachment.url ? (
@@ -3132,6 +3800,15 @@ export default function Tasks() {
                                       <Download className="w-4 h-4" />
                                     </button>
                                   </div>
+                                  <button 
+                                    type="button" 
+                                    onClick={(e) => { e.stopPropagation(); setConfirmDeleteTaskAttachmentIndex(-1); }} 
+                                    disabled={deletingTaskAttachment === -1} 
+                                    className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-rose-600/90 hover:bg-rose-700 text-white rounded-full w-7 h-7 flex items-center justify-center shadow-lg z-10 hover:scale-105" 
+                                    title="Delete attachment from task"
+                                  >
+                                    {deletingTaskAttachment === -1 ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                                  </button>
                                 </div>
                               ) : null}
                           </div>
@@ -3228,7 +3905,7 @@ export default function Tasks() {
                                             {!isSameAuthor ? (
                                               <Avatar className="w-9 h-9 border-2 border-background shadow-sm flex-shrink-0 mb-1 ring-1 ring-border">
                                                 {c.authorAvatar ? (
-                                                  <img src={c.authorAvatar} alt="avatar" className="w-full h-full object-cover" />
+                                                  <img src={toProxiedUrl(c.authorAvatar) || c.authorAvatar} alt="avatar" className="w-full h-full object-cover" />
                                                 ) : (
                                                   <AvatarFallback className="text-[11px] bg-gradient-to-br from-primary/20 to-primary/40 text-primary font-semibold">
                                                     {(c.authorFullName || c.authorUsername).substring(0, 2).toUpperCase()}
@@ -3253,7 +3930,7 @@ export default function Tasks() {
                                               "absolute -top-4 opacity-0 group-hover/bubble:opacity-100 transition-opacity flex items-center gap-1 bg-background border border-border shadow-sm rounded-full px-1.5 py-0.5 z-20",
                                               isMe ? "right-0" : "left-0"
                                             )}>
-                                              <Popover>
+                                              <Popover open={openReactionPopoverId === c.id} onOpenChange={(open) => setOpenReactionPopoverId(open ? c.id : null)}>
                                                 <PopoverTrigger asChild>
                                                   <button className="p-1 hover:bg-muted rounded-full text-muted-foreground hover:text-foreground">
                                                     <Smile className="w-3.5 h-3.5" />
@@ -3263,7 +3940,10 @@ export default function Tasks() {
                                                   {["👍", "❤️", "🔥", "🚀", "👏", "🎉", "😮", "🙏"].map(emoji => (
                                                     <button
                                                       key={emoji}
-                                                      onClick={() => void toggleReaction(c.id, emoji)}
+                                                      onClick={() => {
+                                                        void toggleReaction(c.id, emoji);
+                                                        setOpenReactionPopoverId(null);
+                                                      }}
                                                       className="p-1.5 hover:bg-muted rounded text-lg transition-transform hover:scale-125"
                                                     >
                                                       {emoji}
@@ -3317,7 +3997,15 @@ export default function Tasks() {
                                                       mimeType={att.mimeType}
                                                       fileName={att.fileName}
                                                       fallbackUrl={att.url}
-                                                      onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
+                                                      onPreview={(url, name) => {
+                                                        // Gallery of every image in the whole comment thread
+                                                        const gallery = comments.flatMap((cm) =>
+                                                          (cm.attachments || [])
+                                                            .filter((a) => a.url && a.mimeType?.startsWith("image/"))
+                                                            .map((a) => ({ url: toProxiedUrl(a.url) || a.url, name: a.fileName || "image" }))
+                                                        );
+                                                        openImagePreview(url, name, gallery);
+                                                      }}
                                                     />
                                                   </div>
                                                 ))}
@@ -3477,13 +4165,32 @@ export default function Tasks() {
                               <button type="button" onClick={() => { const el = document.getElementById("comment-attachment-input") as HTMLInputElement; el?.click(); }} className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors flex items-center gap-1.5 border border-transparent hover:border-primary/20" title="Attach file">
                                 <Paperclip className="w-4 h-4" /> <span className="text-xs font-semibold hidden sm:inline">Attach</span>
                               </button>
+                              <button type="button" onClick={() => setIsVideoRecorderOpen(true)} className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors flex items-center gap-1.5 border border-transparent hover:border-red-500/20" title="Record Video">
+                                <Video className="w-4 h-4" /> <span className="text-xs font-semibold hidden sm:inline">Video</span>
+                              </button>
                               {ROLE_GROUPS.DROPBOX_ALLOWED.includes(currentRole) && (
                                 <button type="button" onClick={() => { setDropboxPickerTarget("task"); setIsDropboxPickerOpen(true); }} className="p-2 text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors flex items-center gap-1.5 border border-transparent hover:border-blue-500/20" title="Attach from Dropbox">
                                   <DropboxIcon size={14} /> <span className="text-xs font-semibold hidden sm:inline">Dropbox</span>
                                 </button>
                               )}
                               <span className="text-[11px] text-muted-foreground/60 px-3 hidden sm:inline-block font-medium border-l ml-1 border-border/50">Pro tip: Ctrl+Enter to send.</span>
-                              <input id="comment-attachment-input" type="file" multiple className="hidden" onChange={(e) => { if (e.target.files) { setCommentAttachments(prev => [...prev, ...Array.from(e.target.files!)]); } e.target.value = ''; }} />
+                              <input id="comment-attachment-input" type="file" multiple className="hidden" onChange={async (e) => {
+  const files = Array.from(e.target.files ?? []);
+  if (!files.length) return;
+  const processedFiles = files; // In manager/employee we skip resize to maintain original logic unless needed
+  const previews = await Promise.all(processedFiles.map(file => new Promise((resolve) => {
+    if (file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+      reader.readAsDataURL(file);
+    } else resolve("");
+  })));
+  setCommentAttachments((prev) => [...prev, ...processedFiles]);
+  if (typeof setCommentAttachmentPreviews === 'function') {
+      setCommentAttachmentPreviews((prev) => [...prev, ...previews]);
+  }
+  e.target.value = "";
+}} />
                             </div>
                             <Button type="button" onClick={() => void sendComment()} disabled={(!commentDraft.trim() && commentAttachments.length === 0) || isSendingComment} size="sm" className="h-9 px-5 rounded-lg font-bold shadow hover:shadow-md transition-all gap-1.5 flex items-center">
                               {isSendingComment && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
@@ -3497,13 +4204,76 @@ export default function Tasks() {
 
 
                   {/* Right Pane: Properties Sidebar */}
-                  <div className="w-full md:w-[320px] lg:w-[360px] bg-muted/10 shrink-0 border-t md:border-t-0 md:border-l border-border/50 overflow-y-auto">
+                  <div className="w-full lg:w-[320px] xl:w-[360px] bg-muted/10 shrink-0 border-t lg:border-t-0 lg:border-l border-border/50 overflow-y-auto">
                     <div className="p-6 space-y-7">
                       <h3 className="text-sm font-bold text-foreground flex items-center gap-2 pb-2 border-b">Properties</h3>
 
                       {/* Assignees */}
                       <div className="space-y-2">
-                        <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Assignees</label>
+                        <div className="flex items-center justify-between">
+                          <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Assignees</label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-6 px-2 text-xs font-semibold text-primary hover:bg-primary/10 flex items-center gap-1"
+                              >
+                                <Edit className="w-3.5 h-3.5" /> Edit
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-64 p-0 z-[150]" align="end">
+                              <Command>
+                                <CommandInput placeholder="Search employees..." />
+                                <CommandList className="max-h-[280px] sm:max-h-[320px] overflow-y-auto custom-scrollbar touch-pan-y overscroll-contain">
+                                  <CommandEmpty>No employee found.</CommandEmpty>
+                                  <CommandGroup>
+                                    {activeEmployees.map((employee) => {
+                                      const isAssigned = (selectedTask.assignees || []).includes(employee.name);
+                                      return (
+                                        <CommandItem
+                                          key={employee.id}
+                                          value={employee.name}
+                                          onSelect={async () => {
+                                            const currentAssignees = selectedTask.assignees || [];
+                                            const nextAssignees = isAssigned
+                                              ? currentAssignees.filter((name) => name !== employee.name)
+                                              : [...currentAssignees, employee.name];
+                                            try {
+                                              await updateTaskMutation.mutateAsync({
+                                                id: selectedTask.id,
+                                                payload: { assignees: nextAssignees },
+                                              });
+                                            } catch (err) {
+                                              toast({
+                                                title: "Reassignment failed",
+                                                description: err instanceof Error ? err.message : "Something went wrong",
+                                                variant: "destructive",
+                                              });
+                                            }
+                                          }}
+                                        >
+                                          <Check
+                                            className={cn(
+                                              "mr-2 h-4 w-4",
+                                              isAssigned ? "opacity-100" : "opacity-0"
+                                            )}
+                                          />
+                                          <Avatar className="h-6 w-6 mr-2">
+                                            <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                                              {employee.initials}
+                                            </AvatarFallback>
+                                          </Avatar>
+                                          {employee.name}
+                                        </CommandItem>
+                                      );
+                                    })}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
                         <div className="flex flex-col gap-2">
                           {selectedTask.assignees && selectedTask.assignees.length > 0 ? (
                             selectedTask.assignees.map((assignee, idx) => {
@@ -3585,6 +4355,11 @@ export default function Tasks() {
                             </div>
                           );
                         })()}
+
+                        {/* Task Follow-Up Control Center */}
+                        <div className="pt-4 border-t border-border/20">
+                          <FollowUpControlCenter taskId={selectedTask.id} isManager={true} />
+                        </div>
                       </div>
 
                       <div className="pt-4 space-y-3">
@@ -3610,7 +4385,7 @@ export default function Tasks() {
           if (!open) setSelectedTask(null);
         }}
       >
-        <DialogContent className="w-[95vw] sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-[700px] max-h-[85dvh] sm:max-h-[90vh] overflow-y-auto overscroll-contain pb-6 sm:pb-4">
           <DialogHeader>
             <DialogTitle>Edit Task</DialogTitle>
             <DialogDescription>Update task details.</DialogDescription>
@@ -3681,13 +4456,13 @@ export default function Tasks() {
                     <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                       <Command>
                         <CommandInput placeholder="Search employees..." />
-                        <CommandList>
+                        <CommandList className="max-h-[280px] sm:max-h-[320px] overflow-y-auto custom-scrollbar touch-pan-y overscroll-contain">
                           <CommandEmpty>No employee found.</CommandEmpty>
                           <CommandGroup>
                             {activeEmployees.map((employee) => (
                               <CommandItem
                                 key={employee.id}
-                                value={employee.name}
+                                value={`${employee.name} ${employee.role || ""} ${employee.department || ""} ${employee.email || ""}`}
                                 onSelect={() => {
                                   setEditSelectedAssignees((prev) =>
                                     prev.includes(employee.name)
@@ -3698,18 +4473,29 @@ export default function Tasks() {
                               >
                                 <Check
                                   className={cn(
-                                    "mr-2 h-4 w-4",
+                                    "mr-2 h-4 w-4 shrink-0",
                                     editSelectedAssignees.includes(employee.name)
                                       ? "opacity-100"
                                       : "opacity-0"
                                   )}
                                 />
-                                <Avatar className="h-6 w-6 mr-2">
-                                  <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                                    {employee.initials}
-                                  </AvatarFallback>
+                                <Avatar className="h-6 w-6 mr-2 shrink-0">
+                                  {(employee.avatarDataUrl || employee.avatarUrl) ? (
+                                    <img src={employee.avatarDataUrl || employee.avatarUrl} alt={employee.name} className="w-full h-full object-cover rounded-full" />
+                                  ) : (
+                                    <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-semibold">
+                                      {employee.initials}
+                                    </AvatarFallback>
+                                  )}
                                 </Avatar>
-                                {employee.name}
+                                <div className="flex flex-col min-w-0 flex-1">
+                                  <span className="truncate text-sm font-medium">{employee.name}</span>
+                                  {(employee.role || employee.department || employee.email) && (
+                                    <span className="truncate text-[11px] text-muted-foreground">
+                                      {[employee.role, employee.department || employee.email].filter(Boolean).join(" • ")}
+                                    </span>
+                                  )}
+                                </div>
                               </CommandItem>
                             ))}
                           </CommandGroup>
@@ -3945,6 +4731,60 @@ export default function Tasks() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Delete Task Attachment Confirmation Dialog */}
+      <AlertDialog open={confirmDeleteTaskAttachmentIndex !== null} onOpenChange={(open) => !open && setConfirmDeleteTaskAttachmentIndex(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Task Attachment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove this file from the task?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+            <AlertDialogCancel disabled={deletingTaskAttachment !== null}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                if (confirmDeleteTaskAttachmentIndex !== null) {
+                  void deleteTaskAttachment(confirmDeleteTaskAttachmentIndex);
+                }
+              }}
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+              disabled={deletingTaskAttachment !== null}
+            >
+              {deletingTaskAttachment !== null && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+              Delete File
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Project Attachment Confirmation Dialog */}
+      <AlertDialog open={confirmDeleteProjectAttachmentIndex !== null} onOpenChange={(open) => !open && setConfirmDeleteProjectAttachmentIndex(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Project File?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove this file from the project?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+            <AlertDialogCancel disabled={deletingProjectAttachment !== null}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                if (confirmDeleteProjectAttachmentIndex !== null) {
+                  void deleteProjectAttachment(confirmDeleteProjectAttachmentIndex);
+                }
+              }}
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+              disabled={deletingProjectAttachment !== null}
+            >
+              {deletingProjectAttachment !== null && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+              Delete File
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Task Cards Grid (only visible after project selected) */}
       {selectedProject && (
         <div className="space-y-6">
@@ -3993,18 +4833,42 @@ export default function Tasks() {
                             <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
                           </button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openView(task); }}>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleToggleTaskComplete(task, e);
+                            }}
+                            className="cursor-pointer font-medium"
+                          >
+                            {task.status === "completed" ? (
+                              <>
+                                <RotateCcw className="h-4 w-4 mr-2 text-amber-500" />
+                                Mark as Incomplete
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle2 className="h-4 w-4 mr-2 text-emerald-500" />
+                                Mark as Complete
+                              </>
+                            )}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openView(task); }} className="cursor-pointer">
+                            <Eye className="h-4 w-4 mr-2" />
                             View Details
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); void handlePrintTask(task); }}>
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); void handlePrintTask(task); }} className="cursor-pointer">
+                            <Printer className="h-4 w-4 mr-2" />
                             Print
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEdit(task); }}>
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEdit(task); }} className="cursor-pointer">
+                            <Edit className="h-4 w-4 mr-2" />
                             Edit
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDelete(task); }}>
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDelete(task); }} className="cursor-pointer text-destructive focus:text-destructive">
+                            <Trash2 className="h-4 w-4 mr-2" />
                             Delete
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -4015,6 +4879,24 @@ export default function Tasks() {
                     <div className="p-4 flex-1 space-y-3">
                       {/* Description */}
                       <p className="text-sm text-muted-foreground line-clamp-2">{task.description}</p>
+
+                      {(() => {
+                        const allAtts = Array.isArray(task.attachments) ? [...task.attachments] : [];
+                        if (task.attachment?.url && !allAtts.some(a => a.url === task.attachment.url)) {
+                          allAtts.unshift(task.attachment);
+                        }
+                        const imgAtt = allAtts.find(a => a.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(a.fileName || ""));
+                        if (!imgAtt) return null;
+                        return (
+                          <div className="mt-2 rounded-md overflow-hidden border border-border/50 h-24 bg-muted/20">
+                            <TaskAttachmentImg 
+                              taskId={task.id} 
+                              attachmentUrl={imgAtt.url}
+                              onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
+                            />
+                          </div>
+                        );
+                      })()}
 
                       {/* Attachment Summary */}
                       {task.attachments && task.attachments.length > 0 && (
@@ -4042,11 +4924,16 @@ export default function Tasks() {
                               <div className="flex -space-x-2">
                                 {task.assignees.slice(0, 3).map((assignee, idx) => {
                                   const displayName = resolveAssigneeName(assignee);
+                                  const avatar = resolveAssigneeAvatar(assignee);
                                   return (
                                     <Avatar key={idx} className="w-7 h-7 border-2 border-background">
-                                      <AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">
-                                        {displayName.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase()}
-                                      </AvatarFallback>
+                                      {avatar ? (
+                                        <img src={avatar} alt={displayName} className="w-full h-full object-cover" />
+                                      ) : (
+                                        <AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">
+                                          {displayName.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase()}
+                                        </AvatarFallback>
+                                      )}
                                     </Avatar>
                                   );
                                 })}
@@ -4057,7 +4944,7 @@ export default function Tasks() {
                                 )}
                               </div>
                               <span className="text-sm text-foreground">
-                                {task.assignees.slice(0, 2).map(resolveAssigneeName).join(", ")} {task.assignees.length > 2 ? `+${task.assignees.length - 2}` : ""}
+                                {task.assignees.length === 1 ? resolveAssigneeName(task.assignees[0]) : `${task.assignees.length} persons`}
                               </span>
                             </>
                           ) : (
@@ -4172,20 +5059,53 @@ export default function Tasks() {
                       <div className="space-y-4">
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <Paperclip className="w-4 h-4" />
-                          <h4 className="text-[13px] font-bold uppercase tracking-wider">Project Files</h4>
+                          <h4 className="text-[13px] font-bold uppercase tracking-wider">Project Files ({selectedProject.attachments.length})</h4>
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                          {selectedProject.attachments.map((attachment, idx) => (
-                            <div key={idx} className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-xs hover:shadow-md transition-shadow">
-                              {attachment.mimeType?.startsWith("image/") ? (
-                                <img src={attachment.url} alt={attachment.fileName} className="w-full h-24 object-cover" />
-                              ) : (
-                                <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>
-                              )}
-                              <div className="p-2 border-t text-[11px] font-medium truncate text-muted-foreground">{attachment.fileName}</div>
-                              <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/50 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]"><span className="text-white text-xs font-semibold px-3 py-1.5 rounded-full border border-white/50 bg-black/40">Open File</span></a>
-                            </div>
-                          ))}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 bg-muted/20 p-3 rounded-xl border border-border/50">
+                          {selectedProject.attachments.map((attachment, idx) => {
+                            const proxied = toProxiedUrl(attachment.url) || attachment.url;
+                            const isImg = attachment.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(attachment.fileName || "");
+                            return (
+                              <div key={idx} className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-xs hover:shadow-md transition-shadow">
+                                {isImg && proxied ? (
+                                  <img src={proxied} alt={attachment.fileName} className="w-full h-24 object-cover cursor-zoom-in" onClick={() => { setPreviewUrl(proxied); setPreviewName(attachment.fileName); }} />
+                                ) : (
+                                  <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>
+                                )}
+                                <div className="p-2 border-t text-[11px] font-medium truncate text-muted-foreground">{attachment.fileName}</div>
+                                
+                                {/* Action Overlay */}
+                                <div className="absolute inset-0 bg-black/50 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[1px]">
+                                  {proxied && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); setPreviewUrl(proxied); setPreviewName(attachment.fileName); }}
+                                      className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-transform hover:scale-110"
+                                      title="Preview"
+                                    >
+                                      <Maximize2 className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); void downloadViaUrl(proxied, attachment.fileName || "download"); }}
+                                    className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-transform hover:scale-110"
+                                    title="Download"
+                                  >
+                                    <Download className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); setConfirmDeleteProjectAttachmentIndex(idx); }}
+                                    className="p-1.5 bg-rose-600/80 hover:bg-rose-600 rounded-full text-white transition-transform hover:scale-110"
+                                    title="Delete file from project"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
@@ -4237,9 +5157,16 @@ export default function Tasks() {
                                         )}
                                       >
                                         {showSenderName && (
-                                          <span className="chat-sender-name ml-10">
-                                            {c.authorFullName || c.authorUsername}
-                                          </span>
+                                          <div className="flex items-center gap-2 mb-1 ml-10">
+                                            <span className="chat-sender-name">
+                                              {c.authorFullName || c.authorUsername}
+                                            </span>
+                                            {c.authorRole && (
+                                              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4">
+                                                {c.authorRole}
+                                              </Badge>
+                                            )}
+                                          </div>
                                         )}
                                         
                                         <div className={cn(
@@ -4249,7 +5176,7 @@ export default function Tasks() {
                                           {!isMe && (
                                             <Avatar className="w-8 h-8 border shadow-sm flex-shrink-0 mb-1">
                                               {c.authorAvatar ? (
-                                                <img src={c.authorAvatar} alt="avatar" className="w-full h-full object-cover" />
+                                                <img src={toProxiedUrl(c.authorAvatar) || c.authorAvatar} alt="avatar" className="w-full h-full object-cover" />
                                               ) : (
                                                 <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
                                                   {(c.authorFullName || c.authorUsername).substring(0, 2).toUpperCase()}
@@ -4271,13 +5198,22 @@ export default function Tasks() {
                                                 <div className="grid grid-cols-1 gap-2 mt-2 max-w-[140px] sm:max-w-[180px]">
                                                   {c.attachments.map((att, attIdx) => (
                                                     <div key={attIdx} className="relative rounded-lg overflow-hidden border border-border bg-background/10 group/att h-auto">
-                                                      <CommentAttachmentImg 
-                                                        projectId={selectedProject.id} 
-                                                        commentId={c.id} 
-                                                        index={attIdx} 
-                                                        mimeType={att.mimeType} 
-                                                        fileName={att.fileName} 
-                                                        fallbackUrl={att.url} 
+                                                      <CommentAttachmentImg
+                                                        projectId={selectedProject.id}
+                                                        commentId={c.id}
+                                                        index={attIdx}
+                                                        mimeType={att.mimeType}
+                                                        fileName={att.fileName}
+                                                        fallbackUrl={att.url}
+                                                        onPreview={(url, name) => {
+                                                          // Gallery of every image in the project discussion
+                                                          const gallery = projectComments.flatMap((cm) =>
+                                                            (cm.attachments || [])
+                                                              .filter((a) => a.url && a.mimeType?.startsWith("image/"))
+                                                              .map((a) => ({ url: toProxiedUrl(a.url) || a.url, name: a.fileName || "image" }))
+                                                          );
+                                                          openImagePreview(url, name, gallery);
+                                                        }}
                                                       />
                                                     </div>
                                                   ))}
@@ -4333,6 +5269,9 @@ export default function Tasks() {
                           <div className="flex items-center gap-1">
                             <button type="button" onClick={() => { const el = document.getElementById("project-comment-attachment-input") as HTMLInputElement; el?.click(); }} className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors flex items-center gap-1.5" title="Attach file">
                               <Paperclip className="w-4 h-4" /> <span className="text-xs font-semibold hidden sm:inline">Attach Files</span>
+                            </button>
+                            <button type="button" onClick={() => setIsVideoRecorderOpen(true)} className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors flex items-center gap-1.5" title="Record Video">
+                              <Video className="w-4 h-4" /> <span className="text-xs font-semibold hidden sm:inline">Record Video</span>
                             </button>
                             {ROLE_GROUPS.DROPBOX_ALLOWED.includes(currentRole) && (
                               <button type="button" onClick={() => { setDropboxPickerTarget("project"); setIsDropboxPickerOpen(true); }} className="p-2 text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors flex items-center gap-1.5 border border-transparent hover:border-blue-500/20" title="Attach from Dropbox">
@@ -4436,7 +5375,7 @@ export default function Tasks() {
 
       {/* Edit Project Dialog */}
       <Dialog open={isEditProjectOpen} onOpenChange={setIsEditProjectOpen}>
-        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[620px] max-h-[90vh] overflow-y-auto rounded-lg">
+        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[620px] max-h-[85dvh] sm:max-h-[90vh] overflow-y-auto overscroll-contain rounded-lg pb-6 sm:pb-4">
           <DialogHeader>
             <DialogTitle>Edit Project</DialogTitle>
             <DialogDescription>Update project details.</DialogDescription>
@@ -4580,11 +5519,32 @@ export default function Tasks() {
       </Dialog>
 
       {/* File Preview Lightbox */}
-      <Dialog open={!!previewUrl} onOpenChange={(open) => !open && setPreviewUrl(null)}>
+      <Dialog open={!!previewUrl} onOpenChange={(open) => { if (!open) { setPreviewUrl(null); setPreviewGallery([]); } }}>
         <DialogContent className="max-w-[95vw] w-fit p-0 border-none bg-transparent shadow-none">
           <div className="relative group/preview-modal">
+            {previewGallery.length > 1 && (
+              <>
+                <button
+                  onClick={(e) => { e.stopPropagation(); stepPreview(-1); }}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 z-50 p-2.5 bg-black/50 hover:bg-black/80 backdrop-blur-md rounded-full text-white shadow-lg transition-all hover:scale-110"
+                  title="Previous image (←)"
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); stepPreview(1); }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 z-50 p-2.5 bg-black/50 hover:bg-black/80 backdrop-blur-md rounded-full text-white shadow-lg transition-all hover:scale-110"
+                  title="Next image (→)"
+                >
+                  <ChevronRight className="w-6 h-6" />
+                </button>
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 px-3 py-1 bg-black/50 backdrop-blur-md rounded-full text-white text-xs font-bold shadow-lg">
+                  {previewIdx + 1} / {previewGallery.length}
+                </div>
+              </>
+            )}
             <div className="absolute top-4 right-4 z-50 flex items-center gap-3 opacity-100 sm:opacity-0 sm:group-hover/preview-modal:opacity-100 transition-opacity">
-              <button 
+              <button
                 onClick={(e) => { e.stopPropagation(); if (previewUrl) void downloadViaUrl(previewUrl, previewName); }}
                 className="p-2 bg-black/50 hover:bg-black/70 backdrop-blur-md rounded-full text-white shadow-lg transition-all"
                 title="Download"
@@ -4592,7 +5552,7 @@ export default function Tasks() {
                 <Download className="w-5 h-5" />
               </button>
               <button
-                onClick={() => setPreviewUrl(null)}
+                onClick={() => { setPreviewUrl(null); setPreviewGallery([]); }}
                 className="p-2 bg-black/50 hover:bg-black/70 backdrop-blur-md rounded-full text-white shadow-lg transition-all"
                 title="Close"
               >
@@ -4601,10 +5561,16 @@ export default function Tasks() {
             </div>
             {previewUrl && (
               <div className="flex flex-col items-center">
-                {previewName.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i) ? (
+                {previewName.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i) || previewUrl.startsWith("data:image/") ? (
                   <img 
                     src={previewUrl} 
                     alt={previewName} 
+                    className="max-h-[85vh] max-w-full object-contain rounded-lg shadow-2xl" 
+                  />
+                ) : previewName.match(/\.(mp4|webm|ogg|mov)$/i) || previewUrl.startsWith("data:video/") ? (
+                  <video 
+                    src={previewUrl} 
+                    controls
                     className="max-h-[85vh] max-w-full object-contain rounded-lg shadow-2xl" 
                   />
                 ) : (
@@ -4674,7 +5640,7 @@ export default function Tasks() {
 
       {/* Team Lead Reassign Dialog */}
       <Dialog open={isReassignDialogOpen} onOpenChange={setIsReassignDialogOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-[550px] max-h-[90vh] overflow-y-auto overflow-x-hidden p-8 rounded-xl border-border shadow-2xl">
+        <DialogContent className="w-[95vw] sm:max-w-[550px] max-h-[85dvh] sm:max-h-[90vh] overflow-y-auto overflow-x-hidden overscroll-contain p-4 sm:p-8 rounded-xl border-border shadow-2xl pb-6 sm:pb-4">
           <DialogHeader className="space-y-3">
             <DialogTitle className="text-xl font-bold tracking-tight">Reassign Task</DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
@@ -4702,7 +5668,7 @@ export default function Tasks() {
                 <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 shadow-2xl border-border/40 overflow-hidden" align="start" sideOffset={4}>
                   <Command className="rounded-lg">
                     <CommandInput placeholder="Search team members..." className="h-11" />
-                    <CommandList className="max-h-[300px]">
+                    <CommandList className="max-h-[280px] sm:max-h-[320px] overflow-y-auto custom-scrollbar touch-pan-y overscroll-contain">
                       <CommandEmpty className="py-6 text-sm text-muted-foreground">No team members found.</CommandEmpty>
                       <CommandGroup className="p-1.5">
                         {teamLeadMappings.map((mapping) => (
@@ -4777,6 +5743,123 @@ export default function Tasks() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Video Recorder Modal */}
+      <VideoRecorderModal
+        isOpen={isVideoRecorderOpen}
+        onClose={() => setIsVideoRecorderOpen(false)}
+        onSave={(file) => setCommentAttachments((prev) => [...prev, file])}
+      />
+
+      {/* Global Cost Manager Modal */}
+      <Dialog open={costManagerModalOpen} onOpenChange={setCostManagerModalOpen}>
+        <DialogContent className="max-w-[95vw] sm:max-w-5xl max-h-[90vh] overflow-y-auto rounded-xl p-4 sm:p-6 shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+              <Wallet className="h-5 w-5 text-indigo-500" />
+              {costManagerModalSheetName}
+            </DialogTitle>
+            <DialogDescription>
+              Attached Cost Sheet Details
+            </DialogDescription>
+          </DialogHeader>
+          <div className="my-4">
+            {costManagerModalSheetId && (
+              <CostManager sheetId={costManagerModalSheetId} projectName={costManagerModalSheetName} />
+            )}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setCostManagerModalOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function ProjectCostSheetLink({ projectId, onOpenSheet }: { projectId: string; onOpenSheet: (id: string, name: string) => void }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["project-cost-sheet-link", projectId],
+    queryFn: () => getProjectCostSheet(projectId),
+    enabled: !!projectId,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="px-4 sm:px-6 pb-6 flex items-center gap-2 text-xs text-muted-foreground">
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-500" /> Checking attached cost sheet...
+      </div>
+    );
+  }
+
+  const sheet = data?.sheet;
+  if (!sheet) {
+    return (
+      <div className="px-4 sm:px-6 pb-6">
+        <div className="text-xs text-muted-foreground flex items-center gap-1.5 bg-slate-50 border border-slate-200/60 p-4 rounded-xl">
+          <AlertCircle className="h-4 w-4 text-slate-400" />
+          <span>No Expense Sheet attached to this project.</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-4 sm:px-6 pb-6">
+      <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm hover:border-indigo-200 transition-colors">
+        <div className="space-y-0.5">
+          <h4 className="font-semibold text-indigo-900 text-sm flex items-center gap-1.5">
+            <Wallet className="h-4 w-4 text-indigo-500" />
+            Attached Expense Sheet
+          </h4>
+          <p className="text-xs text-indigo-700/80">{sheet.name}</p>
+        </div>
+        <Button
+          onClick={() => onOpenSheet(sheet.id, sheet.name)}
+          className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white text-xs h-8 px-3 flex items-center gap-1.5"
+        >
+          <Maximize2 className="h-3.5 w-3.5" /> View Expense Sheet
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function TaskCostSheetLink({ taskId, onOpenSheet }: { taskId: string; onOpenSheet: (id: string, name: string) => void }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["task-cost-sheet-link", taskId],
+    queryFn: () => getTaskCostSheet(taskId),
+    enabled: !!taskId,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 text-xs text-muted-foreground py-1">
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-500" /> Checking attached cost sheet...
+      </div>
+    );
+  }
+
+  const sheet = data?.sheet;
+  if (!sheet) {
+    return null;
+  }
+
+  return (
+    <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm hover:border-emerald-200 transition-colors my-2">
+      <div className="space-y-0.5">
+        <h4 className="font-semibold text-emerald-950 text-sm flex items-center gap-1.5">
+          <Wallet className="h-4 w-4 text-emerald-600" />
+          Attached Expense Sheet
+        </h4>
+        <p className="text-xs text-emerald-800/80">{sheet.name}</p>
+      </div>
+      <Button
+        onClick={() => onOpenSheet(sheet.id, sheet.name)}
+        className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 px-3 flex items-center gap-1.5"
+      >
+        <Maximize2 className="h-3.5 w-3.5" /> View Expense Sheet
+      </Button>
     </div>
   );
 }

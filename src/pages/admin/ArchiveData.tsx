@@ -32,6 +32,7 @@ import {
   AlertCircle,
   Calendar,
   User,
+  Users,
   Search,
   ChevronLeft,
   ChevronRight,
@@ -66,6 +67,7 @@ const itemTypeIcons: Record<string, any> = {
   attachment: Paperclip,
   task: FileText,
   user: User,
+  tenant: Users,
 };
 
 const itemTypeColors: Record<string, string> = {
@@ -73,6 +75,7 @@ const itemTypeColors: Record<string, string> = {
   attachment: "bg-purple-100 text-purple-700 border-purple-200",
   task: "bg-amber-100 text-amber-700 border-amber-200",
   user: "bg-slate-100 text-slate-700 border-slate-200",
+  tenant: "bg-teal-100 text-teal-700 border-teal-200",
 };
 
 export default function ArchiveData() {
@@ -168,7 +171,7 @@ export default function ArchiveData() {
   const filtered = items.filter((item) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
-    const data = item.itemData;
+    const data = item.itemData || {};
     return (
       (data.message || "").toLowerCase().includes(q) ||
       (data.fileName || "").toLowerCase().includes(q) ||
@@ -227,6 +230,7 @@ export default function ArchiveData() {
                 <SelectItem value="attachment">Attachments</SelectItem>
                 <SelectItem value="task">Tasks</SelectItem>
                 <SelectItem value="user">Users</SelectItem>
+                <SelectItem value="tenant">Tenants / Customers</SelectItem>
               </SelectContent>
             </Select>
             <Button
@@ -243,13 +247,13 @@ export default function ArchiveData() {
         </Card>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           {[
             { label: "Total Archived", count: pagination.total, color: "bg-gradient-to-br from-slate-50 to-slate-100 border-slate-200" },
             { label: "Comments", count: items.filter((i) => i.itemType === "comment").length, color: "bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200" },
             { label: "Attachments", count: items.filter((i) => i.itemType === "attachment").length, color: "bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200" },
             { label: "Tasks", count: items.filter((i) => i.itemType === "task").length, color: "bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200" },
-            { label: "Users", count: items.filter((i) => i.itemType === "user").length, color: "bg-gradient-to-br from-slate-50 to-slate-100 border-slate-200" },
+            { label: "Tenants", count: items.filter((i) => i.itemType === "tenant").length, color: "bg-gradient-to-br from-teal-50 to-teal-100 border-teal-200" },
           ].map((stat) => (
             <Card key={stat.label} className={`shadow-sm border ${stat.color}`}>
               <CardContent className="p-3 sm:p-4">
@@ -282,6 +286,7 @@ export default function ArchiveData() {
                 const colorClass = itemTypeColors[item.itemType] || "bg-gray-100 text-gray-700";
                 const letterIndex = String.fromCharCode(65 + (idx % 26));
                 const displayNumber = (pagination.page - 1) * pagination.limit + idx + 1;
+                const itemData = item.itemData || {};
 
                 return (
                   <motion.div
@@ -316,7 +321,7 @@ export default function ArchiveData() {
                             {/* Item-specific content */}
                             {item.itemType === "comment" && (
                               <p className="text-sm break-words line-clamp-3">
-                                {item.itemData.message || "—"}
+                                {itemData.message || "—"}
                               </p>
                             )}
                             {item.itemType === "attachment" && (
@@ -324,21 +329,21 @@ export default function ArchiveData() {
                                 <div className="flex items-center gap-2">
                                   <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
                                   <span className="text-sm font-medium truncate">
-                                    {item.itemData.fileName || "Unknown file"}
+                                    {itemData.fileName || "Unknown file"}
                                   </span>
-                                  {item.itemData.size > 0 && (
+                                  {(itemData.size || 0) > 0 && (
                                     <span className="text-[11px] text-muted-foreground">
-                                      ({(item.itemData.size / 1024).toFixed(1)} KB)
+                                      ({(itemData.size / 1024).toFixed(1)} KB)
                                     </span>
                                   )}
                                 </div>
-                                {item.itemData.mimeType?.startsWith("image/") && item.itemData.url && (
+                                {itemData.mimeType?.startsWith("image/") && itemData.url && (
                                   <div className="w-32 h-20 rounded-md overflow-hidden border bg-muted/20">
                                     <img 
-                                      src={toProxiedUrl(item.itemData.url) || item.itemData.url} 
+                                      src={toProxiedUrl(itemData.url) || itemData.url} 
                                       alt="preview" 
                                       className="w-full h-full object-cover opacity-80 hover:opacity-100 transition-opacity cursor-pointer"
-                                      onClick={() => { setPreviewUrl(toProxiedUrl(item.itemData.url) || item.itemData.url); setPreviewName(item.itemData.fileName); }}
+                                      onClick={() => { setPreviewUrl(toProxiedUrl(itemData.url) || itemData.url); setPreviewName(itemData.fileName); }}
                                     />
                                   </div>
                                 )}
@@ -347,26 +352,44 @@ export default function ArchiveData() {
                             {item.itemType === "task" && (
                               <div className="space-y-2">
                                 <p className="text-sm font-medium break-words">
-                                  {item.itemData.title || "—"}
+                                  {itemData.title || "—"}
                                 </p>
                                 <div className="flex items-center gap-2 flex-wrap text-[11px] text-muted-foreground">
-                                  {item.itemData.status && (
-                                    <span className="px-1.5 py-0.5 rounded bg-muted capitalize">{item.itemData.status}</span>
+                                  {itemData.status && (
+                                    <span className="px-1.5 py-0.5 rounded bg-muted capitalize">{itemData.status}</span>
                                   )}
-                                  {item.itemData.priority && (
-                                    <span className="px-1.5 py-0.5 rounded bg-muted capitalize">{item.itemData.priority}</span>
+                                  {itemData.priority && (
+                                    <span className="px-1.5 py-0.5 rounded bg-muted capitalize">{itemData.priority}</span>
                                   )}
-                                  {item.itemData.assignees?.length > 0 && (
-                                    <span>Assigned: {item.itemData.assignees.join(", ")}</span>
+                                  {itemData.assignees?.length > 0 && (
+                                    <span>Assigned: {itemData.assignees.join(", ")}</span>
                                   )}
                                 </div>
-                                {item.itemData.attachment?.url && item.itemData.attachment?.mimeType?.startsWith("image/") && (
+                                {/* Start/Close timeline */}
+                                <div className="flex flex-col gap-0.5 text-[11px] text-muted-foreground border-l-2 border-muted pl-2 mt-1">
+                                  {itemData.createdAt && (
+                                    <span>Created: {new Date(itemData.createdAt).toLocaleDateString()}</span>
+                                  )}
+                                  {itemData.firstStartedAt && (
+                                    <span className="text-blue-600">
+                                      Started: {new Date(itemData.firstStartedAt).toLocaleString()}
+                                      {itemData.startedByName ? ` by ${itemData.startedByName}` : ""}
+                                    </span>
+                                  )}
+                                  {itemData.completedAt && (
+                                    <span className="text-emerald-600">
+                                      Completed: {new Date(itemData.completedAt).toLocaleString()}
+                                      {itemData.completedByName ? ` by ${itemData.completedByName}` : ""}
+                                    </span>
+                                  )}
+                                </div>
+                                {itemData.attachment?.url && itemData.attachment?.mimeType?.startsWith("image/") && (
                                   <div className="w-32 h-20 rounded-md overflow-hidden border bg-muted/20 mt-1">
                                     <img 
-                                      src={toProxiedUrl(item.itemData.attachment.url) || item.itemData.attachment.url} 
+                                      src={toProxiedUrl(itemData.attachment.url) || itemData.attachment.url} 
                                       alt="task preview" 
                                       className="w-full h-full object-cover opacity-80 hover:opacity-100 transition-opacity cursor-pointer"
-                                      onClick={() => { setPreviewUrl(toProxiedUrl(item.itemData.attachment.url) || item.itemData.attachment.url); setPreviewName(item.itemData.title); }}
+                                      onClick={() => { setPreviewUrl(toProxiedUrl(itemData.attachment.url) || itemData.attachment.url); setPreviewName(itemData.title); }}
                                     />
                                   </div>
                                 )}
@@ -375,21 +398,41 @@ export default function ArchiveData() {
                             {item.itemType === "user" && (
                               <div className="space-y-1">
                                 <p className="text-sm font-medium break-words">
-                                  {item.itemData.name || "—"}
+                                  {itemData.name || "—"}
                                 </p>
                                 <div className="flex items-center gap-2 flex-wrap text-[11px] text-muted-foreground">
-                                  <span>{item.itemData.email}</span>
-                                  <span className="px-1.5 py-0.5 rounded bg-muted capitalize">{item.itemData.role}</span>
-                                  <span className="px-1.5 py-0.5 rounded bg-muted">username: {item.itemData.username}</span>
+                                  <span>{itemData.email}</span>
+                                  <span className="px-1.5 py-0.5 rounded bg-muted capitalize">{itemData.role}</span>
+                                  <span className="px-1.5 py-0.5 rounded bg-muted">username: {itemData.username}</span>
+                                </div>
+                              </div>
+                            )}
+                            {item.itemType === "tenant" && (
+                              <div className="space-y-1">
+                                <p className="text-sm font-medium break-words">
+                                  {itemData.name || "—"}
+                                </p>
+                                <div className="flex items-center gap-2 flex-wrap text-[11px] text-muted-foreground">
+                                  {itemData.email && <span>{itemData.email}</span>}
+                                  {itemData.phone && <span>{itemData.phone}</span>}
+                                  {itemData.type && (
+                                    <span className="px-1.5 py-0.5 rounded bg-muted">{itemData.type}</span>
+                                  )}
+                                  {itemData.status && (
+                                    <span className="px-1.5 py-0.5 rounded bg-muted">{itemData.status}</span>
+                                  )}
+                                  {itemData.assignedProperty && (
+                                    <span>Property: {itemData.assignedProperty}</span>
+                                  )}
                                 </div>
                               </div>
                             )}
 
                             {/* Meta */}
                             <div className="flex items-center gap-3 text-[11px] text-muted-foreground flex-wrap">
-                              {item.itemData.authorUsername && (
+                              {itemData.authorUsername && (
                                 <span className="flex items-center gap-1">
-                                  <User className="h-3 w-3" /> {item.itemData.authorUsername}
+                                  <User className="h-3 w-3" /> {itemData.authorUsername}
                                 </span>
                               )}
                               <span className="flex items-center gap-1">

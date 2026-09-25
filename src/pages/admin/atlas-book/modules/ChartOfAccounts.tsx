@@ -5,22 +5,28 @@ import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/admin/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/admin/ui/dialog";
-import { ListTree, Plus, Search, RefreshCw, Calculator, FileText } from "lucide-react";
+import { ListTree, Plus, Search, RefreshCw, Calculator, FileText, Building2, MapPin } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 
 export default function ChartOfAccounts() {
   const [items, setItems] = useState<any[]>([]);
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [companyLocations, setCompanyLocations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   
-  const [form, setForm] = useState({ code: "", name: "", type: "Asset", description: "" });
+  const [form, setForm] = useState({ code: "", name: "", type: "Asset", description: "", company: "", companyLocation: "" });
 
   const load = async () => {
     try {
       setLoading(true);
-      const res = await apiFetch("/api/atlasbook/accounts");
+      const [res, companiesRes] = await Promise.all([
+        apiFetch("/api/atlasbook/accounts"),
+        apiFetch("/api/companies")
+      ]);
       if (res?.success) setItems(res.items || []);
+      if (companiesRes) setCompanies(companiesRes.items || []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -30,15 +36,32 @@ export default function ChartOfAccounts() {
 
   useEffect(() => { load(); }, []);
 
+  const loadLocations = async (companyId: string) => {
+    if (!companyId) { setCompanyLocations([]); return; }
+    try {
+      const res = await apiFetch(`/api/company-locations?company=${companyId}`);
+      setCompanyLocations(res?.items || []);
+    } catch { setCompanyLocations([]); }
+  };
+
+  const handleCompanyChange = (companyId: string) => {
+    setForm({ ...form, company: companyId, companyLocation: "" });
+    loadLocations(companyId);
+  };
+
   const handleCreate = async () => {
     try {
+      const payload = { ...form };
+      if (!payload.company) delete (payload as any).company;
+      if (!payload.companyLocation) delete (payload as any).companyLocation;
       const res = await apiFetch("/api/atlasbook/accounts", {
         method: "POST",
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       if (res?.success) {
         setOpen(false);
-        setForm({ code: "", name: "", type: "Asset", description: "" });
+        setForm({ code: "", name: "", type: "Asset", description: "", company: "", companyLocation: "" });
+        setCompanyLocations([]);
         load();
       }
     } catch (e) {
@@ -49,7 +72,8 @@ export default function ChartOfAccounts() {
   const filtered = items.filter(i => 
     i.name?.toLowerCase().includes(q.toLowerCase()) || 
     i.code?.toLowerCase().includes(q.toLowerCase()) ||
-    i.type?.toLowerCase().includes(q.toLowerCase())
+    i.type?.toLowerCase().includes(q.toLowerCase()) ||
+    i.company?.name?.toLowerCase().includes(q.toLowerCase())
   );
 
   return (
@@ -94,15 +118,17 @@ export default function ChartOfAccounts() {
                 <TableHead className="w-24">Code</TableHead>
                 <TableHead>Account Name</TableHead>
                 <TableHead>Type</TableHead>
+                <TableHead>Company</TableHead>
+                <TableHead>Location</TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead className="text-right">Balance</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-10"><RefreshCw className="animate-spin mx-auto" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center py-10"><RefreshCw className="animate-spin mx-auto" /></TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-10 text-muted-foreground italic">No accounts found.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center py-10 text-muted-foreground italic">No accounts found.</TableCell></TableRow>
               ) : (
                 filtered.sort((a,b) => a.code.localeCompare(b.code)).map((item) => (
                   <TableRow key={item._id}>
@@ -118,6 +144,22 @@ export default function ChartOfAccounts() {
                       }>
                         {item.type}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {item.company ? (
+                        <span className="flex items-center gap-1">
+                          <Building2 size={12} className="text-muted-foreground" />
+                          {item.company.name}
+                        </span>
+                      ) : <span className="text-muted-foreground text-xs">—</span>}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {item.companyLocation ? (
+                        <span className="flex items-center gap-1">
+                          <MapPin size={12} className="text-muted-foreground" />
+                          {item.companyLocation.label}
+                        </span>
+                      ) : <span className="text-muted-foreground text-xs">—</span>}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground max-w-xs truncate">{item.description || "-"}</TableCell>
                     <TableCell className="text-right font-mono font-bold">${item.balance?.toLocaleString() || "0"}</TableCell>
@@ -143,6 +185,22 @@ export default function ChartOfAccounts() {
               <div className="col-span-2 space-y-2">
                 <label className="text-sm font-medium">Account Name</label>
                 <Input placeholder="e.g., Main Checking" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium flex items-center gap-1"><Building2 size={14} /> Company</label>
+                <select className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.company} onChange={e => handleCompanyChange(e.target.value)}>
+                  <option value="">None</option>
+                  {companies.map(c => <option key={c.id || c._id} value={c.id || c._id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium flex items-center gap-1"><MapPin size={14} /> Location</label>
+                <select className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.companyLocation} onChange={e => setForm({...form, companyLocation: e.target.value})} disabled={!form.company}>
+                  <option value="">None</option>
+                  {companyLocations.map(loc => <option key={loc._id} value={loc._id}>{loc.label}{loc.address?.city ? ` — ${loc.address.city}, ${loc.address.state}` : ""}</option>)}
+                </select>
               </div>
             </div>
             <div className="space-y-2">

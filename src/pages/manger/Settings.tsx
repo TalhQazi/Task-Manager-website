@@ -1,8 +1,10 @@
 import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/manger/ui/button";
 import { Input } from "@/components/manger/ui/input";
-import { User, Shield, Save, Camera } from "lucide-react";
+import { User, Shield, Save, Camera, Bell } from "lucide-react";
+import { Switch } from "@/components/manger/ui/switch";
 import { apiFetch, toProxiedUrl } from "@/lib/manger/api";
+import NotificationSettingsTable from "@/components/shared/NotificationSettingsTable";
 import { toast } from "@/components/manger/ui/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -140,13 +142,14 @@ export default function Settings() {
     });
   };
 
-  const setNotification = (key: string, value: boolean) => {
+  const onPreferenceChange = (type: "email" | "web", key: string, val: boolean) => {
     setDraft((p: any) => {
+      const prefKey = type === "email" ? "emailPreferences" : "webPreferences";
       const next = {
         ...(p || {}),
-        notifications: {
-          ...((p && p.notifications) || {}),
-          [key]: value,
+        [prefKey]: {
+          ...((p && p[prefKey]) || {}),
+          [key]: val,
         },
       };
 
@@ -445,7 +448,7 @@ export default function Settings() {
           <div className="relative">
             <Avatar className="h-20 w-20 border-2 border-border">
               {draft?.avatarUrl ? (
-                <AvatarImage src={draft.avatarUrl} alt={draft?.fullName || "User"} className="object-cover" crossOrigin="anonymous" />
+                <AvatarImage src={draft.avatarUrl} alt={draft?.fullName || "User"} className="object-cover" />
               ) : (
                 <AvatarFallback className="text-2xl bg-primary/10 text-primary">
                   {initials}
@@ -528,6 +531,28 @@ export default function Settings() {
             <Input value={draft?.role ?? ""} disabled />
           </div>
         </div>
+      </div>
+
+      {/* Notification Settings */}
+      <div className="bg-card rounded-xl border border-border shadow-card p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 rounded-lg bg-primary/10">
+            <Bell className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-foreground">Notification Settings</h3>
+            <p className="text-sm text-muted-foreground">
+              Configure your email and alert preferences separately
+            </p>
+          </div>
+        </div>
+
+        <NotificationSettingsTable
+          emailPreferences={draft?.emailPreferences || {}}
+          webPreferences={draft?.webPreferences || {}}
+          userRole={draft?.role || "manager"}
+          onChange={onPreferenceChange}
+        />
       </div>
 
       {/* Security Settings */}

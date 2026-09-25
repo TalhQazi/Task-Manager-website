@@ -108,6 +108,11 @@ interface Company {
   };
   logo?: string;
   einNumber?: string;
+  unemploymentId?: string;
+  salesTaxId?: string;
+  eftpsNumber?: string;
+  registeredInOperatingState?: string;
+  operatingStateDetails?: string;
   charterNumber?: string;
   stateOfIncorporation?: string;
   foreignEntities?: Array<{ state: string; documentNumber: string }>;
@@ -185,6 +190,11 @@ const Companies = () => {
     dateFormat: "MM/DD/YYYY",
     currency: "USD",
     einNumber: "",
+    unemploymentId: "",
+    salesTaxId: "",
+    eftpsNumber: "",
+    registeredInOperatingState: "Registered",
+    operatingStateDetails: "",
     charterNumber: "",
     stateOfIncorporation: "",
     foreignEntities: [] as Array<{ state: string; documentNumber: string }>,
@@ -210,6 +220,11 @@ const Companies = () => {
     dateFormat: "MM/DD/YYYY",
     currency: "USD",
     einNumber: "",
+    unemploymentId: "",
+    salesTaxId: "",
+    eftpsNumber: "",
+    registeredInOperatingState: "Registered",
+    operatingStateDetails: "",
     charterNumber: "",
     stateOfIncorporation: "",
     foreignEntities: [] as Array<{ state: string; documentNumber: string }>,
@@ -230,8 +245,9 @@ const Companies = () => {
         if (!mounted) return;
         setApiError(e instanceof Error ? e.message : "Failed to load companies");
       } finally {
-        if (!mounted) return;
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 
@@ -274,6 +290,11 @@ const Companies = () => {
           currency: addFormData.currency,
         },
         einNumber: addFormData.einNumber.trim(),
+        unemploymentId: addFormData.unemploymentId.trim(),
+        salesTaxId: addFormData.salesTaxId.trim(),
+        eftpsNumber: addFormData.eftpsNumber.trim(),
+        registeredInOperatingState: addFormData.registeredInOperatingState,
+        operatingStateDetails: addFormData.operatingStateDetails.trim(),
         charterNumber: addFormData.charterNumber.trim(),
         stateOfIncorporation: addFormData.stateOfIncorporation.trim(),
         foreignEntities: addFormData.foreignEntities,
@@ -310,6 +331,11 @@ const Companies = () => {
       dateFormat: "MM/DD/YYYY",
       currency: "USD",
       einNumber: "",
+      unemploymentId: "",
+      salesTaxId: "",
+      eftpsNumber: "",
+      registeredInOperatingState: "Registered",
+      operatingStateDetails: "",
       charterNumber: "",
       stateOfIncorporation: "",
       foreignEntities: [],
@@ -366,6 +392,11 @@ const Companies = () => {
       dateFormat: company.settings?.dateFormat || "MM/DD/YYYY",
       currency: company.settings?.currency || "USD",
       einNumber: company.einNumber || "",
+      unemploymentId: company.unemploymentId || "",
+      salesTaxId: company.salesTaxId || "",
+      eftpsNumber: company.eftpsNumber || "",
+      registeredInOperatingState: company.registeredInOperatingState || "Registered",
+      operatingStateDetails: company.operatingStateDetails || "",
       charterNumber: company.charterNumber || "",
       stateOfIncorporation: company.stateOfIncorporation || "",
       foreignEntities: company.foreignEntities || [],
@@ -404,6 +435,11 @@ const Companies = () => {
           currency: editFormData.currency,
         },
         einNumber: editFormData.einNumber.trim(),
+        unemploymentId: editFormData.unemploymentId.trim(),
+        salesTaxId: editFormData.salesTaxId.trim(),
+        eftpsNumber: editFormData.eftpsNumber.trim(),
+        registeredInOperatingState: editFormData.registeredInOperatingState,
+        operatingStateDetails: editFormData.operatingStateDetails.trim(),
         charterNumber: editFormData.charterNumber.trim(),
         stateOfIncorporation: editFormData.stateOfIncorporation.trim(),
         foreignEntities: editFormData.foreignEntities,
@@ -705,7 +741,7 @@ const Companies = () => {
                       </h4>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-[10px] sm:text-xs font-medium text-muted-foreground mb-1">EIN Number</label>
+                          <label className="block text-[10px] sm:text-xs font-medium text-muted-foreground mb-1">EIN Number *</label>
                           <input
                             type="text"
                             value={addFormData.einNumber}
@@ -715,24 +751,60 @@ const Companies = () => {
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] sm:text-xs font-medium text-muted-foreground mb-1">Charter Number</label>
+                          <label className="block text-[10px] sm:text-xs font-medium text-muted-foreground mb-1">Unemployment ID Number</label>
+                          <input
+                            type="text"
+                            value={addFormData.unemploymentId}
+                            onChange={(e) => setAddFormData({ ...addFormData, unemploymentId: e.target.value })}
+                            placeholder="Unemployment ID #"
+                            className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] sm:text-xs font-medium text-muted-foreground mb-1">Sales Tax ID</label>
+                          <input
+                            type="text"
+                            value={addFormData.salesTaxId}
+                            onChange={(e) => setAddFormData({ ...addFormData, salesTaxId: e.target.value })}
+                            placeholder="Sales Tax ID #"
+                            className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] sm:text-xs font-medium text-muted-foreground mb-1">EFTPS Number / PIN</label>
+                          <input
+                            type="text"
+                            value={addFormData.eftpsNumber}
+                            onChange={(e) => setAddFormData({ ...addFormData, eftpsNumber: e.target.value })}
+                            placeholder="EFTPS #"
+                            className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] sm:text-xs font-medium text-muted-foreground mb-1">State Registration Status</label>
+                          <select
+                            value={addFormData.registeredInOperatingState}
+                            onChange={(e) => setAddFormData({ ...addFormData, registeredInOperatingState: e.target.value })}
+                            className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                          >
+                            <option value="Registered">Registered in Operating State</option>
+                            <option value="Pending">Registration Pending</option>
+                            <option value="Not Registered">Not Registered</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] sm:text-xs font-medium text-muted-foreground mb-1">Charter / Doc Number</label>
                           <input
                             type="text"
                             value={addFormData.charterNumber}
                             onChange={(e) => setAddFormData({ ...addFormData, charterNumber: e.target.value })}
                             placeholder="Charter #"
-                            className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
-                          />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 gap-3">
-                        <div>
-                          <label className="block text-[10px] sm:text-xs font-medium text-muted-foreground mb-1">State of Incorporation</label>
-                          <input
-                            type="text"
-                            value={addFormData.stateOfIncorporation}
-                            onChange={(e) => setAddFormData({ ...addFormData, stateOfIncorporation: e.target.value })}
-                            placeholder="e.g., Delaware"
                             className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
                           />
                         </div>

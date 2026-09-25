@@ -1,0 +1,45 @@
+import { HolidayThemeManifest } from "../types";
+
+export const DEFAULT_NEUTRAL_MANIFEST: HolidayThemeManifest = {
+  themeKey: "default-neutral",
+  displayName: "Task Manager Neutral",
+  description: "Standard clean modern enterprise skin with zero holiday decor.",
+  category: "corporate",
+  priority: 1,
+  palette: {
+    primary: "#3b82f6",
+    secondary: "#6366f1",
+    accent: "#60a5fa",
+    accent2: "#818cf8",
+    backgroundBase: "#0b1120",
+    surfaceTint: "rgba(59, 130, 246, 0.04)",
+    cardBorder: "rgba(255, 255, 255, 0.08)",
+    cardGlow: "0 0 0 transparent",
+    textColor: "#f8fafc",
+    scrimWash: "rgba(11, 17, 32, 0.4)",
+  },
+  layout: {
+    headerHeight: 64,
+    bannerHeight: 0,
+    sideFrameWidth: 0,
+    enableSideFrames: false,
+    enableBottomForeground: false,
+    enableHeaderBanner: false,
+  },
+  animations: {
+    particleType: "none",
+    particleCountDesktop: 0,
+    particleCountMobile: 0,
+    particleColor: [],
+    particleSpeed: 0,
+    enableGlowPulse: false,
+    transientEffectType: "none",
+    transientIntervalSeconds: 0,
+  },
+  accessibility: {
+    minContrastRatio: 4.5,
+    reducedMotionAlternative: "none",
+    highContrastCompatible: true,
+  },
+  isActive: true,
+};

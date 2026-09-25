@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
-import { Bell, Menu, Mail, User, Settings, LogOut, Camera, Palette, Loader2, Megaphone } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Bell, Menu, Mail, User, Settings, LogOut, Camera, Palette, Loader2, Megaphone, Sparkles, Search } from "lucide-react";
+import { GlobalSearch } from "@/components/GlobalSearch";
 import { useSocket } from "@/contexts/SocketContext";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +27,197 @@ import { getEmployeeProfile, toProxiedUrl, employeeApiFetch } from "@/Employee/l
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/manger/api";
 import AssetLibraryPicker from "@/components/admin/AssetLibraryPicker";
+
+function HolidayEffects({ type }: { type: string }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let animationFrameId: number;
+    let particles: any[] = [];
+    const maxParticles = 35;
+
+    const resizeCanvas = () => {
+      if (canvas && canvas.parentElement) {
+        canvas.width = canvas.parentElement.clientWidth || window.innerWidth;
+        canvas.height = canvas.parentElement.clientHeight || 300;
+      }
+    };
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+
+    class Particle {
+      x = 0;
+      y = 0;
+      size = 0;
+      speedX = 0;
+      speedY = 0;
+      opacity = 0;
+      color = "";
+      angle = 0;
+      spin = 0;
+
+      constructor() {
+        this.reset(true);
+      }
+
+      reset(init = false) {
+        if (!canvas) return;
+        this.x = Math.random() * canvas.width;
+        
+        if (type === "lanterns") {
+          this.y = init ? Math.random() * canvas.height : canvas.height + Math.random() * 20;
+          this.size = Math.random() * 10 + 5;
+          this.speedX = (Math.random() - 0.5) * 0.3;
+          this.speedY = -(Math.random() * 0.4 + 0.2);
+        } else if (type === "snow") {
+          this.y = init ? Math.random() * canvas.height : -10;
+          this.size = Math.random() * 2.5 + 0.8;
+          this.speedX = Math.random() * 0.4 + 0.1;
+          this.speedY = Math.random() * 0.8 + 0.3;
+        } else if (type === "leaves") {
+          this.y = init ? Math.random() * canvas.height : -20;
+          this.size = Math.random() * 7 + 3;
+          this.speedX = (Math.random() - 0.5) * 0.4;
+          this.speedY = Math.random() * 0.6 + 0.3;
+          this.angle = Math.random() * 360;
+          this.spin = (Math.random() - 0.5) * 1.5;
+        } else if (type === "confetti") {
+          this.y = init ? Math.random() * canvas.height : -10;
+          this.size = Math.random() * 5 + 3;
+          this.speedX = (Math.random() - 0.5) * 1.2;
+          this.speedY = Math.random() * 1.5 + 1.2;
+          this.angle = Math.random() * 360;
+          this.spin = (Math.random() - 0.5) * 4;
+        } else {
+          this.y = Math.random() * canvas.height;
+          this.size = Math.random() * 3 + 1.2;
+          this.speedX = (Math.random() - 0.5) * 0.08;
+          this.speedY = (Math.random() - 0.5) * 0.08;
+        }
+
+        this.opacity = Math.random() * 0.4 + 0.2;
+
+        if (type === "lanterns") {
+          this.color = `rgba(${Math.floor(Math.random() * 45 + 210)}, ${Math.floor(Math.random() * 80 + 50)}, 0, `;
+        } else if (type === "snow") {
+          this.color = `rgba(255, 255, 255, `;
+        } else if (type === "leaves") {
+          const leafColors = ["#D66060", "#F3904F", "#EBB02D", "#C0392B", "#D35400"];
+          this.color = leafColors[Math.floor(Math.random() * leafColors.length)];
+        } else if (type === "confetti") {
+          const confColors = ["#FF2E93", "#FF8A00", "#FF007A", "#00F0FF", "#9E00FF", "#00FF66"];
+          this.color = confColors[Math.floor(Math.random() * confColors.length)];
+        } else {
+          this.color = `rgba(255, ${Math.floor(Math.random() * 45 + 210)}, 80, `;
+        }
+      }
+
+      update() {
+        if (!canvas) return;
+        this.x += this.speedX;
+        this.y += this.speedY;
+        
+        if (type === "leaves" || type === "confetti") {
+          this.angle += this.spin;
+        }
+
+        if (type === "lanterns") {
+          if (this.y < -20 || this.x < -20 || this.x > canvas.width + 20) {
+            this.reset();
+          }
+        } else {
+          if (this.y > canvas.height + 20 || this.x < -20 || this.x > canvas.width + 20) {
+            this.reset();
+          }
+        }
+      }
+
+      draw() {
+        if (!ctx) return;
+        ctx.save();
+
+        if (type === "lanterns") {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+          const grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size * 1.6);
+          grad.addColorStop(0, "rgba(255, 220, 150, 1)");
+          grad.addColorStop(0.3, this.color + this.opacity + ")");
+          grad.addColorStop(1, "rgba(255, 50, 0, 0)");
+          ctx.fillStyle = grad;
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.moveTo(this.x, this.y + this.size);
+          ctx.lineTo(this.x, this.y + this.size * 1.8);
+          ctx.strokeStyle = `rgba(220, 30, 0, ${this.opacity * 0.7})`;
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+        } else if (type === "snow") {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+          ctx.fillStyle = this.color + this.opacity + ")";
+          ctx.fill();
+        } else if (type === "leaves") {
+          ctx.translate(this.x, this.y);
+          ctx.rotate((this.angle * Math.PI) / 180);
+          ctx.beginPath();
+          ctx.ellipse(0, 0, this.size, this.size * 0.5, 0, 0, Math.PI * 2);
+          ctx.fillStyle = this.color;
+          ctx.globalAlpha = this.opacity;
+          ctx.fill();
+        } else if (type === "confetti") {
+          ctx.translate(this.x, this.y);
+          ctx.rotate((this.angle * Math.PI) / 180);
+          ctx.fillStyle = this.color;
+          ctx.globalAlpha = this.opacity;
+          ctx.fillRect(-this.size / 2, -this.size / 4, this.size, this.size / 2);
+        } else {
+          ctx.translate(this.x, this.y);
+          ctx.beginPath();
+          for (let i = 0; i < 4; i++) {
+            ctx.rotate(Math.PI / 2);
+            ctx.lineTo(0, this.size);
+            ctx.lineTo(this.size * 0.18, 0);
+          }
+          ctx.closePath();
+          ctx.fillStyle = this.color + this.opacity + ")";
+          ctx.fill();
+        }
+
+        ctx.restore();
+      }
+    }
+
+    for (let i = 0; i < maxParticles; i++) {
+      particles.push(new Particle());
+    }
+
+    const animate = () => {
+      if (!ctx || !canvas) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      particles.forEach((p) => {
+        p.update();
+        p.draw();
+      });
+
+      animationFrameId = requestAnimationFrame(animate);
+    };
+    animate();
+
+    return () => {
+      window.removeEventListener("resize", resizeCanvas);
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [type]);
+
+  return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none z-10 opacity-70" />;
+}
 
 interface EmployeeHeaderProps {
   onMenuClick?: () => void;
@@ -70,6 +262,7 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
   const [headerModalOpen, setHeaderModalOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [isHeaderPickerOpen, setIsHeaderPickerOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const auth = getEmployeeAuth();
 
@@ -142,7 +335,20 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
       }
     };
     loadProfile();
+
+    window.addEventListener("employee-profile-updated", loadProfile);
+    return () => {
+      window.removeEventListener("employee-profile-updated", loadProfile);
+    };
   }, []);
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+    };
+    window.addEventListener("header-settings-updated", handleUpdate);
+    return () => window.removeEventListener("header-settings-updated", handleUpdate);
+  }, [queryClient]);
 
   // Header settings from admin panel
   const headerSettingsQuery = useQuery({
@@ -154,18 +360,70 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
         imageConfig?: { dataUrl?: string; url?: string; size?: string; position?: string; repeat?: string };
         overlay?: { enabled: boolean; color: string };
         height: number;
+        holidayTheme?: {
+          active: boolean;
+          name: string;
+          displayName: string;
+          message: string;
+          backgroundType: 'color' | 'image';
+          colorConfig?: { from: string; via: string; to: string };
+          imageConfig?: { dataUrl?: string; url?: string; size?: string; position?: string; repeat?: string };
+          overlay?: { enabled: boolean; color: string };
+          effects?: string;
+          isLunar?: boolean;
+        };
       } }>("/api/header-settings");
     },
   });
 
   const headerSettings = headerSettingsQuery.data?.item;
+  const activeHoliday = headerSettings?.holidayTheme?.active ? headerSettings.holidayTheme : null;
   const headerHeight = 300;
-  const headerImageUrlRaw =
-    headerSettings?.backgroundType === "image"
+  
+  const headerImageUrlRaw = activeHoliday
+    ? activeHoliday.backgroundType === "image"
+      ? activeHoliday.imageConfig?.url || activeHoliday.imageConfig?.dataUrl
+      : null
+    : headerSettings?.backgroundType === "image"
       ? headerSettings?.imageConfig?.url || headerSettings?.imageConfig?.dataUrl
       : null;
+
   const headerImageUrl = headerImageUrlRaw ? toProxiedUrl(headerImageUrlRaw) : null;
   const hasImageBackground = Boolean(headerImageUrl);
+
+  const [localPosition, setLocalPosition] = useState<string>("");
+
+  useEffect(() => {
+    if (headerSettings?.imageConfig?.position) {
+      setLocalPosition(headerSettings.imageConfig.position);
+    }
+  }, [headerSettings?.imageConfig?.position]);
+
+  const getPositionValues = (posStr: string | undefined): { x: number, y: number } => {
+    if (!posStr) return { x: 50, y: 50 };
+    if (posStr === "center") return { x: 50, y: 50 };
+    let x = 50, y = 50;
+    const parts = posStr.split(" ");
+    const parsePart = (p: string, def: number) => {
+      if (p === "center") return 50;
+      if (p === "top" || p === "left") return 0;
+      if (p === "bottom" || p === "right") return 100;
+      const m = p.match(/(\d+)%/);
+      return m ? parseInt(m[1], 10) : def;
+    };
+    if (parts.length === 1) {
+      if (parts[0] === "top") return { x: 50, y: 0 };
+      if (parts[0] === "bottom") return { x: 50, y: 100 };
+      if (parts[0] === "left") return { x: 0, y: 50 };
+      if (parts[0] === "right") return { x: 100, y: 50 };
+      x = parsePart(parts[0], 50);
+      y = 50;
+    } else if (parts.length >= 2) {
+      x = parsePart(parts[0], 50);
+      y = parsePart(parts[1], 50);
+    }
+    return { x, y };
+  };
 
   const fullName = (profile?.name || auth?.name || auth?.username || "Employee").trim();
   const initials =
@@ -190,6 +448,24 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
   });
   const announcementUnread = announcementUnreadQuery.data ?? 0;
 
+  // Direct message conversations preview
+  const conversationsQuery = useQuery({
+    queryKey: ["employee-conversations-preview", profile?.name],
+    queryFn: async () => {
+      const name = profile?.name;
+      if (!name) return [];
+      const res = await employeeApiFetch<{ items?: any[] }>(`/api/messages/conversations/${encodeURIComponent(name)}`);
+      return (res.items || []).slice(0, 4);
+    },
+    enabled: !!profile?.name,
+    staleTime: 20000,
+  });
+
+  const unreadMessageCount = (conversationsQuery.data || []).reduce(
+    (sum: number, c: any) => sum + (c.unreadCount || 0),
+    0
+  );
+
   const notificationsQuery = useQuery({
     queryKey: ["employee-notifications"],
     queryFn: async () => {
@@ -200,11 +476,16 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
     refetchInterval: 30000,
   });
 
-  // Real-time: immediately refresh unread count when a targeted notification arrives
+  // Real-time: immediately refresh unread count when a targeted notification or message arrives
   useEffect(() => {
     if (!socket) return;
     const handleNew = () => { queryClient.invalidateQueries({ queryKey: ["employee-notifications"] }); };
     socket.on("new-notification", handleNew);
+
+    const handleNewMessage = () => {
+      queryClient.invalidateQueries({ queryKey: ["employee-conversations-preview"] });
+    };
+    socket.on("new-message", handleNewMessage);
 
     const handleStatusUpdate = (payload: {
       userId: string;
@@ -234,6 +515,7 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
 
     return () => {
       socket.off("new-notification", handleNew);
+      socket.off("new-message", handleNewMessage);
       socket.off("status-update", handleStatusUpdate);
     };
   }, [socket, queryClient, profile]);
@@ -369,28 +651,48 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
       <div
         className="w-full h-full relative overflow-hidden group"
         style={{
-          background: hasImageBackground
-            ? 'transparent'
-            : `linear-gradient(to right, ${headerSettings?.colorConfig?.from || 'var(--tb-header-bg)'}, ${headerSettings?.colorConfig?.via || 'var(--tb-header-bg)'}, ${headerSettings?.colorConfig?.to || 'var(--tb-header-bg)'})`
+          background: activeHoliday
+            ? activeHoliday.backgroundType === "image"
+              ? "transparent"
+              : `linear-gradient(to right, ${activeHoliday.colorConfig?.from || '#133767'}, ${activeHoliday.colorConfig?.via || '#133767'}, ${activeHoliday.colorConfig?.to || '#133767'})`
+            : hasImageBackground
+              ? 'transparent'
+              : `linear-gradient(to right, ${headerSettings?.colorConfig?.from || 'var(--tb-header-bg)'}, ${headerSettings?.colorConfig?.via || 'var(--tb-header-bg)'}, ${headerSettings?.colorConfig?.to || 'var(--tb-header-bg)'})`
         }}
       >
-        {/* Background Image */}
-        {hasImageBackground && (
+        {/* Holiday Effects Canvas Overlay */}
+        {activeHoliday?.effects && (
+          <HolidayEffects type={activeHoliday.effects} />
+        )}
+
+        {/* Background Image (Holiday overrides custom) */}
+        {(activeHoliday?.backgroundType === "image" || (!activeHoliday && hasImageBackground)) && (
           <>
             <img      
-              src={headerImageUrl || undefined}
+              src={activeHoliday?.backgroundType === "image"
+                ? toProxiedUrl(activeHoliday.imageConfig?.url || activeHoliday.imageConfig?.dataUrl)
+                : headerImageUrl || undefined}
               alt="header background"
               className="absolute inset-0 w-full h-full"
               style={{
-                objectFit: 'cover',
-                objectPosition: headerSettings?.imageConfig?.position || 'center',
+                objectFit: (activeHoliday?.backgroundType === "image"
+                  ? (activeHoliday.imageConfig?.size === "100% 100%" ? "fill" : activeHoliday.imageConfig?.size === "auto" ? "none" : activeHoliday.imageConfig?.size || "cover")
+                  : (headerSettings?.imageConfig?.size === "100% 100%" ? "fill" : headerSettings?.imageConfig?.size === "auto" ? "none" : headerSettings?.imageConfig?.size || "cover")) as any,
+                objectPosition: activeHoliday?.backgroundType === "image"
+                  ? activeHoliday.imageConfig?.position || 'center'
+                  : localPosition || 'center',
               }}
               draggable={false}
             />
-            {headerSettings?.overlay?.enabled && (
+            {((activeHoliday && activeHoliday.overlay?.enabled) || (!activeHoliday && headerSettings?.overlay?.enabled)) && (
               <div
                 className="absolute inset-0"
-                style={{ backgroundColor: headerSettings.overlay.color || 'var(--tb-header-overlay-color)', opacity: headerSettings.overlay.color ? 1 : 'var(--tb-header-overlay-opacity)' }}
+                style={{
+                  backgroundColor: activeHoliday
+                    ? activeHoliday.overlay.color || "rgba(0,0,0,0.3)"
+                    : headerSettings.overlay.color || 'var(--tb-header-overlay-color)',
+                  opacity: 1
+                }}
               />
             )}
           </>
@@ -419,109 +721,133 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
               </button>
             </div>
 
-            {/* LEFT SIDE: Branding and Profile Stacking */}
-            <div className="flex flex-col gap-2 sm:gap-4">
-              {/* Profile Card (Top) */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <div className="flex items-center gap-3 p-2 rounded-xl backdrop-blur-md border hover:bg-black/30 transition-all cursor-pointer group w-fit" style={{ backgroundColor: 'var(--tb-header-bg, rgba(0,0,0,0.2))', borderColor: 'var(--tb-header-border, rgba(255,255,255,0.1))' }}>
-                    <div className="relative">
-                      <Avatar className="h-10 w-10 border shadow-lg group-hover:ring-2 group-hover:ring-[#00C6FF]/20 transition-all" style={{ borderColor: 'var(--tb-header-border, rgba(255,255,255,0.2))', ...getAvatarStyles() }}>
-                        {profile?.avatarUrl ? (
-                          <AvatarImage src={toProxiedUrl(profile.avatarUrl)} alt={fullName} crossOrigin="anonymous" className="object-cover" />
-                        ) : (
-                          <AvatarFallback className="bg-gradient-to-br from-[#00C6FF] to-[#0072FF] text-white text-xs font-bold">{initials}</AvatarFallback>
-                        )}
-                      </Avatar>
-                      {getStatusDot()}
+            {/* Branding and Profile - Structured Flex Layout for Right Greeting Banner */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 w-full">
+              <div className="flex flex-col gap-2 sm:gap-4">
+                {/* Profile Card (Top) */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <div className="flex items-center gap-3 p-2 rounded-xl backdrop-blur-md border hover:bg-black/30 transition-all cursor-pointer group w-fit" style={{ backgroundColor: 'var(--tb-header-bg, rgba(0,0,0,0.2))', borderColor: 'var(--tb-header-border, rgba(255,255,255,0.1))' }}>
+                      <div className="relative">
+                        <Avatar className="h-10 w-10 border shadow-lg group-hover:ring-2 group-hover:ring-[#00C6FF]/20 transition-all" style={{ borderColor: 'var(--tb-header-border, rgba(255,255,255,0.2))', ...getAvatarStyles() }}>
+                          {profile?.avatarUrl ? (
+                            <AvatarImage src={toProxiedUrl(profile.avatarUrl)} alt={fullName} className="object-cover" />
+                          ) : (
+                            <AvatarFallback className="bg-gradient-to-br from-[#00C6FF] to-[#0072FF] text-white text-xs font-bold">{initials}</AvatarFallback>
+                          )}
+                        </Avatar>
+                        {getStatusDot()}
+                      </div>
+                      <div className="flex flex-col min-w-0 pr-4">
+                        <span className="text-base font-bold truncate leading-tight drop-shadow-md" style={{ color: 'var(--tb-sidebar-text-color, white)' }}>{fullName}</span>
+                        <span className="text-[11px] truncate tracking-wide uppercase font-semibold" style={{ color: 'var(--tb-sidebar-text-color, white)', opacity: 0.6 }}>Employee</span>
+                      </div>
                     </div>
-                    <div className="flex flex-col min-w-0 pr-4">
-                      <span className="text-base font-bold truncate leading-tight drop-shadow-md" style={{ color: 'var(--tb-sidebar-text-color, white)' }}>{fullName}</span>
-                      <span className="text-[11px] truncate tracking-wide uppercase font-semibold" style={{ color: 'var(--tb-sidebar-text-color, white)', opacity: 0.6 }}>Employee</span>
-                    </div>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" side="bottom" className="w-56 mt-2">
+                    <DropdownMenuLabel className="text-xs">Account Settings</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => navigate("/employee/profile")}>
+                      <User className="mr-2 h-4 w-4" /> Profile Details
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/employee/ui-customization")}>
+                      <Settings className="mr-2 h-4 w-4" /> UI Preferences
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* Quick Actions Bar (Bottom) */}
+                <div className="flex items-center justify-start gap-4">
+                  <div className="md:hidden">
+                    <button type="button" className="group inline-flex h-9 w-9 items-center justify-center rounded-full transition-all" aria-label="Open navigation" title="Open navigation" onClick={() => onMenuClick?.()} style={{ backgroundColor: 'var(--tb-header-bg, rgba(255,255,255,0.1))' }}><Menu className="h-5 w-5" style={{ color: 'var(--tb-sidebar-text-color, white)' }} /></button>
                   </div>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" side="bottom" className="w-56 mt-2">
-                  <DropdownMenuLabel className="text-xs">Account Settings</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate("/employee/profile")}>
-                    <User className="mr-2 h-4 w-4" /> Profile Details
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/employee/ui-customization")}>
-                    <Settings className="mr-2 h-4 w-4" /> UI Preferences
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
 
-              {/* Quick Actions Bar (Bottom) */}
-              <div className="flex items-center justify-start gap-4">
-                <div className="md:hidden">
-                  <button type="button" className="group inline-flex h-9 w-9 items-center justify-center rounded-full transition-all" aria-label="Open navigation" title="Open navigation" onClick={() => onMenuClick?.()} style={{ backgroundColor: 'var(--tb-header-bg, rgba(255,255,255,0.1))' }}><Menu className="h-5 w-5" style={{ color: 'var(--tb-sidebar-text-color, white)' }} /></button>
-                </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="relative group p-2 rounded-lg backdrop-blur-sm transition-colors hover:bg-black/40" style={{ backgroundColor: 'var(--tb-header-bg, rgba(0,0,0,0.2))', color: 'var(--tb-sidebar-text-color, white)', opacity: 0.7 }}>
+                        <Mail className="h-5 w-5" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" side="bottom" className="w-64 mt-2">
+                      <DropdownMenuLabel className="text-xs">Direct Messages</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <div className="p-4 text-center text-xs text-muted-foreground">No messages</div>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
 
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="relative group p-2 rounded-lg backdrop-blur-sm transition-colors hover:bg-black/40" style={{ backgroundColor: 'var(--tb-header-bg, rgba(0,0,0,0.2))', color: 'var(--tb-sidebar-text-color, white)', opacity: 0.7 }}>
-                      <Mail className="h-5 w-5" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" side="bottom" className="w-64 mt-2">
-                    <DropdownMenuLabel className="text-xs">Direct Messages</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <div className="p-4 text-center text-xs text-muted-foreground">No messages</div>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                <button
-                  type="button"
-                  title="Announcements"
-                  onClick={() => navigate("/employee/announcements")}
-                  className="relative group p-2 rounded-lg backdrop-blur-sm transition-colors hover:bg-black/40"
-                  style={{ backgroundColor: 'var(--tb-header-bg, rgba(0,0,0,0.2))', color: 'var(--tb-sidebar-text-color, white)', opacity: 0.7 }}
-                >
-                  <Megaphone className="h-5 w-5" />
-                  {announcementUnread > 0 && (
-                    <Badge className="absolute -top-1 -right-1 h-4 min-w-4 px-0.5 flex items-center justify-center bg-[#00C6FF] text-[9px] border-black text-black font-bold">
-                      {announcementUnread > 9 ? "9+" : announcementUnread}
-                    </Badge>
-                  )}
-                </button>
-
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="relative group p-2 rounded-lg backdrop-blur-sm transition-colors hover:bg-black/40" style={{ backgroundColor: 'var(--tb-header-bg, rgba(0,0,0,0.2))', color: 'var(--tb-sidebar-text-color, white)', opacity: 0.7 }}>
-                      <Bell className="h-4.5 w-4.5" />
-                      {unreadCount > 0 && (
-                        <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[9px] border-black">
-                          {unreadCount > 9 ? "9+" : unreadCount}
-                        </Badge>
-                      )}
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" side="bottom" className="w-64 mt-2">
-                    <DropdownMenuLabel className="text-xs">Notifications</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {notifications.length === 0 ? (
-                      <div className="p-4 text-center text-xs text-muted-foreground">No notifications</div>
-                    ) : (
-                      notifications.map((n: Notification) => (
-                        <DropdownMenuItem key={n.id} className="text-xs cursor-pointer focus:bg-white/10" onClick={() => { void markRead(n.id); navigate(resolveEmployeeLink(n)); }}>
-                          {String(n.content || "")}
-                        </DropdownMenuItem>
-                      ))
+                  <button
+                    type="button"
+                    title="Announcements"
+                    onClick={() => navigate("/employee/announcements")}
+                    className="relative group p-2 rounded-lg backdrop-blur-sm transition-colors hover:bg-black/40"
+                    style={{ backgroundColor: 'var(--tb-header-bg, rgba(0,0,0,0.2))', color: 'var(--tb-sidebar-text-color, white)', opacity: 0.7 }}
+                  >
+                    <Megaphone className="h-5 w-5" />
+                    {announcementUnread > 0 && (
+                      <Badge className="absolute -top-1 -right-1 h-4 min-w-4 px-0.5 flex items-center justify-center bg-[#00C6FF] text-[9px] border-black text-black font-bold">
+                        {announcementUnread > 9 ? "9+" : announcementUnread}
+                      </Badge>
                     )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                  </button>
 
-                <button
-                  onClick={onLogout}
-                  className="p-2 rounded-lg backdrop-blur-sm transition-colors hover:bg-red-500/20"
-                  title="Logout"
-                  style={{ backgroundColor: 'var(--tb-header-bg, rgba(0,0,0,0.2))', color: 'var(--tb-sidebar-text-color, #f87171)', opacity: 0.7 }}
-                >
-                  <LogOut className="h-4.5 w-4.5" />
-                </button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="relative group p-2 rounded-lg backdrop-blur-sm transition-colors hover:bg-black/40" style={{ backgroundColor: 'var(--tb-header-bg, rgba(0,0,0,0.2))', color: 'var(--tb-sidebar-text-color, white)', opacity: 0.7 }}>
+                        <Bell className="h-4.5 w-4.5" />
+                        {unreadCount > 0 && (
+                          <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[9px] border-black">
+                            {unreadCount > 9 ? "9+" : unreadCount}
+                          </Badge>
+                        )}
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" side="bottom" className="w-64 mt-2">
+                      <DropdownMenuLabel className="text-xs">Notifications</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {notifications.length === 0 ? (
+                        <div className="p-4 text-center text-xs text-muted-foreground">No notifications</div>
+                      ) : (
+                        notifications.map((n: Notification) => (
+                          <DropdownMenuItem key={n.id} className="text-xs cursor-pointer focus:bg-white/10" onClick={() => { void markRead(n.id); navigate(resolveEmployeeLink(n)); }}>
+                            {String(n.content || "")}
+                          </DropdownMenuItem>
+                        ))
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  <button
+                    onClick={() => setSearchOpen(true)}
+                    className="p-2 rounded-lg backdrop-blur-sm transition-colors hover:bg-black/40"
+                    title="Search"
+                    style={{ backgroundColor: 'var(--tb-header-bg, rgba(0,0,0,0.2))', color: 'var(--tb-sidebar-text-color, white)', opacity: 0.7 }}
+                  >
+                    <Search className="h-4.5 w-4.5" />
+                  </button>
+
+                  <button
+                    onClick={onLogout}
+                    className="p-2 rounded-lg backdrop-blur-sm transition-colors hover:bg-red-500/20"
+                    title="Logout"
+                    style={{ backgroundColor: 'var(--tb-header-bg, rgba(0,0,0,0.2))', color: 'var(--tb-sidebar-text-color, #f87171)', opacity: 0.7 }}
+                  >
+                    <LogOut className="h-4.5 w-4.5" />
+                  </button>
+                </div>
               </div>
+
+              {/* Holiday/Seasonal Greeting Banner Card (Right Side) */}
+              {activeHoliday && (
+                <div className="flex flex-col items-center md:items-end justify-center pointer-events-auto p-3 rounded-xl bg-black/30 backdrop-blur-md border border-white/10 max-w-sm text-center md:text-right md:mb-1 mr-2 shadow-xl animate-fade-in relative z-20">
+                  <div className="text-xs sm:text-sm font-bold text-white drop-shadow-md flex items-center gap-1.5 justify-center md:justify-end">
+                    <Sparkles className="h-4 w-4 text-[#FFD700]" />
+                    <span>{activeHoliday.displayName}</span>
+                  </div>
+                  <p className="text-[10px] sm:text-[11px] text-white/95 drop-shadow-sm leading-normal mt-1 font-semibold">
+                    {activeHoliday.message}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -542,7 +868,11 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
                   <img
                     src={headerImageUrl || undefined}
                     alt="Header preview"
-                    className="w-full h-full object-cover"
+                    className="w-full h-full"
+                    style={{ 
+                      objectFit: (headerSettings?.imageConfig?.size === "100% 100%" ? "fill" : headerSettings?.imageConfig?.size === "auto" ? "none" : headerSettings?.imageConfig?.size || "cover") as any,
+                      objectPosition: headerSettings?.imageConfig?.position || "center"
+                    }}
                   />
                 ) : (
                   <div className="flex items-center justify-center h-full">
@@ -571,6 +901,124 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
                 <div className="flex items-center gap-2 text-primary">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   <span className="text-sm">Uploading image...</span>
+                </div>
+              )}
+
+              {hasImageBackground && (
+                <div className="space-y-4 border-t pt-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-foreground">Image Fit (Sizing Mode)</label>
+                    <select
+                      className="w-full text-sm rounded-md border border-input bg-background px-3 py-1"
+                      value={headerSettings?.imageConfig?.size || "cover"}
+                      onChange={async (e) => {
+                        const newSize = e.target.value;
+                        await apiFetch("/api/header-settings", {
+                          method: "PUT",
+                          body: JSON.stringify({ imageConfig: { size: newSize } })
+                        });
+                        queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+                        window.dispatchEvent(new CustomEvent("header-settings-updated"));
+                      }}
+                    >
+                      <option value="cover">Cover (Maintain aspect ratio, fill space)</option>
+                      <option value="contain">Contain (Maintain aspect ratio, fit inside)</option>
+                      <option value="100% 100%">Stretch (Fill completely, ignoring aspect ratio)</option>
+                      <option value="auto">Auto (Original size)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs font-semibold text-foreground">Horizontal Position (Left / Right)</label>
+                      <span className="text-xs text-muted-foreground font-mono">{getPositionValues(localPosition).x}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={getPositionValues(localPosition).x}
+                      onChange={(e) => {
+                        const valX = e.target.value;
+                        const valY = getPositionValues(localPosition).y;
+                        setLocalPosition(`${valX}% ${valY}%`);
+                      }}
+                      onMouseUp={async (e: any) => {
+                        const valX = e.target.value;
+                        const valY = getPositionValues(localPosition).y;
+                        const newPos = `${valX}% ${valY}%`;
+                        await apiFetch("/api/header-settings", {
+                          method: "PUT",
+                          body: JSON.stringify({ imageConfig: { position: newPos } })
+                        });
+                        queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+                        window.dispatchEvent(new CustomEvent("header-settings-updated"));
+                      }}
+                      onTouchEnd={async (e: any) => {
+                        const valX = e.target.value;
+                        const valY = getPositionValues(localPosition).y;
+                        const newPos = `${valX}% ${valY}%`;
+                        await apiFetch("/api/header-settings", {
+                          method: "PUT",
+                          body: JSON.stringify({ imageConfig: { position: newPos } })
+                        });
+                        queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+                        window.dispatchEvent(new CustomEvent("header-settings-updated"));
+                      }}
+                      className="w-full h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
+                    />
+                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                      <span>Left</span>
+                      <span>Center</span>
+                      <span>Right</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs font-semibold text-foreground">Vertical Position (Top / Bottom)</label>
+                      <span className="text-xs text-muted-foreground font-mono">{getPositionValues(localPosition).y}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={getPositionValues(localPosition).y}
+                      onChange={(e) => {
+                        const valX = getPositionValues(localPosition).x;
+                        const valY = e.target.value;
+                        setLocalPosition(`${valX}% ${valY}%`);
+                      }}
+                      onMouseUp={async (e: any) => {
+                        const valX = getPositionValues(localPosition).x;
+                        const valY = e.target.value;
+                        const newPos = `${valX}% ${valY}%`;
+                        await apiFetch("/api/header-settings", {
+                          method: "PUT",
+                          body: JSON.stringify({ imageConfig: { position: newPos } })
+                        });
+                        queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+                        window.dispatchEvent(new CustomEvent("header-settings-updated"));
+                      }}
+                      onTouchEnd={async (e: any) => {
+                        const valX = getPositionValues(localPosition).x;
+                        const valY = e.target.value;
+                        const newPos = `${valX}% ${valY}%`;
+                        await apiFetch("/api/header-settings", {
+                          method: "PUT",
+                          body: JSON.stringify({ imageConfig: { position: newPos } })
+                        });
+                        queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+                        window.dispatchEvent(new CustomEvent("header-settings-updated"));
+                      }}
+                      className="w-full h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
+                    />
+                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                      <span>Top</span>
+                      <span>Center</span>
+                      <span>Bottom</span>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -611,6 +1059,9 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
           }
         }}
       />
+
+      {/* Global Search Palette */}
+      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} isEmployee={true} />
     </header>
   );
 }

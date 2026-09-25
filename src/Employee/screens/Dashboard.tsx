@@ -22,6 +22,9 @@ interface TeamLeadMapping {
 interface DashboardData {
   earnings: number;
   hoursWorked: number;
+  period?: string;
+  weekStart?: string;
+  weekEnd?: string;
   alerts: string[];
   actions: Array<{
     type: string;
@@ -420,7 +423,7 @@ export default function EmployeeDashboard() {
       try {
         const res = await employeeApiFetch<{ items?: any[] }>("/api/bugs");
         const items = Array.isArray(res?.items) ? res.items : [];
-        const open = items.filter((b: any) => b.status !== "closed");
+        const open = items.filter((b: any) => !["CLOSED_VERIFIED", "CLOSED_ADMIN_OVERRIDE", "CLOSED", "closed"].includes((b.status || "").toUpperCase()));
         setMyBugCount(open.length);
       } catch {
         // silently ignore
@@ -529,7 +532,7 @@ export default function EmployeeDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         <Link to="/employee/payroll">
           <EmployeeStatCard
-            title="CURRENT PAY PERIOD"
+            title="WEEKLY EARNINGS"
             value={`$${(dashboardQuery.data?.earnings || 0).toFixed(2)}`}
             icon={DollarSign}
             variant="green"
@@ -537,8 +540,8 @@ export default function EmployeeDashboard() {
         </Link>
         <Link to="/employee/timeLogs">
           <EmployeeStatCard
-            title="HOURS WORKED"
-            value={`${dashboardQuery.data?.hoursWorked || 0} hrs`}
+            title="HOURS THIS WEEK"
+            value={`${(dashboardQuery.data?.hoursWorked || 0).toFixed(1)} hrs`}
             icon={Clock}
             variant="blue"
           />
@@ -674,28 +677,6 @@ export default function EmployeeDashboard() {
           </CardContent>
         </Card>
       )}
-
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <EmployeeStatCard
-          title="Current Earnings"
-          value={`$${data?.earnings || 0}`}
-          icon={DollarSign}
-          variant="green"
-        />
-        <EmployeeStatCard
-          title="Hours Worked"
-          value={`${data?.hoursWorked || 0} hrs`}
-          icon={Clock}
-          variant="blue"
-        />
-        <EmployeeStatCard
-          title="Pending Tasks"
-          value={data?.tasks?.pending || 0}
-          icon={CheckSquare2}
-          variant="orange"
-        />
-      </div>
 
       {/* My Team Section */}
       <Card className="border-l-4 border-l-primary">

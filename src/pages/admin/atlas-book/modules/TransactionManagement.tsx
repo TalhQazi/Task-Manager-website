@@ -5,27 +5,31 @@ import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/admin/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/admin/ui/dialog";
-import { ArrowRightLeft, Plus, Search, RefreshCw, TrendingUp, TrendingDown, Calendar, Wallet } from "lucide-react";
+import { ArrowRightLeft, Plus, Search, RefreshCw, TrendingUp, TrendingDown, Calendar, Wallet, Building2, MapPin } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 
 export default function TransactionManagement() {
   const [items, setItems] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [companyLocations, setCompanyLocations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   
-  const [form, setForm] = useState({ date: new Date().toISOString().split("T")[0], type: "Expense", amount: "", account: "", description: "", paymentMethod: "Bank Transfer" });
+  const [form, setForm] = useState({ date: new Date().toISOString().split("T")[0], type: "Expense", amount: "", account: "", company: "", companyLocation: "", description: "", paymentMethod: "Bank Transfer" });
 
   const load = async () => {
     try {
       setLoading(true);
-      const [transRes, accountsRes] = await Promise.all([
+      const [transRes, accountsRes, companiesRes] = await Promise.all([
         apiFetch("/api/atlasbook/transactions"),
-        apiFetch("/api/atlasbook/accounts")
+        apiFetch("/api/atlasbook/accounts"),
+        apiFetch("/api/companies"),
       ]);
       if (transRes?.success) setItems(transRes.items || []);
       if (accountsRes?.success) setAccounts(accountsRes.items || []);
+      if (companiesRes) setCompanies(companiesRes.items || []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -35,15 +39,32 @@ export default function TransactionManagement() {
 
   useEffect(() => { load(); }, []);
 
+  const loadLocations = async (companyId: string) => {
+    if (!companyId) { setCompanyLocations([]); return; }
+    try {
+      const res = await apiFetch(`/api/company-locations?company=${companyId}`);
+      setCompanyLocations(res?.items || []);
+    } catch { setCompanyLocations([]); }
+  };
+
+  const handleCompanyChange = (companyId: string) => {
+    setForm({ ...form, company: companyId, companyLocation: "" });
+    loadLocations(companyId);
+  };
+
   const handleCreate = async () => {
     try {
+      const payload = { ...form };
+      if (!payload.company) delete (payload as any).company;
+      if (!payload.companyLocation) delete (payload as any).companyLocation;
       const res = await apiFetch("/api/atlasbook/transactions", {
         method: "POST",
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       if (res?.success) {
         setOpen(false);
-        setForm({ date: new Date().toISOString().split("T")[0], type: "Expense", amount: "", account: "", description: "", paymentMethod: "Bank Transfer" });
+        setForm({ date: new Date().toISOString().split("T")[0], type: "Expense", amount: "", account: "", company: "", companyLocation: "", description: "", paymentMethod: "Bank Transfer" });
+        setCompanyLocations([]);
         load();
       }
     } catch (e) {
@@ -53,7 +74,8 @@ export default function TransactionManagement() {
 
   const filtered = items.filter(i => 
     i.description?.toLowerCase().includes(q.toLowerCase()) || 
-    i.type?.toLowerCase().includes(q.toLowerCase())
+    i.type?.toLowerCase().includes(q.toLowerCase()) ||
+    i.company?.name?.toLowerCase().includes(q.toLowerCase())
   );
 
   const totalIncome = items.filter(i => i.type === "Income").reduce((sum, i) => sum + i.amount, 0);
@@ -108,7 +130,7 @@ export default function TransactionManagement() {
       <Card className="shadow-soft p-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-          <Input placeholder="Search transactions..." className="pl-10" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Input placeholder="Search transactions or companies..." className="pl-10" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
       </Card>
 
@@ -120,6 +142,8 @@ export default function TransactionManagement() {
                 <TableHead>Date</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Account</TableHead>
+                <TableHead>Company</TableHead>
+                <TableHead>Location</TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead>Method</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
@@ -127,9 +151,9 @@ export default function TransactionManagement() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-10"><RefreshCw className="animate-spin mx-auto" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-10"><RefreshCw className="animate-spin mx-auto" /></TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-10 text-muted-foreground italic">No transactions found.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-10 text-muted-foreground italic">No transactions found.</TableCell></TableRow>
               ) : (
                 filtered.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((item) => (
                   <TableRow key={item._id}>
@@ -140,6 +164,22 @@ export default function TransactionManagement() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-xs font-mono">{item.account?.name}</TableCell>
+                    <TableCell className="text-sm">
+                      {item.company ? (
+                        <span className="flex items-center gap-1">
+                          <Building2 size={12} className="text-muted-foreground" />
+                          {item.company.name}
+                        </span>
+                      ) : <span className="text-muted-foreground text-xs">—</span>}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {item.companyLocation ? (
+                        <span className="flex items-center gap-1">
+                          <MapPin size={12} className="text-muted-foreground" />
+                          {item.companyLocation.label}
+                        </span>
+                      ) : <span className="text-muted-foreground text-xs">—</span>}
+                    </TableCell>
                     <TableCell className="text-sm">{item.description}</TableCell>
                     <TableCell className="text-xs">{item.paymentMethod}</TableCell>
                     <TableCell className={`text-right font-bold ${item.type === "Income" ? "text-emerald-600" : "text-rose-600"}`}>
@@ -182,6 +222,22 @@ export default function TransactionManagement() {
                 <option value="">Select Account...</option>
                 {accounts.map(a => <option key={a._id} value={a._id}>[{a.code}] {a.name}</option>)}
               </select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium flex items-center gap-1"><Building2 size={14} /> Company</label>
+                <select className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.company} onChange={e => handleCompanyChange(e.target.value)}>
+                  <option value="">None</option>
+                  {companies.map(c => <option key={c.id || c._id} value={c.id || c._id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium flex items-center gap-1"><MapPin size={14} /> Location</label>
+                <select className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.companyLocation} onChange={e => setForm({...form, companyLocation: e.target.value})} disabled={!form.company}>
+                  <option value="">None</option>
+                  {companyLocations.map(loc => <option key={loc._id} value={loc._id}>{loc.label}{loc.address?.city ? ` — ${loc.address.city}, ${loc.address.state}` : ""}</option>)}
+                </select>
+              </div>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Description</label>

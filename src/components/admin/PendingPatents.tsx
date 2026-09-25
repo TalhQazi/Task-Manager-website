@@ -27,6 +27,8 @@ import {
   Trash2,
   Edit2,
   Clock,
+  Bell,
+  X,
 } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 
@@ -86,6 +88,7 @@ export function PendingPatents() {
   });
 
   // Filters
+  const [filterSearch, setFilterSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
   const [filterStage, setFilterStage] = useState("");
   const [filterStartDate, setFilterStartDate] = useState("");
@@ -95,7 +98,21 @@ export function PendingPatents() {
     filingDate: "",
     applicationNumber: "",
     filingType: "Provisional" as "Provisional" | "Non-Provisional" | "International",
+    provisionalExpiration: "",
+    customReminderDays: [] as number[],
   });
+  const [newFilingReminderDay, setNewFilingReminderDay] = useState("");
+
+  const autoCalcExpiration = (filingDate: string, filingType: string) => {
+    if (!filingDate) return "";
+    const date = new Date(filingDate);
+    if (filingType === "Provisional") {
+      date.setFullYear(date.getFullYear() + 1);
+    } else {
+      date.setFullYear(date.getFullYear() + 20);
+    }
+    return date.toISOString().split("T")[0];
+  };
 
   const patentsQuery = useQuery<PendingPatent[]>({
     queryKey: ["pending-patents"],
@@ -159,6 +176,8 @@ export function PendingPatents() {
       return;
     }
 
+    const expDate = filingData.provisionalExpiration || autoCalcExpiration(filingData.filingDate, filingData.filingType);
+
     try {
       await apiFetch(`/api/patents/${selectedPatent._id}`, {
         method: "PUT",
@@ -168,6 +187,8 @@ export function PendingPatents() {
           filingDate: filingData.filingDate,
           applicationNumber: filingData.applicationNumber,
           filingType: filingData.filingType,
+          provisionalExpiration: expDate,
+          customReminderDays: filingData.customReminderDays || [],
         }),
       });
       await patentsQuery.refetch();
@@ -193,6 +214,12 @@ export function PendingPatents() {
   const patents = patentsQuery.data || [];
 
   const filteredPatents = patents.filter((p) => {
+    if (filterSearch) {
+      const query = filterSearch.toLowerCase();
+      const nameMatch = p.patentName?.toLowerCase().includes(query);
+      const inventorMatch = p.inventors?.some((inv) => inv.toLowerCase().includes(query));
+      if (!nameMatch && !inventorMatch) return false;
+    }
     if (filterCategory && !p.category.toLowerCase().includes(filterCategory.toLowerCase())) return false;
     if (filterStage && p.stage !== filterStage) return false;
     if (filterStartDate && new Date(p.startDate) < new Date(filterStartDate)) return false;
@@ -214,7 +241,7 @@ export function PendingPatents() {
               Add Patent
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="w-[95vw] max-w-md flex flex-col max-h-[90vh]">
             <DialogHeader>
               <DialogTitle>
                 {selectedPatent ? "Edit Patent" : "New Patent"}
@@ -223,7 +250,7 @@ export function PendingPatents() {
                 Track patents in development stages
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
+            <div className="space-y-4 overflow-y-auto flex-1 pr-1">
               <div>
                 <label className="text-sm font-medium">Patent Name *</label>
                 <input
@@ -318,21 +345,21 @@ export function PendingPatents() {
                   rows={3}
                 />
               </div>
-              <div className="flex gap-2 pt-4">
-                <Button
-                  onClick={handleSave}
-                  className="flex-1"
-                >
-                  {selectedPatent ? "Update" : "Create"}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setIsDialogOpen(false)}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
-              </div>
+            </div>
+            <div className="flex gap-2 pt-4 border-t mt-2">
+              <Button
+                onClick={handleSave}
+                className="flex-1"
+              >
+                {selectedPatent ? "Update" : "Create"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setIsDialogOpen(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -368,8 +395,28 @@ export function PendingPatents() {
                 <input
                   type="date"
                   value={filingData.filingDate}
+                  onChange={(e) => {
+                    const newFilingDate = e.target.value;
+                    const calculated = autoCalcExpiration(newFilingDate, filingData.filingType);
+                    setFilingData({
+                      ...filingData,
+                      filingDate: newFilingDate,
+                      provisionalExpiration: calculated,
+                    });
+                  }}
+                  className="w-full mt-1 px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium flex items-center justify-between">
+                  <span>Expiration Date</span>
+                  <span className="text-xs text-muted-foreground font-normal">(Editable)</span>
+                </label>
+                <input
+                  type="date"
+                  value={filingData.provisionalExpiration || (filingData.filingDate ? autoCalcExpiration(filingData.filingDate, filingData.filingType) : "")}
                   onChange={(e) =>
-                    setFilingData({ ...filingData, filingDate: e.target.value })
+                    setFilingData({ ...filingData, provisionalExpiration: e.target.value })
                   }
                   className="w-full mt-1 px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -386,6 +433,87 @@ export function PendingPatents() {
                   placeholder="e.g., US 10,123,456"
                 />
               </div>
+
+              {/* Custom Reminder Days in Filing modal */}
+              <div className="space-y-2 p-3 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/20">
+                <label className="text-xs font-semibold flex items-center justify-between text-indigo-900 dark:text-indigo-200">
+                  <span className="flex items-center gap-1">
+                    <Bell className="h-3.5 w-3.5 text-indigo-600" />
+                    Custom Reminder Days (Optional)
+                  </span>
+                  <span className="text-[10px] text-muted-foreground font-normal">
+                    before expiration
+                  </span>
+                </label>
+                <div className="flex flex-wrap gap-1">
+                  {(filingData.customReminderDays || []).map((day) => (
+                    <Badge
+                      key={day}
+                      variant="outline"
+                      className="px-2 py-0.5 text-[11px] font-medium bg-white dark:bg-gray-800 border-indigo-300 dark:border-indigo-700 text-indigo-800 dark:text-indigo-200 flex items-center gap-1"
+                    >
+                      {day}d
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFilingData((prev) => ({
+                            ...prev,
+                            customReminderDays: prev.customReminderDays.filter((d) => d !== day),
+                          }))
+                        }
+                        className="opacity-60 hover:opacity-100 hover:text-red-500"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                  {(filingData.customReminderDays || []).length === 0 && (
+                    <span className="text-[11px] text-muted-foreground italic">Global defaults</span>
+                  )}
+                </div>
+                <div className="flex gap-2 items-center pt-1">
+                  <input
+                    type="number"
+                    min={1}
+                    placeholder="e.g. 30"
+                    value={newFilingReminderDay}
+                    onChange={(e) => setNewFilingReminderDay(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const val = Math.round(Number(newFilingReminderDay));
+                        if (val > 0 && !filingData.customReminderDays.includes(val)) {
+                          setFilingData((prev) => ({
+                            ...prev,
+                            customReminderDays: [...prev.customReminderDays, val].sort((a, b) => a - b),
+                          }));
+                          setNewFilingReminderDay("");
+                        }
+                      }
+                    }}
+                    className="w-24 px-2 py-1 border rounded text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const val = Math.round(Number(newFilingReminderDay));
+                      if (val > 0 && !filingData.customReminderDays.includes(val)) {
+                        setFilingData((prev) => ({
+                          ...prev,
+                          customReminderDays: [...prev.customReminderDays, val].sort((a, b) => a - b),
+                        }));
+                        setNewFilingReminderDay("");
+                      }
+                    }}
+                    className="h-7 text-xs border-indigo-300 dark:border-indigo-700"
+                  >
+                    <Plus className="h-3 w-3 mr-1" /> Add
+                  </Button>
+                </div>
+              </div>
+
               <div className="flex gap-2 pt-4">
                 <Button onClick={handleFilePatent} className="flex-1 bg-green-600 hover:bg-green-700">
                   File Patent
@@ -418,7 +546,17 @@ export function PendingPatents() {
       ) : (
         <div className="space-y-4">
           <Card className="bg-muted/30 border-muted">
-            <CardContent className="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            <CardContent className="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Search</label>
+                <input
+                  type="text"
+                  placeholder="Search name or inventors..."
+                  value={filterSearch}
+                  onChange={(e) => setFilterSearch(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-md text-sm bg-background focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Category</label>
                 <input

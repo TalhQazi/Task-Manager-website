@@ -58,6 +58,10 @@ import {
   MoreHorizontal,
   Camera,
   Loader2,
+  Trash2,
+  Wrench,
+  User,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
 import { apiFetch, toProxiedUrl } from "@/lib/manger/api";
@@ -78,6 +82,14 @@ interface Vehicle {
   tagPhotoFileName?: string;
   tagPhotoDataUrl?: string;
   requiresInspection?: boolean;
+  needs?: {
+    id: string;
+    taskName: string;
+    assignee: string;
+    dueDate: string;
+    completed: boolean;
+    parts?: { name: string; cost: number }[];
+  }[];
 }
 
 interface Employee {
@@ -111,7 +123,7 @@ const getInitials = (name: string) => {
 };
 
 function normalizeVehicle(v: VehicleApi): Vehicle {
-  const result = {
+  const result: Vehicle = {
     id: v._id,
     name: v.name,
     type: v.type,
@@ -125,6 +137,7 @@ function normalizeVehicle(v: VehicleApi): Vehicle {
     tagPhotoFileName: v.tagPhotoFileName,
     tagPhotoDataUrl: v.tagPhotoDataUrl,
     requiresInspection: v.requiresInspection !== false,
+    needs: v.needs || [],
   };
   console.log("[DEBUG] normalizeVehicle:", v._id, "photo fields:", { 
     tagPhotoFileName: v.tagPhotoFileName, 
@@ -182,8 +195,190 @@ export default function Vehicles() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [activeView, setActiveView] = useState<"fleet" | "needs">("fleet");
+  const [expandedNeedsView, setExpandedNeedsView] = useState<Record<string, boolean>>({});
   const PAGE_SIZE = 25;
   const queryClient = useQueryClient();
+
+  const [newNeedTaskName, setNewNeedTaskName] = useState("");
+  const [newNeedAssignee, setNewNeedAssignee] = useState("");
+  const [newNeedDueDate, setNewNeedDueDate] = useState("");
+  const [isUpdatingNeed, setIsUpdatingNeed] = useState(false);
+  const [activeRowPartsNeedId, setActiveRowPartsNeedId] = useState<string | null>(null);
+
+  const handleAddNeed = async () => {
+    if (!selectedVehicle || !newNeedTaskName.trim()) return;
+    try {
+      setIsUpdatingNeed(true);
+      const newNeed = {
+        id: `NEED-${Date.now()}`,
+        taskName: newNeedTaskName.trim(),
+        assignee: newNeedAssignee,
+        dueDate: newNeedDueDate,
+        completed: false,
+      };
+      
+      const updatedNeeds = [...(selectedVehicle.needs || []), newNeed];
+      
+      const res = await apiFetch<{ item: VehicleApi }>(`/api/vehicles/${selectedVehicle.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          needs: updatedNeeds
+        })
+      });
+      
+      const updatedVehicle = normalizeVehicle(res.item);
+      if (updatedVehicle) {
+        setSelectedVehicle(updatedVehicle);
+        setNewNeedTaskName("");
+        setNewNeedAssignee("");
+        setNewNeedDueDate("");
+      }
+      await queryClient.invalidateQueries({ queryKey: ["vehicles"] });
+    } catch (e) {
+      console.error("Failed to add need", e);
+    } finally {
+      setIsUpdatingNeed(false);
+    }
+  };
+
+  const handleUpdateNeedsForVehicle = async (vehicle: Vehicle, updatedNeeds: any[]) => {
+    try {
+      const res = await apiFetch<{ item: VehicleApi }>(`/api/vehicles/${vehicle.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          needs: updatedNeeds
+        })
+      });
+      const updatedVehicle = normalizeVehicle(res.item);
+      if (selectedVehicle && selectedVehicle.id === vehicle.id) {
+        setSelectedVehicle(updatedVehicle);
+      }
+      await queryClient.invalidateQueries({ queryKey: ["vehicles"] });
+    } catch (e) {
+      console.error("Failed to update needs for vehicle", e);
+    }
+  };
+
+  const handleToggleNeed = async (needId: string) => {
+    if (!selectedVehicle) return;
+    try {
+      const updatedNeeds = (selectedVehicle.needs || []).map(n =>
+        n.id === needId ? { ...n, completed: !n.completed } : n
+      );
+      
+      const res = await apiFetch<{ item: VehicleApi }>(`/api/vehicles/${selectedVehicle.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          needs: updatedNeeds
+        })
+      });
+      
+      const updatedVehicle = normalizeVehicle(res.item);
+      if (updatedVehicle) {
+        setSelectedVehicle(updatedVehicle);
+      }
+      await queryClient.invalidateQueries({ queryKey: ["vehicles"] });
+    } catch (e) {
+      console.error("Failed to toggle need", e);
+    }
+  };
+
+  const handleDeleteNeed = async (needId: string) => {
+    if (!selectedVehicle) return;
+    try {
+      const updatedNeeds = (selectedVehicle.needs || []).filter(n => n.id !== needId);
+      
+      const res = await apiFetch<{ item: VehicleApi }>(`/api/vehicles/${selectedVehicle.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          needs: updatedNeeds
+        })
+      });
+      
+      const updatedVehicle = normalizeVehicle(res.item);
+      if (updatedVehicle) {
+        setSelectedVehicle(updatedVehicle);
+      }
+      await queryClient.invalidateQueries({ queryKey: ["vehicles"] });
+    } catch (e) {
+      console.error("Failed to delete need", e);
+    }
+  };
+
+  const handleAddNeedForVehicle = async (vehicle: Vehicle, taskName: string, assignee: string, dueDate: string) => {
+    if (!taskName.trim()) return;
+    try {
+      const newNeed = {
+        id: `NEED-${Date.now()}`,
+        taskName: taskName.trim(),
+        assignee,
+        dueDate,
+        completed: false,
+      };
+      
+      const updatedNeeds = [...(vehicle.needs || []), newNeed];
+      
+      const res = await apiFetch<{ item: VehicleApi }>(`/api/vehicles/${vehicle.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          needs: updatedNeeds
+        })
+      });
+      
+      const updatedVehicle = normalizeVehicle(res.item);
+      if (selectedVehicle && selectedVehicle.id === vehicle.id) {
+        setSelectedVehicle(updatedVehicle);
+      }
+      await queryClient.invalidateQueries({ queryKey: ["vehicles"] });
+    } catch (e) {
+      console.error("Failed to add need for vehicle", e);
+    }
+  };
+
+  const handleToggleNeedForVehicle = async (vehicle: Vehicle, needId: string) => {
+    try {
+      const updatedNeeds = (vehicle.needs || []).map(n =>
+        n.id === needId ? { ...n, completed: !n.completed } : n
+      );
+      
+      const res = await apiFetch<{ item: VehicleApi }>(`/api/vehicles/${vehicle.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          needs: updatedNeeds
+        })
+      });
+      
+      const updatedVehicle = normalizeVehicle(res.item);
+      if (selectedVehicle && selectedVehicle.id === vehicle.id) {
+        setSelectedVehicle(updatedVehicle);
+      }
+      await queryClient.invalidateQueries({ queryKey: ["vehicles"] });
+    } catch (e) {
+      console.error("Failed to toggle need for vehicle", e);
+    }
+  };
+
+  const handleDeleteNeedForVehicle = async (vehicle: Vehicle, needId: string) => {
+    try {
+      const updatedNeeds = (vehicle.needs || []).filter(n => n.id !== needId);
+      
+      const res = await apiFetch<{ item: VehicleApi }>(`/api/vehicles/${vehicle.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          needs: updatedNeeds
+        })
+      });
+      
+      const updatedVehicle = normalizeVehicle(res.item);
+      if (selectedVehicle && selectedVehicle.id === vehicle.id) {
+        setSelectedVehicle(updatedVehicle);
+      }
+      await queryClient.invalidateQueries({ queryKey: ["vehicles"] });
+    } catch (e) {
+      console.error("Failed to delete need for vehicle", e);
+    }
+  };
 
   const readFileAsDataUrl = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -229,21 +424,24 @@ export default function Vehicles() {
     vehicle?: Partial<Vehicle> | null;
     className?: string;
   }) => {
+    const direct = vehicle ? getVehicleTagPhotoSrc(vehicle as Vehicle) : null;
+
+    const { data } = useQuery({
+      queryKey: ["vehicle-photo", vehicle?.id],
+      queryFn: async () => {
+        if (!vehicle?.id) throw new Error("Vehicle ID is missing");
+        return apiFetch<{ photo?: string; fileName?: string }>(`/api/vehicles/${encodeURIComponent(String(vehicle.id))}/photo`);
+      },
+      staleTime: 5 * 60 * 1000,
+      enabled: !!vehicle?.id && !direct,
+    });
+
     if (!vehicle) return null;
 
-    const direct = getVehicleTagPhotoSrc(vehicle as Vehicle);
     if (direct) {
       const safe = toProxiedUrl(direct) || direct;
       return <img src={safe} alt={vehicle.name || "vehicle"} className={cn("object-cover", className)} />;
     }
-
-    const { data } = useQuery({
-      queryKey: ["vehicle-photo", vehicle.id],
-      queryFn: async () => {
-        return apiFetch<{ photo?: string; fileName?: string }>(`/api/vehicles/${encodeURIComponent(String(vehicle.id))}/photo`);
-      },
-      staleTime: 5 * 60 * 1000,
-    });
 
     const photoSrc = data?.photo ? (toProxiedUrl(data.photo) || data.photo) : null;
     if (photoSrc) {
@@ -556,10 +754,29 @@ export default function Vehicles() {
           <h1 className="page-title">Vehicles Management</h1>
           <p className="page-subtitle">Track and manage company vehicles</p>
         </div>
-        <Button className="gap-2" onClick={() => setIsCreateOpen(true)}>
-          <Plus className="w-4 h-4" />
-          Add Vehicle
-        </Button>
+        <div className="flex items-center gap-4">
+          {/* View Toggle */}
+          <div className="flex bg-muted/60 p-1 rounded-lg border text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => setActiveView("fleet")}
+              className={`px-3 py-1.5 rounded-md transition-all ${activeView === "fleet" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Fleet List
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveView("needs")}
+              className={`px-3 py-1.5 rounded-md transition-all ${activeView === "needs" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Vehicle Needs
+            </button>
+          </div>
+          <Button className="gap-2" onClick={() => setIsCreateOpen(true)}>
+            <Plus className="w-4 h-4" />
+            Add Vehicle
+          </Button>
+        </div>
       </div>
 
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
@@ -889,6 +1106,116 @@ export default function Vehicles() {
                 <div className="space-y-1">
                   <p className="text-muted-foreground">Next Inspection</p>
                   <p className="text-foreground">{new Date(selectedVehicle.nextInspection).toLocaleDateString()}</p>
+                </div>
+              </div>
+
+              {/* Vehicle Needs Checklist Section */}
+              <div className="space-y-3 border-t pt-4">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-semibold flex items-center gap-2">
+                    <Wrench className="h-4 w-4 text-primary" />
+                    Vehicle Needs & Maintenance Tasks
+                  </label>
+                  <Badge variant="secondary" className="text-xs">
+                    {(selectedVehicle.needs || []).filter(n => !n.completed).length} Pending
+                  </Badge>
+                </div>
+
+                {/* Needs List */}
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                  {(selectedVehicle.needs || []).length > 0 ? (
+                    (selectedVehicle.needs || []).map((need) => (
+                      <div 
+                        key={need.id} 
+                        className="flex items-center justify-between p-2 rounded-lg bg-muted/20 border border-muted/40 hover:bg-muted/30 transition-all text-xs sm:text-sm animate-fadeIn"
+                      >
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <input
+                            type="checkbox"
+                            checked={need.completed}
+                            onChange={() => handleToggleNeed(need.id)}
+                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary/20 accent-primary cursor-pointer flex-shrink-0"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className={`font-medium break-words ${need.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                              {need.taskName}
+                            </p>
+                            <div className="flex flex-wrap gap-2 mt-0.5">
+                              {need.assignee && (
+                                <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                  <User className="h-2.5 w-2.5" />
+                                  Assignee: <span className="text-primary/85 font-bold">{need.assignee}</span>
+                                </span>
+                              )}
+                              {need.dueDate && (
+                                <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                  <Calendar className="h-2.5 w-2.5" />
+                                  Due: {need.dueDate}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteNeed(need.id)}
+                          className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg flex-shrink-0 ml-2"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-muted-foreground italic py-2">No needs or maintenance items listed for this vehicle.</p>
+                  )}
+                </div>
+
+                {/* Add Need Form */}
+                <div className="bg-muted/10 p-3 rounded-xl border border-muted/25 space-y-2 mt-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Add Maintenance / Task Need</p>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                    <div className="flex-1 min-w-0">
+                      <input
+                        type="text"
+                        placeholder="What needs to be done? e.g. Coolant smell, Battery"
+                        value={newNeedTaskName}
+                        onChange={(e) => setNewNeedTaskName(e.target.value)}
+                        className="w-full rounded-lg border px-3 py-1.5 text-xs sm:text-sm bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all h-8 sm:h-9"
+                      />
+                    </div>
+                    <div className="w-full sm:w-40 flex-shrink-0">
+                      <select
+                        value={newNeedAssignee}
+                        onChange={(e) => setNewNeedAssignee(e.target.value)}
+                        className="w-full rounded-lg border px-2 py-1.5 text-xs sm:text-sm bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all h-8 sm:h-9"
+                      >
+                        <option value="">Assign Person...</option>
+                        {employees.map((emp) => (
+                          <option key={emp.id} value={emp.name}>{emp.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="w-full sm:w-32 flex-shrink-0">
+                      <input
+                        type="date"
+                        value={newNeedDueDate}
+                        onChange={(e) => setNewNeedDueDate(e.target.value)}
+                        className="w-full rounded-lg border px-2 py-1 text-xs sm:text-sm bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all h-8 sm:h-9"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={handleAddNeed}
+                      disabled={isUpdatingNeed || !newNeedTaskName.trim()}
+                      className="w-full sm:w-auto h-8 sm:h-9 px-3 gap-1 text-xs font-semibold shrink-0"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Add
+                    </Button>
+                  </div>
                 </div>
               </div>
 
@@ -1247,118 +1574,380 @@ export default function Vehicles() {
         </Select>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {vehiclesQuery.isLoading ? (
-          <div className="col-span-full p-6 text-sm text-muted-foreground">Loading vehicles...</div>
-        ) : vehiclesQuery.isError ? (
-          <div className="col-span-full p-6 text-sm text-destructive">
-            {vehiclesQuery.error instanceof Error
-              ? vehiclesQuery.error.message
-              : "Failed to load vehicles"}
-          </div>
-        ) : null}
-
-        {filteredVehicles.map((vehicle, index) => (
-          <div
-            key={vehicle.id}
-            className="bg-card rounded-xl border border-border shadow-card p-6 hover:shadow-card-hover transition-all duration-300 animate-fade-in"
-            style={{ animationDelay: `${index * 50}ms` }}
-          >
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-4">
-                <ManagerLazyVehiclePhoto vehicle={vehicle} className="h-12 w-12 rounded-xl object-cover ring-2 ring-primary/20" />
-                <div>
-                  <h3 className="font-semibold text-foreground">{vehicle.name}</h3>
-                  <p className="text-sm text-muted-foreground">{vehicle.licensePlate}</p>
-                </div>
-              </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    className="p-1.5 rounded-lg hover:bg-muted transition-colors"
-                    aria-label="Vehicle actions"
-                  >
-                    <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => void openView(vehicle)}>
-                    View Details
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => openEdit(vehicle)}>
-                    Edit
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => openDelete(vehicle)}>
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+      {activeView === "fleet" ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {vehiclesQuery.isLoading ? (
+            <div className="col-span-full p-6 text-sm text-muted-foreground">Loading vehicles...</div>
+          ) : vehiclesQuery.isError ? (
+            <div className="col-span-full p-6 text-sm text-destructive">
+              {vehiclesQuery.error instanceof Error
+                ? vehiclesQuery.error.message
+                : "Failed to load vehicles"}
             </div>
+          ) : null}
 
-            <div className="flex items-center justify-between mb-4">
-              <Badge
-                variant="secondary"
-                className={cn("capitalize", statusStyles[vehicle.status])}
-              >
-                {vehicle.status.replace("-", " ")}
-              </Badge>
-              <Badge variant="outline">{vehicle.type}</Badge>
-            </div>
-
-            {vehicle.assignedTo && (
-              <p className="text-sm text-muted-foreground mb-4">
-                Assigned to:{" "}
-                <span className="text-foreground font-medium">{vehicle.assignedTo}</span>
-              </p>
-            )}
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Fuel className="w-4 h-4" />
-                  <span>Fuel Level</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-20 h-2 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className={cn(
-                        "h-full rounded-full transition-all",
-                        vehicle.fuelLevel > 50
-                          ? "bg-success"
-                          : vehicle.fuelLevel > 25
-                          ? "bg-warning"
-                          : "bg-destructive",
-                      )}
-                      style={{ width: `${vehicle.fuelLevel}%` }}
-                    />
+          {filteredVehicles.map((vehicle, index) => (
+            <div
+              key={vehicle.id}
+              className="bg-card rounded-xl border border-border shadow-card p-6 hover:shadow-card-hover transition-all duration-300 animate-fade-in"
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-4">
+                  <ManagerLazyVehiclePhoto vehicle={vehicle} className="h-12 w-12 rounded-xl object-cover ring-2 ring-primary/20" />
+                  <div>
+                    <h3 className="font-semibold text-foreground">{vehicle.name}</h3>
+                    <p className="text-sm text-muted-foreground">{vehicle.licensePlate}</p>
                   </div>
-                  <span className="text-foreground font-medium">{vehicle.fuelLevel}%</span>
                 </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+                      aria-label="Vehicle actions"
+                    >
+                      <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => void openView(vehicle)}>
+                      View Details
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => openEdit(vehicle)}>
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => openDelete(vehicle)}>
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
 
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Mileage</span>
-                <span className="text-foreground font-medium">
-                  {vehicle.mileage.toLocaleString()} mi
-                </span>
+              <div className="flex items-center justify-between mb-4">
+                <Badge
+                  variant="secondary"
+                  className={cn("capitalize", statusStyles[vehicle.status])}
+                >
+                  {vehicle.status.replace("-", " ")}
+                </Badge>
+                <Badge variant="outline">{vehicle.type}</Badge>
               </div>
 
-            {vehicle.requiresInspection && (
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Calendar className="w-4 h-4" />
-                  <span>Next Inspection</span>
+              {vehicle.assignedTo && (
+                <p className="text-sm text-muted-foreground mb-4">
+                  Assigned to:{" "}
+                  <span className="text-foreground font-medium">{vehicle.assignedTo}</span>
+                </p>
+              )}
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Fuel className="w-4 h-4" />
+                    <span>Fuel Level</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-20 h-2 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className={cn(
+                          "h-full rounded-full transition-all",
+                          vehicle.fuelLevel > 50
+                            ? "bg-success"
+                            : vehicle.fuelLevel > 25
+                            ? "bg-warning"
+                            : "bg-destructive",
+                        )}
+                        style={{ width: `${vehicle.fuelLevel}%` }}
+                      />
+                    </div>
+                    <span className="text-foreground font-medium">{vehicle.fuelLevel}%</span>
+                  </div>
                 </div>
-                <span className="text-foreground">
-                  {new Date(vehicle.nextInspection).toLocaleDateString()}
-                </span>
+
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Mileage</span>
+                  <span className="text-foreground font-medium">
+                    {vehicle.mileage.toLocaleString()} mi
+                  </span>
+                </div>
+
+                {vehicle.requiresInspection && (
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Calendar className="w-4 h-4" />
+                      <span>Next Inspection</span>
+                    </div>
+                    <span className="text-foreground">
+                      {new Date(vehicle.nextInspection).toLocaleDateString()}
+                    </span>
+                  </div>
+                )}
+
+                <VehicleNeedsSection
+                  vehicle={vehicle}
+                  employees={employees}
+                  onAddNeed={handleAddNeedForVehicle}
+                  onToggleNeed={handleToggleNeedForVehicle}
+                  onDeleteNeed={handleDeleteNeedForVehicle}
+                  onUpdateNeeds={handleUpdateNeedsForVehicle}
+                />
               </div>
-            )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="border border-border/60 rounded-xl overflow-hidden bg-card divide-y divide-border/60">
+            {filteredVehicles.map(vehicle => {
+              const vehicleNeeds = vehicle.needs || [];
+              const isExpanded = expandedNeedsView[vehicle.id];
+              
+              return (
+                <div key={vehicle.id} className="transition-all">
+                  {/* Vehicle Header Row */}
+                  <div 
+                    onClick={() => setExpandedNeedsView(prev => ({ ...prev, [vehicle.id]: !prev[vehicle.id] }))}
+                    className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/40 transition-colors"
+                  >
+                    <div className="flex items-center gap-3 select-none">
+                      <ChevronDown className={`h-4 w-4 transition-transform text-muted-foreground ${isExpanded ? "rotate-0" : "-rotate-90"}`} />
+                      <span className="font-semibold text-sm sm:text-base text-foreground">
+                        {vehicle.name}
+                      </span>
+                      <span className="text-xs text-muted-foreground">({vehicle.licensePlate})</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="text-xs font-semibold px-2 py-0.5 h-6">
+                        {vehicleNeeds.filter(n => !n.completed).length} Pending
+                      </Badge>
+                    </div>
+                  </div>
+                  
+                  {/* Needs Sub-list */}
+                  {isExpanded && (
+                    <div className="bg-muted/10 px-4 py-3 space-y-3 border-t border-border/40">
+                      {/* Headers */}
+                      <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-muted-foreground border-b border-border/40 pb-2 px-2">
+                        <div className="col-span-6 sm:col-span-7">Task name</div>
+                        <div className="col-span-3 sm:col-span-3">Assignee</div>
+                        <div className="col-span-3 sm:col-span-2">Due date</div>
+                      </div>
+                      
+                      {/* List items */}
+                      <div className="space-y-1.5">
+                        {vehicleNeeds.length > 0 ? (
+                          vehicleNeeds.map(need => (
+                            <div key={need.id} className="space-y-1.5">
+                              <div className="grid grid-cols-12 gap-2 items-center p-2 rounded-lg bg-background border border-border/40 hover:bg-muted/20 transition-colors text-xs sm:text-sm">
+                                {/* Task checkbox & name */}
+                                <div className="col-span-6 sm:col-span-7 flex items-center gap-2.5 min-w-0">
+                                  <input 
+                                    type="checkbox"
+                                    checked={need.completed}
+                                    onChange={(e) => {
+                                      e.stopPropagation();
+                                      void handleToggleNeedForVehicle(vehicle, need.id);
+                                    }}
+                                    className="h-4 w-4 rounded border-gray-300 text-primary accent-primary cursor-pointer flex-shrink-0"
+                                  />
+                                  <div className="min-w-0 flex-1">
+                                    <span className={`font-medium truncate block ${need.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                                      {need.taskName}
+                                    </span>
+                                    {need.parts && need.parts.length > 0 && (
+                                      <span className="text-[10px] text-primary font-semibold block mt-0.5">
+                                        Parts: {need.parts.map(p => `${p.name} ($${(Number(p.cost) || 0).toFixed(2)})`).join(", ")}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                
+                                {/* Assignee */}
+                                <div className="col-span-3 sm:col-span-3 min-w-0">
+                                  {need.assignee ? (
+                                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium truncate">
+                                      <span className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center text-[9px] font-bold">
+                                        {getInitials(need.assignee)}
+                                      </span>
+                                      <span className="hidden sm:inline">{need.assignee}</span>
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground">—</span>
+                                  )}
+                                </div>
+                                
+                                {/* Due Date & delete actions */}
+                                <div className="col-span-3 sm:col-span-2 flex items-center justify-between min-w-0">
+                                  <span className="text-xs text-muted-foreground truncate">{need.dueDate || "—"}</span>
+                                  <div className="flex items-center gap-1">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setActiveRowPartsNeedId(activeRowPartsNeedId === need.id ? null : need.id);
+                                      }}
+                                      className={`h-6 w-6 text-muted-foreground rounded-md hover:bg-primary/10 hover:text-primary ${activeRowPartsNeedId === need.id ? "bg-primary/10 text-primary" : ""}`}
+                                    >
+                                      <Wrench className="h-3 w-3" />
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        void handleDeleteNeedForVehicle(vehicle, need.id);
+                                      }}
+                                      className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Row parts editor */}
+                              {activeRowPartsNeedId === need.id && (
+                                <div className="ml-8 p-3 bg-muted/40 rounded-lg border border-border/40 space-y-2 text-xs">
+                                  <div className="flex justify-between items-center font-semibold text-muted-foreground text-[10px] uppercase">
+                                    <span>Parts Required</span>
+                                    <span className="text-primary font-bold">Total: ${need.parts?.reduce((sum, p) => sum + (Number(p.cost) || 0), 0).toFixed(2) || "0.00"}</span>
+                                  </div>
+                                  {need.parts && need.parts.length > 0 ? (
+                                    <div className="space-y-1">
+                                      {need.parts.map((part, pIdx) => (
+                                        <div key={pIdx} className="flex justify-between items-center bg-background px-2 py-1 rounded border border-border/40">
+                                          <span className="font-medium">{part.name}</span>
+                                          <div className="flex items-center gap-1.5">
+                                            <span className="text-muted-foreground font-semibold">${(Number(part.cost) || 0).toFixed(2)}</span>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                const updated = (vehicle.needs || []).map(n => {
+                                                  if (n.id === need.id) {
+                                                    return { ...n, parts: (n.parts || []).filter((_, i) => i !== pIdx) };
+                                                  }
+                                                  return n;
+                                                });
+                                                void handleUpdateNeedsForVehicle(vehicle, updated);
+                                              }}
+                                              className="text-muted-foreground hover:text-destructive transition-colors font-bold text-sm"
+                                            >
+                                              ×
+                                            </button>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <p className="text-[10px] text-muted-foreground italic">No parts added yet.</p>
+                                  )}
+                                  <div className="flex gap-2 pt-2 border-t border-border/40">
+                                    <input
+                                      type="text"
+                                      placeholder="Part name"
+                                      id={`row-part-name-input-${need.id}`}
+                                      className="flex-1 rounded border border-input bg-background px-2 py-1 text-xs outline-none"
+                                    />
+                                    <input
+                                      type="number"
+                                      placeholder="Cost"
+                                      id={`row-part-cost-input-${need.id}`}
+                                      className="w-20 rounded border border-input bg-background px-2 py-1 text-xs outline-none"
+                                    />
+                                    <Button
+                                      type="button"
+                                      onClick={() => {
+                                        const nameEl = document.getElementById(`row-part-name-input-${need.id}`) as HTMLInputElement;
+                                        const costEl = document.getElementById(`row-part-cost-input-${need.id}`) as HTMLInputElement;
+                                        if (nameEl && nameEl.value.trim()) {
+                                          const costNum = parseFloat(costEl.value) || 0;
+                                          const updated = (vehicle.needs || []).map(n => {
+                                            if (n.id === need.id) {
+                                              return { ...n, parts: [...(n.parts || []), { name: nameEl.value.trim(), cost: costNum }] };
+                                            }
+                                            return n;
+                                          });
+                                          void handleUpdateNeedsForVehicle(vehicle, updated);
+                                          nameEl.value = "";
+                                          costEl.value = "";
+                                        }
+                                      }}
+                                      className="h-7 px-2.5 text-xs font-bold"
+                                    >
+                                      Add Part
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-xs text-muted-foreground italic py-2 text-center">No needs listed for this vehicle.</p>
+                        )}
+                      </div>
+                      
+                      {/* Inline Quick Add Row */}
+                      <div className="pt-3 border-t border-border/40 bg-card/40 p-3 rounded-xl border border-border/40">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Add task need</p>
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                          <div className="flex-1 min-w-0">
+                            <input 
+                              type="text"
+                              placeholder="e.g. Tire alignment, Coolant level check..."
+                              id={`manager-needs-task-input-${vehicle.id}`}
+                              className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs sm:text-sm outline-none focus:ring-1 focus:ring-primary/20 transition-all h-8 sm:h-9"
+                            />
+                          </div>
+                          <div className="w-full sm:w-40 flex-shrink-0">
+                            <select 
+                              id={`manager-needs-assignee-input-${vehicle.id}`}
+                              className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs sm:text-sm outline-none h-8 sm:h-9"
+                            >
+                              <option value="">Assign Person...</option>
+                              {employees.map(emp => (
+                                <option key={emp.id} value={emp.name}>{emp.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="w-full sm:w-32 flex-shrink-0">
+                            <input 
+                              type="date"
+                              id={`manager-needs-date-input-${vehicle.id}`}
+                              className="w-full rounded-lg border border-border bg-background px-2 py-1 text-xs sm:text-sm outline-none h-8 sm:h-9"
+                            />
+                          </div>
+                          <Button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const taskVal = (document.getElementById(`manager-needs-task-input-${vehicle.id}`) as HTMLInputElement)?.value;
+                              const assigneeVal = (document.getElementById(`manager-needs-assignee-input-${vehicle.id}`) as HTMLSelectElement)?.value;
+                              const dateVal = (document.getElementById(`manager-needs-date-input-${vehicle.id}`) as HTMLInputElement)?.value;
+                              if (taskVal) {
+                                void handleAddNeedForVehicle(vehicle, taskVal, assigneeVal, dateVal);
+                                // Clear inputs
+                                (document.getElementById(`manager-needs-task-input-${vehicle.id}`) as HTMLInputElement).value = "";
+                                (document.getElementById(`manager-needs-assignee-input-${vehicle.id}`) as HTMLSelectElement).value = "";
+                                (document.getElementById(`manager-needs-date-input-${vehicle.id}`) as HTMLInputElement).value = "";
+                              }
+                            }}
+                            className="h-8 sm:h-9 px-3 text-xs w-full sm:w-auto"
+                          >
+                            <Plus className="h-3.5 w-3.5 mr-1" /> Add
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
-        ))}
-      </div>
+      )}
 
       <div className="mt-6">
         <Pagination
@@ -1369,4 +1958,272 @@ export default function Vehicles() {
       </div>
     </div>
   );
-}
+};
+
+const VehicleNeedsSection = ({ 
+  vehicle, 
+  employees,
+  onAddNeed,
+  onToggleNeed,
+  onDeleteNeed,
+  onUpdateNeeds
+}: {
+  vehicle: Vehicle;
+  employees: Employee[];
+  onAddNeed: (vehicle: Vehicle, taskName: string, assignee: string, dueDate: string) => Promise<void>;
+  onToggleNeed: (vehicle: Vehicle, needId: string) => Promise<void>;
+  onDeleteNeed: (vehicle: Vehicle, needId: string) => Promise<void>;
+  onUpdateNeeds: (vehicle: Vehicle, updatedNeeds: any[]) => Promise<void>;
+}) => {
+  const pendingCount = (vehicle.needs || []).filter(n => !n.completed).length;
+  const [expanded, setExpanded] = useState(pendingCount > 0);
+  const [taskName, setTaskName] = useState("");
+  const [assignee, setAssignee] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Parts management states
+  const [activePartsNeedId, setActivePartsNeedId] = useState<string | null>(null);
+  const [partName, setPartName] = useState("");
+  const [partCost, setPartCost] = useState("");
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!taskName.trim()) return;
+    setIsSubmitting(true);
+    try {
+      await onAddNeed(vehicle, taskName.trim(), assignee, dueDate);
+      setTaskName("");
+      setAssignee("");
+      setDueDate("");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleAddPart = async (needId: string) => {
+    if (!partName.trim()) return;
+    const costNum = parseFloat(partCost) || 0;
+    const updatedNeeds = (vehicle.needs || []).map(n => {
+      if (n.id === needId) {
+        const existingParts = n.parts || [];
+        return {
+          ...n,
+          parts: [...existingParts, { name: partName.trim(), cost: costNum }]
+        };
+      }
+      return n;
+    });
+    await onUpdateNeeds(vehicle, updatedNeeds);
+    setPartName("");
+    setPartCost("");
+  };
+
+  const handleDeletePart = async (needId: string, partIndex: number) => {
+    const updatedNeeds = (vehicle.needs || []).map(n => {
+      if (n.id === needId) {
+        const existingParts = n.parts || [];
+        return {
+          ...n,
+          parts: existingParts.filter((_, idx) => idx !== partIndex)
+        };
+      }
+      return n;
+    });
+    await onUpdateNeeds(vehicle, updatedNeeds);
+  };
+
+  return (
+    <div className="border-t border-border/60 pt-3 mt-4">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center justify-between w-full text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <span className="flex items-center gap-1.5">
+          <Wrench className="w-3.5 h-3.5 text-primary" />
+          Needs & Tasks
+          {(vehicle.needs || []).length > 0 && (
+            <Badge variant="secondary" className="px-1.5 py-0 text-[10px] h-4 scale-90">
+              {pendingCount} pending
+            </Badge>
+          )}
+        </span>
+        <span className="text-[10px]">{expanded ? "Hide" : "Show"}</span>
+      </button>
+
+      {expanded && (
+        <div className="mt-3 space-y-2 animate-fadeIn">
+          {/* Needs List */}
+          <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+            {(vehicle.needs || []).length > 0 ? (
+              (vehicle.needs || []).map((need) => {
+                const partsList = need.parts || [];
+                const partsTotal = partsList.reduce((sum, p) => sum + (Number(p.cost) || 0), 0);
+                const isPartsOpen = activePartsNeedId === need.id;
+
+                return (
+                  <div key={need.id} className="space-y-1.5">
+                    <div 
+                      className="flex items-center justify-between p-1.5 rounded-lg bg-muted/20 border border-muted/40 hover:bg-muted/30 transition-all text-xs"
+                    >
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <input
+                          type="checkbox"
+                          checked={need.completed}
+                          onChange={() => onToggleNeed(vehicle, need.id)}
+                          className="h-3.5 w-3.5 rounded border-gray-300 text-primary accent-primary cursor-pointer flex-shrink-0"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className={`font-medium break-words ${need.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                            {need.taskName}
+                          </p>
+                          <div className="flex flex-wrap gap-2 mt-0.5 text-[9px] text-muted-foreground">
+                            {need.assignee && (
+                              <span className="flex items-center gap-0.5">
+                                <User className="h-2 w-2" />
+                                {need.assignee}
+                              </span>
+                            )}
+                            {need.dueDate && (
+                              <span className="flex items-center gap-0.5">
+                                <Calendar className="h-2 w-2" />
+                                {need.dueDate}
+                              </span>
+                            )}
+                            {partsList.length > 0 && (
+                              <span className="text-primary font-semibold">
+                                Parts: {partsList.length} (${partsTotal.toFixed(2)})
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setActivePartsNeedId(isPartsOpen ? null : need.id)}
+                          className={`h-6 w-6 text-muted-foreground rounded-md hover:bg-primary/10 hover:text-primary ${isPartsOpen ? "bg-primary/10 text-primary" : ""}`}
+                          title="Manage Parts"
+                        >
+                          <Wrench className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => onDeleteNeed(vehicle, need.id)}
+                          className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Inline Parts Editor */}
+                    {isPartsOpen && (
+                      <div className="ml-4 p-2 bg-muted/40 rounded-lg border border-muted/50 space-y-2 text-xs">
+                        <div className="flex justify-between items-center font-semibold text-muted-foreground text-[10px] uppercase">
+                          <span>Parts Required</span>
+                          <span className="text-primary font-bold">Total: ${partsTotal.toFixed(2)}</span>
+                        </div>
+                        {partsList.length > 0 ? (
+                          <div className="space-y-1">
+                            {partsList.map((part, pIdx) => (
+                              <div key={pIdx} className="flex justify-between items-center bg-background px-2 py-1 rounded border border-border/40">
+                                <span className="font-medium">{part.name}</span>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-muted-foreground font-semibold">${(Number(part.cost) || 0).toFixed(2)}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeletePart(need.id, pIdx)}
+                                    className="text-muted-foreground hover:text-destructive transition-colors font-bold text-sm"
+                                  >
+                                    ×
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-[10px] text-muted-foreground italic">No parts added yet.</p>
+                        )}
+                        <div className="flex gap-1.5 pt-1.5 border-t border-border/40">
+                          <input
+                            type="text"
+                            placeholder="Part name"
+                            value={partName}
+                            onChange={(e) => setPartName(e.target.value)}
+                            className="flex-1 rounded border border-input bg-background px-1.5 py-0.5 text-[10px] outline-none"
+                          />
+                          <input
+                            type="number"
+                            placeholder="Cost"
+                            value={partCost}
+                            onChange={(e) => setPartCost(e.target.value)}
+                            className="w-16 rounded border border-input bg-background px-1.5 py-0.5 text-[10px] outline-none"
+                          />
+                          <Button
+                            type="button"
+                            onClick={() => handleAddPart(need.id)}
+                            disabled={!partName.trim()}
+                            className="h-5 px-1.5 text-[9px] font-bold"
+                          >
+                            Add
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            ) : (
+              <p className="text-[11px] text-muted-foreground italic py-1">No needs listed for this vehicle.</p>
+            )}
+          </div>
+
+          {/* Quick Add Form */}
+          <form onSubmit={handleAdd} className="space-y-1.5 pt-2 border-t border-border/40">
+            <div className="flex gap-1.5">
+              <input
+                type="text"
+                placeholder="New need... e.g. Align tires"
+                value={taskName}
+                onChange={(e) => setTaskName(e.target.value)}
+                className="flex-1 rounded-md border border-input bg-background px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-primary/20 transition-all"
+                required
+              />
+            </div>
+            <div className="flex gap-1.5 items-center">
+              <select
+                value={assignee}
+                onChange={(e) => setAssignee(e.target.value)}
+                className="flex-1 rounded-md border border-input bg-background px-1.5 py-1 text-[11px] outline-none"
+              >
+                <option value="">Assignee...</option>
+                {employees.map(emp => (
+                  <option key={emp.id} value={emp.name}>{emp.name}</option>
+                ))}
+              </select>
+              <input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="w-24 rounded-md border border-input bg-background px-1.5 py-1 text-[11px] outline-none"
+              />
+              <Button
+                type="submit"
+                disabled={isSubmitting || !taskName.trim()}
+                className="h-6 px-2 text-[10px]"
+              >
+                Add
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+};

@@ -1,0 +1,45 @@
+import { HolidayThemeManifest } from "../types";
+
+export const WINTER_2026_MANIFEST: HolidayThemeManifest = {
+  themeKey: "winter-wonderland-2026",
+  displayName: "Winter Wonderland & Frost Gala",
+  description: "Northern lights aurora, falling snow crystals, pine garland framing, and icy neon card borders.",
+  category: "winter",
+  priority: 95,
+  palette: {
+    primary: "#059669",
+    secondary: "#dc2626",
+    accent: "#38bdf8",
+    accent2: "#f59e0b",
+    backgroundBase: "#070d1e",
+    surfaceTint: "rgba(56, 189, 248, 0.08)",
+    cardBorder: "rgba(56, 189, 248, 0.42)",
+    cardGlow: "0 0 25px rgba(56, 189, 248, 0.28)",
+    textColor: "#f8fafc",
+    scrimWash: "rgba(7, 13, 30, 0.70)",
+  },
+  layout: {
+    headerHeight: 68,
+    bannerHeight: 128,
+    sideFrameWidth: 52,
+    enableSideFrames: true,
+    enableBottomForeground: true,
+    enableHeaderBanner: true,
+  },
+  animations: {
+    particleType: "snow",
+    particleCountDesktop: 45,
+    particleCountMobile: 22,
+    particleColor: ["#ffffff", "#e0f2fe", "#bae6fd", "#fef08a"],
+    particleSpeed: 0.9,
+    enableGlowPulse: true,
+    transientEffectType: "firework-burst",
+    transientIntervalSeconds: 40,
+  },
+  accessibility: {
+    minContrastRatio: 4.5,
+    reducedMotionAlternative: "static-decorations",
+    highContrastCompatible: true,
+  },
+  isActive: true,
+};

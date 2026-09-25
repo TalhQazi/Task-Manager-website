@@ -3,7 +3,8 @@ import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
-import { Avatar, AvatarFallback } from "@/components/admin/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/admin/ui/avatar";
+import { useEmployeeAvatars } from "@/hooks/useEmployeeAvatars";
 import { Badge } from "@/components/admin/ui/badge";
 import { apiGet, listResource } from "@/lib/admin/apiClient";
 import { Search, MapPin, Clock, CheckCircle2, XCircle, ChevronDown, ChevronUp } from "lucide-react";
@@ -50,6 +51,7 @@ const getInitials = (name: string) =>
     .toUpperCase();
 
 export default function ItineraryHistory() {
+  const getAvatar = useEmployeeAvatars();
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [searchQuery, setSearchQuery] = useState("");
   const [itineraries, setItineraries] = useState<Itinerary[]>([]);
@@ -231,6 +233,7 @@ export default function ItineraryHistory() {
                         <div className="space-y-2">
                           <div className="flex flex-wrap items-center gap-2">
                             <Avatar className="h-11 w-11 ring-2 ring-primary/20">
+                              {getAvatar(employeeName) && <AvatarImage src={getAvatar(employeeName)} alt={employeeName} className="object-cover" />}
                               <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white">
                                 {getInitials(employeeName)}
                               </AvatarFallback>

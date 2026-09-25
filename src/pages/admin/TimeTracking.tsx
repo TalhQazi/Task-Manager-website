@@ -22,7 +22,7 @@ import {
 } from "@/components/admin/ui/dropdown-menu";
 import { Clock, MapPin, MoreHorizontal, Plus, Calendar, Users, ShieldAlert, FileText, Printer, Search } from "lucide-react";
 
-import { apiFetch, createResource, deleteResource, getApiBaseUrl, listResource, updateResource } from "@/lib/admin/apiClient";
+import { apiFetch, createResource, deleteResource, getApiBaseUrl, listResource, updateResource, toProxiedUrl } from "@/lib/admin/apiClient";
 import { getAuthState } from "@/lib/auth";
 import jsPDF from "jspdf";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -345,8 +345,9 @@ const TimeTracking = () => {
         if (!mounted) return;
         setApiError(e instanceof Error ? e.message : "Failed to load time entries");
       } finally {
-        if (!mounted) return;
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
     void load();
@@ -1023,7 +1024,7 @@ const TimeTracking = () => {
                         <Avatar className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0">
                           {entry.avatar ? (
                             <AvatarImage
-                              src={entry.avatar}
+                              src={toProxiedUrl(entry.avatar) || entry.avatar}
                               alt={entry.employee || "Employee"}
                               className="object-cover"
                             />

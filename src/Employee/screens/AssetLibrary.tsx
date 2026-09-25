@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { employeeApiFetch, toProxiedUrl } from "@/Employee/lib/api";
+import { employeeApiFetch, toProxiedUrl, downloadViaUrl } from "@/Employee/lib/api";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,7 @@ type Asset = {
   currentVersionNumber?: number;
   urlThumbnail?: string;
   urlPreview?: string;
+  urlOriginal?: string;
   updatedAt?: string;
   attachment?: { fileName?: string; url?: string; mimeType?: string; size?: number };
 };
@@ -114,23 +115,27 @@ export default function EmployeeAssetLibrary({
   const total = assetsQuery.data?.total ?? assets.length;
 
   const downloadAsset = async (asset: Asset) => {
-    const res = await employeeApiFetch<{ url: string; fileName: string }>(
-      `/api/asset-library/assets/${encodeURIComponent(asset.id)}/download`,
-      { method: "POST" }
-    );
+    try {
+      const activeUrl = asset.attachment?.url || asset.urlOriginal;
+      if (activeUrl) {
+        const safeUrl = toProxiedUrl(activeUrl) || activeUrl;
+        const fileName = asset.originalFilename || asset.attachment?.fileName || asset.title || "asset";
+        await downloadViaUrl(safeUrl, fileName);
+        return;
+      }
 
-    const safeUrl = toProxiedUrl(res.url);
-    const r = await fetch(safeUrl);
-    if (!r.ok) throw new Error(`Download failed (${r.status})`);
-    const blob = await r.blob();
-    const objectUrl = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = objectUrl;
-    a.download = res.fileName || asset.attachment?.fileName || "asset";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(objectUrl);
+      const res = await employeeApiFetch<{ url: string; fileName: string }>(
+        `/api/asset-library/assets/${encodeURIComponent(asset.id)}/download`,
+        { method: "POST" }
+      );
+
+      const safeUrl = toProxiedUrl(res.url) || res.url;
+      if (safeUrl) {
+        await downloadViaUrl(safeUrl, res.fileName || asset.attachment?.fileName || asset.title || "asset");
+      }
+    } catch (err) {
+      console.error("Download failed:", err);
+    }
   };
 
   const renderFolderNode = (node: FolderNode, depth = 0) => {
@@ -181,11 +186,11 @@ export default function EmployeeAssetLibrary({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4">
-        <Card className="min-h-[520px] overflow-hidden">
+        <Card className="flex flex-col min-h-[520px] overflow-hidden">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Folders</CardTitle>
           </CardHeader>
-          <CardContent className="pt-0 h-full overflow-y-auto">
+          <CardContent className="pt-0 flex-1 overflow-y-auto">
             <div className="space-y-1">
               <button
                 type="button"

@@ -5,27 +5,34 @@ import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/admin/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/admin/ui/dialog";
-import { Receipt, Plus, Search, RefreshCw, AlertCircle, CheckCircle2, Clock } from "lucide-react";
+import { Receipt, Plus, Search, RefreshCw, AlertCircle, CheckCircle2, Clock, Building2, MapPin } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 
 export default function AccountsPayable() {
   const [items, setItems] = useState<any[]>([]);
   const [vendors, setVendors] = useState<any[]>([]);
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [companyLocations, setCompanyLocations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
-  
-  const [form, setForm] = useState({ vendor: "", billNumber: "", date: new Date().toISOString().split("T")[0], dueDate: "", amount: "", description: "", status: "Unpaid" });
+  const [form, setForm] = useState({ vendor: "", company: "", companyLocation: "", billNumber: "", date: new Date().toISOString().split("T")[0], dueDate: "", amount: "", description: "", status: "Unpaid" });
+
+  const [filterCompany, setFilterCompany] = useState("");
+  const [filterLocation, setFilterLocation] = useState("");
+  const [filterLocations, setFilterLocations] = useState<any[]>([]);
 
   const load = async () => {
     try {
       setLoading(true);
-      const [billsRes, vendorsRes] = await Promise.all([
+      const [billsRes, vendorsRes, companiesRes] = await Promise.all([
         apiFetch("/api/atlasbook/bills"),
-        apiFetch("/api/vendors")
+        apiFetch("/api/vendors"),
+        apiFetch("/api/companies"),
       ]);
       if (billsRes?.success) setItems(billsRes.items || []);
       if (vendorsRes) setVendors(Array.isArray(vendorsRes) ? vendorsRes : (vendorsRes.items || []));
+      if (companiesRes) setCompanies(companiesRes.items || []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -35,15 +42,41 @@ export default function AccountsPayable() {
 
   useEffect(() => { load(); }, []);
 
+  // Load locations when company changes
+  const loadLocations = async (companyId: string) => {
+    if (!companyId) { setCompanyLocations([]); return; }
+    try {
+      const res = await apiFetch(`/api/company-locations?company=${companyId}`);
+      setCompanyLocations(res?.items || []);
+    } catch { setCompanyLocations([]); }
+  };
+
+  const loadFilterLocations = async (companyId: string) => {
+    if (!companyId) { setFilterLocations([]); return; }
+    try {
+      const res = await apiFetch(`/api/company-locations?company=${companyId}`);
+      setFilterLocations(res?.items || []);
+    } catch { setFilterLocations([]); }
+  };
+
+  const handleCompanyChange = (companyId: string) => {
+    setForm({ ...form, company: companyId, companyLocation: "" });
+    loadLocations(companyId);
+  };
+
   const handleCreate = async () => {
     try {
+      const payload = { ...form };
+      if (!payload.company) delete (payload as any).company;
+      if (!payload.companyLocation) delete (payload as any).companyLocation;
       const res = await apiFetch("/api/atlasbook/bills", {
         method: "POST",
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       if (res?.success) {
         setOpen(false);
-        setForm({ vendor: "", billNumber: "", date: new Date().toISOString().split("T")[0], dueDate: "", amount: "", description: "", status: "Unpaid" });
+        setForm({ vendor: "", company: "", companyLocation: "", billNumber: "", date: new Date().toISOString().split("T")[0], dueDate: "", amount: "", description: "", status: "Unpaid" });
+        setCompanyLocations([]);
         load();
       }
     } catch (e) {
@@ -51,10 +84,15 @@ export default function AccountsPayable() {
     }
   };
 
-  const filtered = items.filter(i => 
-    i.billNumber?.toLowerCase().includes(q.toLowerCase()) || 
-    i.vendor?.name?.toLowerCase().includes(q.toLowerCase())
-  );
+  const filtered = items.filter(i => {
+    const matchesQ = i.billNumber?.toLowerCase().includes(q.toLowerCase()) || 
+      i.vendor?.name?.toLowerCase().includes(q.toLowerCase()) ||
+      i.company?.name?.toLowerCase().includes(q.toLowerCase());
+    const matchesCompany = filterCompany ? (i.company?._id === filterCompany || i.company?.id === filterCompany) : true;
+    const matchesLocation = filterLocation ? (i.companyLocation?._id === filterLocation || i.companyLocation?.id === filterLocation) : true;
+    
+    return matchesQ && matchesCompany && matchesLocation;
+  });
 
   const totalUnpaid = items.filter(i => i.status === "Unpaid").reduce((sum, i) => sum + i.amount, 0);
 
@@ -92,9 +130,39 @@ export default function AccountsPayable() {
       </div>
 
       <Card className="shadow-soft p-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-          <Input placeholder="Search bills or vendors..." className="pl-10" value={q} onChange={(e) => setQ(e.target.value)} />
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input placeholder="Search bills, vendors, or companies..." className="pl-10" value={q} onChange={(e) => setQ(e.target.value)} />
+          </div>
+          <div className="flex gap-4 md:w-1/2">
+            <select 
+              className="flex-1 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={filterCompany}
+              onChange={(e) => {
+                setFilterCompany(e.target.value);
+                setFilterLocation("");
+                loadFilterLocations(e.target.value);
+              }}
+            >
+              <option value="">All Companies</option>
+              {companies.map(c => <option key={c.id || c._id} value={c.id || c._id}>{c.name}</option>)}
+            </select>
+            
+            <select 
+              className="flex-1 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-50"
+              value={filterLocation}
+              onChange={(e) => setFilterLocation(e.target.value)}
+              disabled={!filterCompany}
+            >
+              <option value="">All Locations</option>
+              {filterLocations.map(loc => (
+                <option key={loc._id} value={loc._id}>
+                  {loc.label}{loc.address?.city ? ` — ${loc.address.city}` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </Card>
 
@@ -105,6 +173,8 @@ export default function AccountsPayable() {
               <TableRow>
                 <TableHead>Bill #</TableHead>
                 <TableHead>Vendor</TableHead>
+                <TableHead>Company</TableHead>
+                <TableHead>Location</TableHead>
                 <TableHead>Bill Date</TableHead>
                 <TableHead>Due Date</TableHead>
                 <TableHead>Status</TableHead>
@@ -113,14 +183,30 @@ export default function AccountsPayable() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-10"><RefreshCw className="animate-spin mx-auto" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-10"><RefreshCw className="animate-spin mx-auto" /></TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-10 text-muted-foreground italic">No bills found.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-10 text-muted-foreground italic">No bills found.</TableCell></TableRow>
               ) : (
                 filtered.map((item) => (
                   <TableRow key={item._id}>
                     <TableCell className="font-bold">{item.billNumber}</TableCell>
                     <TableCell className="text-sm">{item.vendor?.name || "Unknown Vendor"}</TableCell>
+                    <TableCell className="text-sm">
+                      {item.company ? (
+                        <span className="flex items-center gap-1">
+                          <Building2 size={12} className="text-muted-foreground" />
+                          {item.company.name}
+                        </span>
+                      ) : <span className="text-muted-foreground text-xs">—</span>}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {item.companyLocation ? (
+                        <span className="flex items-center gap-1">
+                          <MapPin size={12} className="text-muted-foreground" />
+                          {item.companyLocation.label}
+                        </span>
+                      ) : <span className="text-muted-foreground text-xs">—</span>}
+                    </TableCell>
                     <TableCell className="text-xs">{new Date(item.date).toLocaleDateString()}</TableCell>
                     <TableCell className="text-xs">
                       {item.dueDate ? (
@@ -155,6 +241,22 @@ export default function AccountsPayable() {
                 <option value="">Select Vendor...</option>
                 {vendors.map(v => <option key={v._id} value={v._id}>{v.name}</option>)}
               </select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium flex items-center gap-1"><Building2 size={14} /> Company</label>
+                <select className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.company} onChange={e => handleCompanyChange(e.target.value)}>
+                  <option value="">None</option>
+                  {companies.map(c => <option key={c.id || c._id} value={c.id || c._id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium flex items-center gap-1"><MapPin size={14} /> Location</label>
+                <select className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.companyLocation} onChange={e => setForm({...form, companyLocation: e.target.value})} disabled={!form.company}>
+                  <option value="">None</option>
+                  {companyLocations.map(loc => <option key={loc._id} value={loc._id}>{loc.label}{loc.address?.city ? ` — ${loc.address.city}, ${loc.address.state}` : ""}</option>)}
+                </select>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">

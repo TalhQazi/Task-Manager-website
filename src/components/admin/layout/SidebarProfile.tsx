@@ -4,7 +4,8 @@ import { getAuthState, clearAuthState } from "@/lib/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Mail, Bell, Bug, User, Settings, Loader2, X as XIcon, Camera } from "lucide-react";
+import { LogOut, Mail, Bell, Bug, User, Settings, Loader2, X as XIcon, Camera, Search } from "lucide-react";
+import { GlobalSearch } from "@/components/GlobalSearch";
 import { useNavigate } from "react-router-dom";
 import { useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -75,6 +76,9 @@ export function SidebarProfile() {
 
   const unreadCount = (notificationsQuery.data || []).filter((n) => n.status !== "read").length;
   const unreadMessageCount = (messagesQuery.data || []).reduce((sum, c) => sum + (c.unreadCount || 0), 0);
+
+  // Global Search State
+  const [searchOpen, setSearchOpen] = useState(false);
 
   // Bug Report State
   const [reportOpen, setReportOpen] = useState(false);
@@ -205,6 +209,14 @@ export function SidebarProfile() {
         </button>
 
         <button 
+          onClick={() => setSearchOpen(true)}
+          className="relative group p-2 rounded-lg hover:bg-white/10 transition-colors text-white/70 hover:text-white"
+          title="Search"
+        >
+          <Search className="h-4.5 w-4.5" />
+        </button>
+
+        <button 
           onClick={() => { clearAuthState(); navigate("/login"); }}
           className="p-2 rounded-lg hover:bg-red-500/10 text-red-400/70 hover:text-red-400 transition-colors"
           title="Logout"
@@ -237,7 +249,7 @@ export function SidebarProfile() {
         <DropdownMenuContent align="end" side="top" className="w-56 mb-2">
           <DropdownMenuLabel className="text-xs">Account Settings</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => navigate("/admin/settings")}>
+          <DropdownMenuItem onClick={() => navigate("/admin/profile")}>
             <User className="mr-2 h-4 w-4" /> Profile Details
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => navigate("/admin/settings")}>
@@ -268,29 +280,64 @@ export function SidebarProfile() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-medium">Attachments (Max 5)</label>
+              <label className="text-xs font-medium">Attachments: Images & Videos (Max 5)</label>
               <div className="flex flex-wrap gap-2">
-                 {reportImagePreviewUrls.map((url, i) => (
-                   <div key={i} className="relative h-16 w-16 border rounded overflow-hidden group">
-                     <img src={url} className="h-full w-full object-cover" />
-                     <button onClick={() => {
-                        URL.revokeObjectURL(url);
-                        setReportImagePreviewUrls(p => p.filter((_, idx) => idx !== i));
-                        setReportImageFiles(p => p.filter((_, idx) => idx !== i));
-                     }} className="absolute top-0 right-0 bg-red-500 text-white p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                       <XIcon className="h-3 w-3" />
-                     </button>
-                   </div>
-                 ))}
+                 {reportImagePreviewUrls.map((url, i) => {
+                   const file = reportImageFiles[i];
+                   const isVid = file?.type?.startsWith("video/") || url.startsWith("data:video/") || /\.(mp4|webm|mov|ogg|m4v|mkv)$/i.test(url);
+                   return (
+                     <div key={i} className="relative h-16 w-16 border rounded overflow-hidden group bg-black">
+                       {isVid ? (
+                         <video src={url} className="h-full w-full object-cover" muted />
+                       ) : (
+                         <img src={url} className="h-full w-full object-cover" alt={`preview ${i}`} />
+                       )}
+                       <button onClick={() => {
+                          URL.revokeObjectURL(url);
+                          setReportImagePreviewUrls(p => p.filter((_, idx) => idx !== i));
+                          setReportImageFiles(p => p.filter((_, idx) => idx !== i));
+                       }} className="absolute top-0 right-0 bg-red-500 text-white p-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                         <XIcon className="h-3 w-3" />
+                       </button>
+                     </div>
+                   );
+                 })}
                  {reportImageFiles.length < 5 && (
-                   <button 
-                    onClick={handlePasteImage}
-                    className="h-16 w-16 border-2 border-dashed rounded flex flex-col items-center justify-center text-muted-foreground hover:text-primary transition-colors"
-                    title="Paste image"
-                   >
-                     <Camera className="h-4 w-4 mb-1" />
-                     <span className="text-[8px]">Paste</span>
-                   </button>
+                   <div className="flex gap-1">
+                     <button 
+                      type="button"
+                      onClick={handlePasteImage}
+                      className="h-16 w-16 border-2 border-dashed rounded flex flex-col items-center justify-center text-muted-foreground hover:text-primary transition-colors"
+                      title="Paste image"
+                     >
+                       <Camera className="h-4 w-4 mb-1" />
+                       <span className="text-[8px]">Paste</span>
+                     </button>
+                     <label 
+                      className="h-16 w-16 border-2 border-dashed rounded flex flex-col items-center justify-center text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+                      title="Upload file"
+                     >
+                       <Camera className="h-4 w-4 mb-1" />
+                       <span className="text-[8px]">Upload</span>
+                       <input 
+                        type="file" 
+                        accept="image/*,video/*" 
+                        multiple 
+                        className="hidden" 
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files || []);
+                          if (files.length + reportImageFiles.length > 5) {
+                            setReportError("Max 5 attachments allowed.");
+                            return;
+                          }
+                          const newFiles = [...reportImageFiles, ...files].slice(0, 5);
+                          setReportImageFiles(newFiles);
+                          setReportImagePreviewUrls(newFiles.map(f => URL.createObjectURL(f)));
+                          setReportError(null);
+                        }}
+                       />
+                     </label>
+                   </div>
                  )}
               </div>
             </div>
@@ -303,6 +350,9 @@ export function SidebarProfile() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Global Search Palette */}
+      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} isEmployee={false} />
     </div>
   );
 }

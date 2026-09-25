@@ -3,7 +3,6 @@ import { useLocation } from "react-router-dom";
 import { Button } from "@/components/manger/ui/button";
 import { Input } from "@/components/manger/ui/input";
 import { Badge } from "@/components/manger/ui/badge";
-import { Textarea } from "@/components/manger/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -12,6 +11,12 @@ import {
 } from "@/components/manger/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/manger/ui/avatar";
 import { Card, CardContent } from "@/components/manger/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/manger/ui/dropdown-menu";
 import {
   Plus,
   Search,
@@ -24,14 +29,46 @@ import {
   Paperclip,
   Download,
   Smile,
+  Users,
+  Lock,
+  Megaphone,
+  Info,
+  Image as ImageIcon,
+  Trash2,
+  Palette,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
+import { renderMessageContent } from "@/lib/linkify";
 import { apiFetch, toProxiedUrl } from "@/lib/manger/api";
+import MessageReactionBar, { type MessageReaction } from "@/components/shared/MessageReactionBar";
+import MentionsTextarea from "@/components/shared/MentionsTextarea";
+import CreateGroupModal from "@/components/shared/CreateGroupModal";
+import GroupInfoModal from "@/components/shared/GroupInfoModal";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSocket } from "@/contexts/SocketContext";
 import { getAuthState } from "@/lib/auth";
-import EmojiPicker, { type EmojiClickData } from "emoji-picker-react";
+import EmojiPicker, { EmojiStyle, type EmojiClickData } from "emoji-picker-react";
 import MilestoneBadge from "@/components/shared/MilestoneBadge";
+
+export interface ChatGroup {
+  id: string;
+  _id?: string;
+  name: string;
+  description?: string;
+  avatarUrl?: string;
+  groupType: "custom" | "department" | "project" | "task";
+  isPrivate?: boolean;
+  announcementOnly?: boolean;
+  members: string[];
+  admins: string[];
+  createdBy: string;
+  creatorRole?: string;
+  department?: string;
+  projectId?: string | null;
+  taskId?: string | null;
+  updatedAt?: string;
+  isArchived?: boolean;
+}
 
 interface Employee {
   id: string;
@@ -56,12 +93,14 @@ interface Message {
   sender: string;
   senderAvatar: string;
   recipient: string;
+  groupId?: string;
   content: string;
   timestamp: string;
-  type: "direct" | "broadcast";
+  type: "direct" | "broadcast" | "group";
   status: "sent" | "delivered" | "read";
   createdAt?: string;
   attachment?: { fileName?: string; url?: string; mimeType?: string; size?: number };
+  reactions?: MessageReaction[];
 }
 
 type MessageApi = Omit<Message, "id"> & {
@@ -86,13 +125,42 @@ function normalizeMessage(m: any): Message {
     sender: m.sender || "",
     senderAvatar: m.senderAvatar || "",
     recipient: m.recipient || "",
+    groupId: m.groupId ? String(m.groupId) : undefined,
     content: m.content || "",
     timestamp: m.timestamp || m.createdAt || new Date().toISOString(),
     type: m.type || "direct",
     status: m.status || "sent",
     createdAt: m.createdAt,
     attachment: m.attachment,
+    reactions: Array.isArray(m.reactions)
+      ? m.reactions.map((r: any) => ({ emoji: String(r.emoji || ""), username: String(r.username || "") }))
+      : [],
   };
+}
+
+function isDuplicateMessage(prev: Message[], newMsg: Message): boolean {
+  if (newMsg.id && prev.some((m) => m.id === newMsg.id)) return true;
+  return prev.some((m) => {
+    const isSameMetadata = 
+      m.sender === newMsg.sender && 
+      m.recipient === newMsg.recipient && 
+      m.content === newMsg.content;
+    if (!isSameMetadata) return false;
+    const t1 = new Date(m.timestamp).getTime();
+    const t2 = new Date(newMsg.timestamp).getTime();
+    return Math.abs(t1 - t2) < 10000;
+  });
+}
+
+function sortMessagesChronologically(list: Message[]): Message[] {
+  return [...list].sort((a, b) => {
+    const tA = new Date(a.timestamp || a.createdAt || 0).getTime();
+    const tB = new Date(b.timestamp || b.createdAt || 0).getTime();
+    if (!isNaN(tA) && !isNaN(tB) && tA !== tB) {
+      return tA - tB;
+    }
+    return String(a.id || "").localeCompare(String(b.id || ""));
+  });
 }
 
 function getInitials(name: string): string {
@@ -106,8 +174,13 @@ function getInitials(name: string): string {
 
 export default function Messages() {
   const queryClient = useQueryClient();
-  const [view, setView] = useState<"list" | "conversation" | "employees">("list");
+  const [view, setView] = useState<"list" | "conversation" | "employees" | "group">("list");
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<ChatGroup | null>(null);
+  const [groups, setGroups] = useState<ChatGroup[]>([]);
+  const [activeTab, setActiveTab] = useState<"direct" | "groups">("direct");
+  const [createGroupOpen, setCreateGroupOpen] = useState(false);
+  const [groupInfoOpen, setGroupInfoOpen] = useState(false);
 
   const [nowTime, setNowTime] = useState(Date.now());
   useEffect(() => {
@@ -196,6 +269,48 @@ export default function Messages() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const location = useLocation();
 
+  const isInitialLoad = useRef(true);
+  const isSendingMessage = useRef(false);
+  const prevMessagesLength = useRef(0);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const bgFileInputRef = useRef<HTMLInputElement>(null);
+  const [chatBackground, setChatBackground] = useState<string>(() => {
+    return localStorage.getItem("chat_background_image") || "";
+  });
+
+  useEffect(() => {
+    if (chatBackground) {
+      localStorage.setItem("chat_background_image", chatBackground);
+    } else {
+      localStorage.removeItem("chat_background_image");
+    }
+  }, [chatBackground]);
+
+  const handleChatBackgroundUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      return;
+    }
+    try {
+      const att = await uploadAttachment(file);
+      if (att?.url) {
+        setChatBackground(att.url);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      if (bgFileInputRef.current) bgFileInputRef.current.value = "";
+    }
+  };
+
+  useEffect(() => {
+    if (selectedEmployee || selectedGroup) {
+      isInitialLoad.current = true;
+    }
+  }, [selectedEmployee, selectedGroup]);
+
   // Archive and Bookmark state (persisted to localStorage)
   const [archivedConversations, setArchivedConversations] = useState<Set<string>>(() => {
     const saved = localStorage.getItem("manager-messaging-archived");
@@ -246,6 +361,23 @@ export default function Messages() {
   const { socket } = useSocket();
   const auth = getAuthState();
   const currentUser = auth.name?.trim() || auth.username?.trim() || "";
+
+  const loadGroups = async () => {
+    try {
+      const res = await apiFetch<{ items: ChatGroup[] }>("/api/messages/groups");
+      const items = (res.items || []).map((g: any) => ({
+        ...g,
+        id: String(g._id || g.id || ""),
+      }));
+      setGroups(items);
+    } catch (e) {
+      console.error("Failed to load groups:", e);
+    }
+  };
+
+  useEffect(() => {
+    loadGroups();
+  }, []);
 
   // Handle navigation state - auto-open conversation from header dropdown
   useEffect(() => {
@@ -298,11 +430,29 @@ export default function Messages() {
       setConversationMessages(
         msgs
           .map(normalizeMessage)
-          .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+          .sort((a, b) => a.id.localeCompare(b.id))
       );
     } catch (e) {
       console.error("Failed to load conversation messages:", e);
       setConversationMessages([]);
+    }
+  };
+
+  const startGroupChat = async (group: ChatGroup) => {
+    const groupId = String(group._id || group.id || "");
+    const safeGroup: ChatGroup = { ...group, id: groupId };
+    setSelectedGroup(safeGroup);
+    setSelectedEmployee(null);
+    setView("group");
+    setConversationMessages([]);
+    if (socket && groupId) {
+      socket.emit("join-group", groupId);
+    }
+    try {
+      const res = await apiFetch<{ items: MessageApi[] }>(`/api/messages/groups/${groupId}/messages`);
+      setConversationMessages((res.items || []).map(normalizeMessage));
+    } catch (e) {
+      console.error("Failed to load group messages:", e);
     }
   };
 
@@ -334,19 +484,22 @@ export default function Messages() {
   };
 
   const handleFileSelected = async (file: File | null) => {
-    if (!file || !selectedEmployee) return;
+    if (!file || (!selectedEmployee && !selectedGroup)) return;
 
+    isSendingMessage.current = true;
     setUploading(true);
     try {
       const attachment = await uploadAttachment(file);
+      const targetGroupId = selectedGroup ? String(selectedGroup.id || (selectedGroup as any)._id || "") : undefined;
 
       const payload: Omit<Message, "id"> = {
         sender: currentUser,
         senderAvatar: getInitials(currentUser),
-        recipient: selectedEmployee.name,
+        recipient: selectedEmployee ? selectedEmployee.name : "",
+        groupId: targetGroupId,
         content: newMessageContent.trim(),
         timestamp: new Date().toISOString(),
-        type: "direct",
+        type: selectedGroup ? "group" : "direct",
         status: "sent",
         attachment,
       };
@@ -358,9 +511,14 @@ export default function Messages() {
 
       if (res?.item) {
         const newMsg = normalizeMessage(res.item);
-        setConversationMessages((prev) => [...prev, newMsg]);
+        setConversationMessages((prev) => {
+          if (isDuplicateMessage(prev, newMsg)) return prev;
+          return sortMessagesChronologically([...prev, newMsg]);
+        });
         setNewMessageContent("");
-        await queryClient.invalidateQueries({ queryKey: ["conversations", currentUser] });
+        if (selectedEmployee) {
+          await queryClient.invalidateQueries({ queryKey: ["conversations", currentUser] });
+        }
       }
     } catch (e) {
       console.error("Failed to send attachment:", e);
@@ -377,6 +535,7 @@ export default function Messages() {
         body: JSON.stringify({ sender, recipient: currentUser }),
       });
       await queryClient.invalidateQueries({ queryKey: ["conversations", currentUser] });
+      await queryClient.invalidateQueries({ queryKey: ["manager-messages-preview"] });
     } catch (e) {
       console.error("Failed to mark messages as read:", e);
     }
@@ -397,14 +556,78 @@ export default function Messages() {
         (normalized.sender === selectedEmployee.name || normalized.recipient === selectedEmployee.name)
       ) {
         setConversationMessages((prev) => {
-          if (prev.some((m) => m.id === normalized.id)) return prev;
-          return [...prev, normalized];
+          if (isDuplicateMessage(prev, normalized)) return prev;
+          return sortMessagesChronologically([...prev, normalized]);
+        });
+      }
+      // If we're currently in this group, append group message
+      if (
+        view === "group" &&
+        selectedGroup &&
+        normalized.groupId &&
+        String(normalized.groupId) === String(selectedGroup.id || (selectedGroup as any)._id)
+      ) {
+        setConversationMessages((prev) => {
+          if (isDuplicateMessage(prev, normalized)) return prev;
+          return sortMessagesChronologically([...prev, normalized]);
         });
       }
     };
     socket.on("new-message", handleNewMessage);
-    return () => { socket.off("new-message", handleNewMessage); };
-  }, [socket, view, selectedEmployee?.name]);
+
+    const handleGroupUpdated = (updatedGroup: any) => {
+      const safe: ChatGroup = {
+        ...updatedGroup,
+        id: String(updatedGroup._id || updatedGroup.id),
+      };
+      setGroups((prev) =>
+        prev.map((g) => ((g.id || (g as any)._id) === safe.id ? safe : g))
+      );
+      if (selectedGroup && String(selectedGroup.id || (selectedGroup as any)._id) === safe.id) {
+        setSelectedGroup(safe);
+      }
+    };
+    socket.on("group-updated", handleGroupUpdated);
+
+    const handleNewGroup = () => {
+      loadGroups();
+    };
+    socket.on("new-group-created", handleNewGroup);
+
+    return () => {
+      socket.off("new-message", handleNewMessage);
+      socket.off("group-updated", handleGroupUpdated);
+      socket.off("new-group-created", handleNewGroup);
+    };
+  }, [socket, view, selectedEmployee?.name, selectedGroup?.id]);
+
+  // Real-time reaction updates via socket
+  useEffect(() => {
+    if (!socket) return;
+    const handleReaction = (payload: { messageId?: string; reactions?: MessageReaction[] }) => {
+      if (!payload?.messageId) return;
+      setConversationMessages((prev) =>
+        prev.map((m) => (m.id === payload.messageId ? { ...m, reactions: payload.reactions || [] } : m))
+      );
+    };
+    socket.on("message-reaction", handleReaction);
+    return () => { socket.off("message-reaction", handleReaction); };
+  }, [socket]);
+
+  // Toggle the current user's emoji reaction on a message
+  const toggleReaction = async (messageId: string, emoji: string) => {
+    try {
+      const res = await apiFetch<{ messageId: string; reactions: MessageReaction[] }>(
+        `/api/messages/${encodeURIComponent(messageId)}/react`,
+        { method: "POST", body: JSON.stringify({ emoji, username: currentUser }) }
+      );
+      setConversationMessages((prev) =>
+        prev.map((m) => (m.id === res.messageId ? { ...m, reactions: res.reactions } : m))
+      );
+    } catch (err) {
+      console.error("Failed to toggle reaction:", err);
+    }
+  };
 
   // Real-time status updates via socket
   useEffect(() => {
@@ -418,13 +641,12 @@ export default function Messages() {
       break_start_time: string | null;
       name: string;
     }) => {
-      console.log("⚡ Status update received in Manager Messages:", payload);
-
       // Update conversations list query cache
       queryClient.setQueryData<Conversation[]>(["conversations", currentUser], (old) => {
         if (!old) return old;
         return old.map((conv) => {
-          if (conv.employee.id === payload.userId || conv.employee.name === payload.name) {
+          const empId = conv.employee.id || conv.employee._id;
+          if (empId === payload.userId || conv.employee.name === payload.name) {
             return {
               ...conv,
               employee: {
@@ -444,7 +666,8 @@ export default function Messages() {
       queryClient.setQueryData<Employee[]>(["employees"], (old) => {
         if (!old) return old;
         return old.map((emp) => {
-          if (emp.id === payload.userId || emp.name === payload.name) {
+          const empId = emp.id || emp._id;
+          if (empId === payload.userId || emp.name === payload.name) {
             return {
               ...emp,
               current_status: payload.current_status,
@@ -459,14 +682,17 @@ export default function Messages() {
 
       // Update selected employee status in state
       setSelectedEmployee((prev) => {
-        if (prev && (prev.id === payload.userId || prev.name === payload.name)) {
-          return {
-            ...prev,
-            current_status: payload.current_status,
-            lunch_start_time: payload.lunch_start_time,
-            lunch_expected_end: payload.lunch_expected_end,
-            break_start_time: payload.break_start_time,
-          };
+        if (prev) {
+          const empId = prev.id || prev._id;
+          if (empId === payload.userId || prev.name === payload.name) {
+            return {
+              ...prev,
+              current_status: payload.current_status,
+              lunch_start_time: payload.lunch_start_time,
+              lunch_expected_end: payload.lunch_expected_end,
+              break_start_time: payload.break_start_time,
+            };
+          }
         }
         return prev;
       });
@@ -481,17 +707,47 @@ export default function Messages() {
 
   // Polling fallback: refresh messages every 3s when conversation is open
   useEffect(() => {
-    if (view !== "conversation" || !selectedEmployee) return;
-    const interval = setInterval(() => {
-      loadConversationMessages(selectedEmployee.name);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [view, selectedEmployee?.name]);
+    if (view === "conversation" && selectedEmployee) {
+      const interval = setInterval(() => {
+        loadConversationMessages(selectedEmployee.name);
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+    if (view === "group" && selectedGroup) {
+      const targetId = String(selectedGroup.id || (selectedGroup as any)._id || "");
+      if (!targetId) return;
+      const interval = setInterval(async () => {
+        try {
+          const res = await apiFetch<{ items: MessageApi[] }>(`/api/messages/groups/${targetId}/messages`);
+          setConversationMessages((res.items || []).map(normalizeMessage));
+        } catch {}
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [view, selectedEmployee?.name, selectedGroup?.id]);
 
-  // Scroll to bottom of messages
+  // Smart Scroll to bottom of messages
   useEffect(() => {
-    if (view === "conversation" && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    if (view !== "conversation" && view !== "group") return;
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    if (isInitialLoad.current) {
+      container.scrollTop = container.scrollHeight;
+      isInitialLoad.current = false;
+      prevMessagesLength.current = conversationMessages.length;
+    } else if (isSendingMessage.current) {
+      container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+      isSendingMessage.current = false;
+      prevMessagesLength.current = conversationMessages.length;
+    } else if (conversationMessages.length > prevMessagesLength.current) {
+      const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+      if (isNearBottom) {
+        container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+      }
+      prevMessagesLength.current = conversationMessages.length;
+    } else {
+      prevMessagesLength.current = conversationMessages.length;
     }
   }, [view, conversationMessages]);
 
@@ -524,6 +780,7 @@ export default function Messages() {
 
   const startConversation = async (employee: Employee) => {
     setSelectedEmployee(employee);
+    setSelectedGroup(null);
     setView("conversation");
     setEmployeeSearchQuery("");
     await loadConversationMessages(employee.name);
@@ -533,17 +790,20 @@ export default function Messages() {
   };
 
   const sendMessage = async () => {
-    if ((!newMessageContent.trim()) || !selectedEmployee) return;
+    if (!newMessageContent.trim() || (!selectedEmployee && !selectedGroup)) return;
 
+    isSendingMessage.current = true;
     setSending(true);
     try {
+      const targetGroupId = selectedGroup ? String(selectedGroup.id || (selectedGroup as any)._id || "") : undefined;
       const payload: Omit<Message, "id"> = {
         sender: currentUser,
         senderAvatar: getInitials(currentUser),
-        recipient: selectedEmployee.name,
+        recipient: selectedEmployee ? selectedEmployee.name : "",
+        groupId: targetGroupId,
         content: newMessageContent.trim(),
         timestamp: new Date().toISOString(),
-        type: "direct",
+        type: selectedGroup ? "group" : "direct",
         status: "sent",
       };
 
@@ -554,9 +814,14 @@ export default function Messages() {
 
       if (res?.item) {
         const newMsg = normalizeMessage(res.item);
-        setConversationMessages((prev) => [...prev, newMsg]);
+        setConversationMessages((prev) => {
+          if (isDuplicateMessage(prev, newMsg)) return prev;
+          return sortMessagesChronologically([...prev, newMsg]);
+        });
         setNewMessageContent("");
-        await queryClient.invalidateQueries({ queryKey: ["conversations", currentUser] });
+        if (selectedEmployee) {
+          await queryClient.invalidateQueries({ queryKey: ["conversations", currentUser] });
+        }
       }
     } catch (e) {
       console.error("Failed to send message:", e);
@@ -717,7 +982,7 @@ export default function Messages() {
               <div className="relative flex-shrink-0">
                 <Avatar className="h-8 w-8 sm:h-10 sm:w-10" style={getAvatarRingStyles(selectedEmployee.current_status)}>
                   {selectedEmployee.avatarUrl ? (
-                    <AvatarImage src={selectedEmployee.avatarUrl} alt={selectedEmployee.name} className="object-cover" />
+                    <AvatarImage src={toProxiedUrl(selectedEmployee.avatarUrl) || selectedEmployee.avatarUrl} alt={selectedEmployee.name} className="object-cover" />
                   ) : null}
                   <AvatarFallback className="bg-primary text-primary-foreground text-xs sm:text-sm">
                     {getInitials(selectedEmployee.name)}
@@ -750,26 +1015,206 @@ export default function Messages() {
                 </p>
               </div>
             </div>
+          ) : view === "group" && selectedGroup ? (
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Button variant="ghost" size="icon" onClick={() => { setView("list"); setSelectedGroup(null); }} className="h-8 w-8 sm:h-9 sm:w-9">
+                <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+              </Button>
+              <div
+                onClick={() => setGroupInfoOpen(true)}
+                className="flex items-center gap-2 sm:gap-3 cursor-pointer group/hdr hover:opacity-90 transition-opacity"
+                title="Click to view & edit group info"
+              >
+                <Avatar className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl border border-purple-200 shadow-sm flex-shrink-0">
+                  {selectedGroup.avatarUrl ? (
+                    <AvatarImage src={toProxiedUrl(selectedGroup.avatarUrl) || selectedGroup.avatarUrl} alt={selectedGroup.name} className="object-cover" />
+                  ) : null}
+                  <AvatarFallback className="rounded-xl bg-gradient-to-br from-purple-600 to-indigo-700 text-white font-bold text-xs sm:text-sm">
+                    {selectedGroup.name ? selectedGroup.name.slice(0, 2).toUpperCase() : "GP"}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2 mb-0.5 sm:mb-1">
+                    <h1 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold leading-tight text-slate-800 group-hover/hdr:text-blue-600 transition-colors flex items-center gap-1.5">
+                      <span>{selectedGroup.name}</span>
+                      <Info className="h-3.5 w-3.5 text-slate-400 group-hover/hdr:text-blue-500" />
+                    </h1>
+                    {selectedGroup.isPrivate && (
+                      <Badge className="bg-purple-100 text-purple-800 text-[10px] flex items-center gap-1 border-purple-200">
+                        <Lock className="h-3 w-3" /> Private
+                      </Badge>
+                    )}
+                    {selectedGroup.announcementOnly && (
+                      <Badge className="bg-amber-100 text-amber-800 text-[10px] flex items-center gap-1 border-amber-200">
+                        <Megaphone className="h-3 w-3" /> Announcement
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs sm:text-sm text-muted-foreground truncate max-w-[200px] sm:max-w-none">
+                    {selectedGroup.members?.length || 0} member{selectedGroup.members?.length !== 1 ? "s" : ""} {selectedGroup.description ? `• ${selectedGroup.description}` : ""}
+                  </p>
+                </div>
+              </div>
+            </div>
           ) : (
             <div className="page-header mb-0">
               <h1 className="page-title text-xl sm:text-2xl md:text-3xl lg:text-4xl">Messages</h1>
               <p className="page-subtitle text-xs sm:text-sm md:text-base mt-1">
-                {conversations.length} conversation{conversations.length !== 1 ? "s" : ""}
+                Enterprise messaging & group channels
               </p>
             </div>
           )}
         </div>
 
-        {view !== "conversation" && (
-          <Button onClick={() => setView("employees")} className="gap-2 w-full sm:w-auto text-xs sm:text-sm h-9 sm:h-10">
-            <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-            New Conversation
-          </Button>
+        {view !== "conversation" && view !== "group" && (
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <input
+              ref={bgFileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleChatBackgroundUpload}
+            />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="font-semibold gap-1.5 border-purple-300 hover:bg-purple-50 text-purple-700 text-xs sm:text-sm h-9 sm:h-10"
+                >
+                  <Palette className="h-4 w-4 text-purple-600" />
+                  Chat Background
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48 bg-white border border-slate-200 text-slate-800 shadow-xl rounded-xl">
+                <DropdownMenuItem
+                  onClick={() => bgFileInputRef.current?.click()}
+                  className="cursor-pointer gap-2 text-xs font-medium"
+                >
+                  <ImageIcon className="h-4 w-4 text-blue-500" />
+                  Upload Background
+                </DropdownMenuItem>
+                {chatBackground ? (
+                  <DropdownMenuItem
+                    onClick={() => setChatBackground("")}
+                    className="cursor-pointer gap-2 text-xs font-medium text-rose-600 focus:text-rose-600"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Remove Background
+                  </DropdownMenuItem>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Button
+              onClick={() => setCreateGroupOpen(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold gap-1.5 text-xs sm:text-sm h-9 sm:h-10"
+            >
+              <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              + Create Group
+            </Button>
+            <Button onClick={() => setView("employees")} variant="outline" className="gap-2 text-xs sm:text-sm h-9 sm:h-10">
+              <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              New Conversation
+            </Button>
+          </div>
         )}
       </div>
 
-      {/* Conversation List View */}
+      {/* Tab Selector for Conversations & Group Channels */}
       {view === "list" && (
+        <div className="flex items-center gap-2 border-b border-slate-200 pb-3 overflow-x-auto">
+          <button
+            onClick={() => setActiveTab("direct")}
+            className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 ${
+              activeTab === "direct" ? "bg-slate-900 text-white shadow-md" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
+          >
+            <MessageCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-400" />
+            Direct Messages ({conversations.length})
+          </button>
+          <button
+            onClick={() => setActiveTab("groups")}
+            className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 ${
+              activeTab === "groups" ? "bg-slate-900 text-white shadow-md" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
+          >
+            <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-purple-400" />
+            Group Channels ({groups.length})
+          </button>
+        </div>
+      )}
+
+      {/* Group Channels List View */}
+      {view === "list" && activeTab === "groups" && (
+        <Card className="border-0 sm:border shadow-none sm:shadow">
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm sm:text-base font-bold text-slate-800 flex items-center gap-2">
+                <Users className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600" />
+                Your Enterprise Groups & Channels
+              </h3>
+              <Button
+                size="sm"
+                onClick={() => setCreateGroupOpen(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8"
+              >
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                Create Group
+              </Button>
+            </div>
+
+            {groups.length === 0 ? (
+              <div className="text-center py-8 sm:py-10 space-y-3">
+                <Users className="h-10 w-10 text-slate-300 mx-auto" />
+                <p className="text-sm font-semibold text-slate-600">No group channels found</p>
+                <p className="text-xs text-slate-400">Create a group channel for your team, department, or project.</p>
+                <Button
+                  size="sm"
+                  onClick={() => setCreateGroupOpen(true)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white mt-2"
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" />
+                  Create First Group
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {groups.map((group) => (
+                  <div
+                    key={group.id}
+                    onClick={() => startGroupChat(group)}
+                    className="p-3 sm:p-4 rounded-2xl border border-slate-200 bg-white hover:border-purple-300 hover:shadow-md cursor-pointer transition-all flex items-start gap-3"
+                  >
+                    <div className="h-10 w-10 rounded-xl bg-purple-100 border border-purple-200 text-purple-700 flex items-center justify-center font-bold flex-shrink-0">
+                      {group.name.slice(0, 2).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-bold text-sm text-slate-800 truncate">{group.name}</h4>
+                        {group.isPrivate && <Lock className="h-3.5 w-3.5 text-purple-600" />}
+                      </div>
+                      {group.description && <p className="text-xs text-slate-500 truncate mt-0.5">{group.description}</p>}
+                      <div className="flex items-center gap-2 mt-2">
+                        <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-700 border-purple-200">
+                          {group.members.length} member{group.members.length !== 1 ? "s" : ""}
+                        </Badge>
+                        {group.announcementOnly && (
+                          <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 flex items-center gap-1">
+                            <Megaphone className="h-3 w-3" /> Announcement
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Conversation List View */}
+      {view === "list" && activeTab === "direct" && (
         <>
           {/* Filter Tabs */}
           <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto pb-2 -mx-1 sm:mx-0 px-1 sm:px-0 scrollbar-thin">
@@ -900,7 +1345,7 @@ export default function Messages() {
                           <div className="relative flex-shrink-0">
                             <Avatar className="h-9 w-9 sm:h-10 sm:w-10 md:h-12 md:w-12" style={getAvatarRingStyles(conv.employee.current_status)}>
                               {conv.employee.avatarUrl ? (
-                                <AvatarImage src={conv.employee.avatarUrl} alt={conv.employee.name} className="object-cover" />
+                                <AvatarImage src={toProxiedUrl(conv.employee.avatarUrl) || conv.employee.avatarUrl} alt={conv.employee.name} className="object-cover" />
                               ) : null}
                               <AvatarFallback className="bg-primary text-primary-foreground text-xs sm:text-sm">
                                 {getInitials(conv.employee.name)}
@@ -908,14 +1353,14 @@ export default function Messages() {
                             </Avatar>
                             {getAvatarDotClassAndStyle(conv.employee.current_status, conv.employee.status === "active")}
                             {conv.unreadCount > 0 && !isArchived && (
-                              <span className="absolute -top-1 -right-1 h-4 w-4 sm:h-5 sm:w-5 rounded-full bg-red-500 text-white text-[9px] sm:text-[10px] flex items-center justify-center z-10">
+                              <span className="absolute -top-1 -right-1 h-4 w-4 sm:h-5 sm:w-5 rounded-full bg-red-500 text-white text-[10px] sm:text-xs flex items-center justify-center">
                                 {conv.unreadCount}
                               </span>
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-1 sm:gap-2">
-                              <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+                              <div className="flex items-center gap-1.5 min-w-0">
                                 <p className="font-medium truncate text-xs sm:text-sm md:text-base">{conv.employee.name}</p>
                                 {conv.employee.current_status && conv.employee.current_status !== "AVAILABLE" && (
                                   <Badge
@@ -930,30 +1375,25 @@ export default function Messages() {
                                     {conv.employee.current_status === "LUNCH" ? "Lunch" : "Break"}
                                   </Badge>
                                 )}
-                                {isBookmarked && (
-                                  <Bookmark className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-500 flex-shrink-0" fill="currentColor" />
-                                )}
                               </div>
                               {conv.lastMessage && (
-                                <p className="text-[9px] sm:text-xs text-muted-foreground flex-shrink-0">
+                                <span className="text-[10px] sm:text-xs text-muted-foreground flex-shrink-0">
                                   {formatMessageTime(conv.lastMessage.timestamp)}
-                                </p>
+                                </span>
                               )}
                             </div>
-                            <p className={cn(
-                              "text-[11px] sm:text-xs md:text-sm truncate",
-                              conv.unreadCount > 0 && !isArchived ? "font-medium text-foreground" : "text-muted-foreground"
-                            )}>
-                              {conv.lastMessage 
-                                ? `${conv.lastMessage.sender === currentUser ? "You: " : ""}${conv.lastMessage.content}`
-                                : "Start a conversation..."
-                              }
+                            <p className="text-xs sm:text-sm text-muted-foreground truncate">
+                              {conv.lastMessage
+                                ? conv.lastMessage.attachment
+                                  ? `📎 ${conv.lastMessage.attachment.fileName || "Attachment"}`
+                                  : conv.lastMessage.content
+                                : "No messages yet"}
                             </p>
                           </div>
                         </button>
-                        
-                        {/* Action buttons - visible on hover */}
-                        <div className="flex items-center gap-0.5 sm:gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+
+                        {/* Action buttons */}
+                        <div className="flex items-center gap-0.5 sm:gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                           <Button
                             variant="ghost"
                             size="icon"
@@ -1015,7 +1455,7 @@ export default function Messages() {
                 <div className="relative flex-shrink-0">
                   <Avatar className="h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10" style={getAvatarRingStyles(employee.current_status)}>
                     {employee.avatarUrl ? (
-                      <AvatarImage src={employee.avatarUrl} alt={employee.name} className="object-cover" />
+                      <AvatarImage src={toProxiedUrl(employee.avatarUrl) || employee.avatarUrl} alt={employee.name} className="object-cover" />
                     ) : null}
                     <AvatarFallback className="bg-primary text-primary-foreground text-xs">
                       {getInitials(employee.name)}
@@ -1070,8 +1510,8 @@ export default function Messages() {
         </DialogContent>
       </Dialog>
 
-      {/* Conversation View */}
-      {view === "conversation" && selectedEmployee && (
+      {/* Conversation / Group View */}
+      {((view === "conversation" && selectedEmployee) || (view === "group" && selectedGroup)) && (
         <>
           {preview ? (
             <Dialog open={Boolean(preview)} onOpenChange={(o) => (!o ? setPreview(null) : null)}>
@@ -1102,14 +1542,32 @@ export default function Messages() {
             </Dialog>
           ) : null}
 
-          <Card className="flex flex-col h-[calc(100vh-200px)] sm:h-[calc(100vh-240px)] md:h-[calc(100vh-280px)] min-h-[350px] sm:min-h-[400px] border-0 sm:border shadow-none sm:shadow">
-          {/* Messages Area */}
-          <CardContent className="flex-1 overflow-y-auto p-2 sm:p-3 md:p-4 space-y-2 sm:space-y-3 md:space-y-4">
+          <Card
+            className="flex flex-col h-[calc(100vh-200px)] sm:h-[calc(100vh-240px)] md:h-[calc(100vh-280px)] min-h-[350px] sm:min-h-[400px] border-0 sm:border shadow-none sm:shadow overflow-hidden relative"
+            style={
+              chatBackground
+                ? {
+                    backgroundImage: `url(${toProxiedUrl(chatBackground) || chatBackground})`,
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                    backgroundRepeat: "no-repeat",
+                  }
+                : {}
+            }
+          >
+            {chatBackground ? (
+              <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-[1px] pointer-events-none z-0" />
+            ) : null}
+
+            {/* Messages Area */}
+            <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-2 sm:p-3 md:p-4 space-y-2 sm:space-y-3 md:space-y-4 relative z-10">
             {conversationMessages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center px-3 sm:px-4">
                 <MessageCircle className="h-10 w-10 sm:h-12 sm:w-12 md:h-16 md:w-16 text-muted-foreground/50 mb-2 sm:mb-3 md:mb-4" />
                 <p className="text-sm sm:text-base md:text-lg font-medium">Start the conversation</p>
-                <p className="text-xs sm:text-sm md:text-base text-muted-foreground">Send a message to {selectedEmployee.name}</p>
+                <p className="text-xs sm:text-sm md:text-base text-muted-foreground">
+                  {selectedGroup ? `Send the first message in #${selectedGroup.name}` : `Send a message to ${selectedEmployee?.name}`}
+                </p>
               </div>
             ) : (
               <>
@@ -1126,7 +1584,7 @@ export default function Messages() {
                       {showAvatar ? (
                         <Avatar className="h-5 w-5 sm:h-6 sm:w-6 md:h-8 md:w-8 flex-shrink-0">
                           {isMe ? null : selectedEmployee?.avatarUrl ? (
-                            <AvatarImage src={selectedEmployee.avatarUrl} alt={selectedEmployee.name} className="object-cover" />
+                            <AvatarImage src={toProxiedUrl(selectedEmployee.avatarUrl) || selectedEmployee.avatarUrl} alt={selectedEmployee.name} className="object-cover" />
                           ) : null}
                           <AvatarFallback className={cn("text-[9px] sm:text-xs", isMe ? "bg-primary text-primary-foreground" : "bg-muted")}>
                             {getInitials(isMe ? currentUser : msg.sender)}
@@ -1135,9 +1593,13 @@ export default function Messages() {
                       ) : (
                         <div className="w-5 sm:w-6 md:w-8 flex-shrink-0" />
                       )}
+                      <div className={cn("max-w-[80%] sm:max-w-[75%] md:max-w-[70%] flex flex-col", isMe ? "items-end" : "items-start")}>
+                      {selectedGroup && !isMe && showAvatar && (
+                        <span className="text-[10px] font-bold text-purple-700 mb-0.5 px-1">{msg.sender}</span>
+                      )}
                       <div
                         className={cn(
-                          "max-w-[80%] sm:max-w-[75%] md:max-w-[70%] rounded-2xl px-2 sm:px-3 md:px-4 py-1 sm:py-1.5 md:py-2 text-xs sm:text-sm md:text-base",
+                          "rounded-2xl px-2 sm:px-3 md:px-4 py-1 sm:py-1.5 md:py-2 text-xs sm:text-sm md:text-base",
                           isMe
                             ? "bg-primary text-primary-foreground rounded-br-none"
                             : "bg-muted rounded-bl-none"
@@ -1170,8 +1632,8 @@ export default function Messages() {
                           )
                         ) : null}
 
-                        {msg.content?.trim() ? <p className="break-words">{msg.content}</p> : null}
-                        <p className={cn("text-[9px] sm:text-[10px] md:text-xs mt-0.5 sm:mt-1", isMe ? "text-primary-foreground/70" : "text-muted-foreground")}>
+                        {msg.content?.trim() ? <p className="break-words">{renderMessageContent(msg.content, isMe)}</p> : null}
+                        <p className={cn("text-[9px] sm:text-[10px] md:text-[10px] mt-0.5 sm:mt-0.5", isMe ? "text-primary-foreground/70" : "text-muted-foreground")}>
                           {formatMessageTime(msg.timestamp)}
                           {isMe && (
                             <span className="ml-1">
@@ -1182,23 +1644,30 @@ export default function Messages() {
                           )}
                         </p>
                       </div>
+                      <MessageReactionBar
+                        reactions={msg.reactions || []}
+                        currentUser={currentUser}
+                        isMe={isMe}
+                        onToggle={(emoji) => void toggleReaction(msg.id, emoji)}
+                      />
+                      </div>
                     </div>
                   );
                 })}
                 <div ref={messagesEndRef} />
               </>
             )}
-          </CardContent>
+          </div>
 
           {/* Message Input */}
           <div className="p-2 sm:p-3 md:p-4 border-t relative">
             {showEmojiPicker && (
               <div ref={emojiPickerRef} className="absolute bottom-full right-4 mb-2 z-50">
-                <EmojiPicker onEmojiClick={onEmojiClick} width={300} height={380} />
+                <EmojiPicker onEmojiClick={onEmojiClick} width={300} height={380} emojiStyle={EmojiStyle.NATIVE} />
               </div>
             )}
             <div className="flex flex-col gap-2 sm:gap-2.5 md:gap-3">
-              <div className="flex gap-1.5 sm:gap-2 md:gap-3">
+              <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -1225,17 +1694,15 @@ export default function Messages() {
                 >
                   <Smile className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4" />
                 </Button>
-                <Textarea
-                  placeholder={`Message ${selectedEmployee.name}...`}
+                <MentionsTextarea
+                  placeholder={selectedGroup ? `Message #${selectedGroup.name}... (type @ to mention)` : `Message ${selectedEmployee?.name}... (type @ to mention)`}
                   className="min-h-[40px] sm:min-h-[48px] md:min-h-[60px] resize-none text-xs sm:text-sm md:text-base"
                   value={newMessageContent}
-                  onChange={(e) => setNewMessageContent(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      sendMessage();
-                    }
-                  }}
+                  onChange={setNewMessageContent}
+                  onSubmit={sendMessage}
+                  users={employees
+                    .filter((e) => e.name && e.name !== currentUser)
+                    .map((e) => ({ name: e.name, avatarUrl: toProxiedUrl(e.avatarUrl) || e.avatarUrl, role: e.role }))}
                 />
                 <Button 
                   onClick={sendMessage} 
@@ -1250,6 +1717,38 @@ export default function Messages() {
           </Card>
         </>
       )}
+
+      {/* Create Group Modal */}
+      <CreateGroupModal
+        open={createGroupOpen}
+        onOpenChange={setCreateGroupOpen}
+        employees={employees}
+        onGroupCreated={() => {
+          loadGroups();
+          setCreateGroupOpen(false);
+        }}
+        currentUser={currentUser}
+      />
+
+      {/* Group Info & Management Modal (WhatsApp Style) */}
+      <GroupInfoModal
+        open={groupInfoOpen}
+        onOpenChange={setGroupInfoOpen}
+        group={selectedGroup}
+        currentUser={currentUser}
+        currentUserRole={getAuthState().role || "manager"}
+        employees={employees}
+        onGroupUpdated={(updated) => {
+          const safe = { ...updated, id: String(updated._id || updated.id) };
+          setGroups((prev) => prev.map((g) => ((g.id || (g as any)._id) === safe.id ? safe : g)));
+          setSelectedGroup(safe);
+        }}
+        onDirectMessage={(empName) => {
+          setGroupInfoOpen(false);
+          const target = employees.find((e) => e.name === empName);
+          if (target) startConversation(target);
+        }}
+      />
     </div>
   );
 }

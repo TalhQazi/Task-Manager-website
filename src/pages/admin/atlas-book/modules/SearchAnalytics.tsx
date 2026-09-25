@@ -11,6 +11,48 @@ export default function SearchAnalytics() {
   const [q, setQ] = useState("");
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  
+  const [stats, setStats] = useState<any>({
+    propertyCount: 0,
+    tenantCount: 0,
+    billCount: 0,
+    trends: [
+      { label: "Properties", val: "0%" },
+      { label: "Tenants", val: "0%" },
+      { label: "Bills", val: "0%" }
+    ]
+  });
+
+  // Fetch initial stats for the analytics portion
+  useState(() => {
+    const fetchStats = async () => {
+      try {
+        const [propRes, tenantRes, billsRes] = await Promise.all([
+          apiFetch<any>("/api/atlasbook/properties"),
+          apiFetch<any>("/api/atlasbook/tenants"),
+          apiFetch<any>("/api/atlasbook/bills")
+        ]);
+        const pCount = propRes?.items?.length || 0;
+        const tCount = tenantRes?.items?.length || 0;
+        const bCount = billsRes?.items?.length || 0;
+        const total = pCount + tCount + bCount;
+        
+        setStats({
+          propertyCount: pCount,
+          tenantCount: tCount,
+          billCount: bCount,
+          trends: total > 0 ? [
+            { label: "Properties", val: `${Math.round((pCount/total)*100)}%` },
+            { label: "Tenants", val: `${Math.round((tCount/total)*100)}%` },
+            { label: "Bills", val: `${Math.round((bCount/total)*100)}%` }
+          ] : []
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    fetchStats();
+  });
 
   const handleSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -107,7 +149,7 @@ export default function SearchAnalytics() {
         <div className="space-y-4">
           <h3 className="font-bold flex items-center gap-2 text-primary"><Sparkles size={18} /> AI Analytics Summary</h3>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Atlas AI has detected a 4.2% increase in operational efficiency this month. Your debt-to-equity ratio remains within optimal range (0.65). Recommendation: Diversify asset holdings in the "Industrial" category to mitigate regional volatility.
+            Atlas AI has scanned your active database. You currently have {stats.propertyCount} properties and {stats.tenantCount} tenants registered. There are {stats.billCount} recorded vendor bills. Recommendation: Keep an eye on accounts payable to maintain healthy cash flow, and ensure property unit occupancies are maximized.
           </p>
         </div>
         <Card className="shadow-soft bg-slate-900 text-white border-none p-6">
@@ -116,11 +158,7 @@ export default function SearchAnalytics() {
             <Badge className="bg-emerald-500">Positive</Badge>
           </div>
           <div className="space-y-3">
-            {[
-              { label: "Revenue Queries", val: "85%" },
-              { label: "Tenant Support", val: "12%" },
-              { label: "Compliance Checks", val: "3%" }
-            ].map((stat, i) => (
+            {stats.trends.map((stat: any, i: number) => (
               <div key={i} className="space-y-1">
                 <div className="flex justify-between text-[10px] font-bold"><span>{stat.label}</span><span>{stat.val}</span></div>
                 <div className="h-1 bg-slate-800 rounded-full overflow-hidden"><div className="h-full bg-primary" style={{ width: stat.val }} /></div>

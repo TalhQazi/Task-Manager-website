@@ -58,6 +58,7 @@ import {
   AlertCircle,
   Archive,
   Download,
+  ClipboardCheck,
 } from "lucide-react";
 import { createResource, listResource, updateResource, apiFetch, getApiBaseUrl } from "@/lib/admin/apiClient";
 
@@ -83,6 +84,24 @@ function normalizeLocationType(value: unknown): LocationType {
   return "Property";
 }
 
+export interface LocationComplianceChecklist {
+  water: { status: string; notes: string };
+  power: { status: string; notes: string };
+  townPermitDemo: { status: string; notes: string };
+  townPermitRenovations: { status: string; notes: string };
+  sitePlanReview: { option: string; notes: string };
+  certificateOfOccupancy: { status: string; date: string; notes: string };
+}
+
+const DEFAULT_COMPLIANCE_CHECKLIST: LocationComplianceChecklist = {
+  water: { status: "Pending", notes: "" },
+  power: { status: "Pending", notes: "" },
+  townPermitDemo: { status: "Pending", notes: "" },
+  townPermitRenovations: { status: "Pending", notes: "" },
+  sitePlanReview: { option: "Needed", notes: "" },
+  certificateOfOccupancy: { status: "Pending", date: "", notes: "" },
+};
+
 interface Location {
   id: string;
   name: string;
@@ -99,6 +118,7 @@ interface Location {
   photoDataUrl?: string;
   photoFileName?: string;
   attachments?: { fileName: string; url: string }[];
+  complianceChecklist?: LocationComplianceChecklist;
 }
 
 const toDateOnly = (value: string) => {
@@ -118,6 +138,8 @@ function normalizeLocation(l: BackendLocation): Location {
   const createdAt =
     String(l.createdAt || l.date || "").trim() || undefined;
 
+  const cl = l.complianceChecklist || {};
+
   return {
     id: String(l.id || l._id || "").trim(),
     name: String(l.name || "").trim(),
@@ -134,6 +156,14 @@ function normalizeLocation(l: BackendLocation): Location {
     photoDataUrl: String(l.photoDataUrl || "").trim() || undefined,
     photoFileName: String(l.photoFileName || "").trim() || undefined,
     attachments: Array.isArray(l.attachments) ? l.attachments : [],
+    complianceChecklist: {
+      water: { status: cl.water?.status || "Pending", notes: cl.water?.notes || "" },
+      power: { status: cl.power?.status || "Pending", notes: cl.power?.notes || "" },
+      townPermitDemo: { status: cl.townPermitDemo?.status || "Pending", notes: cl.townPermitDemo?.notes || "" },
+      townPermitRenovations: { status: cl.townPermitRenovations?.status || "Pending", notes: cl.townPermitRenovations?.notes || "" },
+      sitePlanReview: { option: cl.sitePlanReview?.option || "Needed", notes: cl.sitePlanReview?.notes || "" },
+      certificateOfOccupancy: { status: cl.certificateOfOccupancy?.status || "Pending", date: cl.certificateOfOccupancy?.date || "", notes: cl.certificateOfOccupancy?.notes || "" },
+    },
   };
 }
 
@@ -162,6 +192,258 @@ const statusClasses = {
   active: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
   inactive: "bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-300",
 };
+
+function ComplianceChecklistFormSection({
+  checklist,
+  onChange,
+}: {
+  checklist: LocationComplianceChecklist;
+  onChange: (updated: LocationComplianceChecklist) => void;
+}) {
+  const STATUS_OPTIONS = ["Pending", "In Progress", "Approved", "Completed", "Not Applicable"];
+  const SITE_PLAN_OPTIONS = ["Needed", "Not Needed", "Under Review", "Approved"];
+  const OCCUPANCY_OPTIONS = ["Pending", "In Progress", "Issued", "Approved", "Not Applicable"];
+
+  return (
+    <div className="space-y-3 pt-3 border-t border-slate-200">
+      <div className="flex items-center gap-2">
+        <ClipboardCheck className="h-4 w-4 text-blue-600" />
+        <Label className="text-sm font-bold text-slate-900">Location Compliance Checklist</Label>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-200">
+        {/* Water */}
+        <div className="space-y-1.5 p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200/80">
+          <Label className="text-xs font-semibold text-slate-700 dark:text-slate-200">Water</Label>
+          <div className="grid grid-cols-1 gap-1.5">
+            <Select
+              value={checklist.water?.status || "Pending"}
+              onValueChange={(val) =>
+                onChange({ ...checklist, water: { ...(checklist.water || {}), status: val, notes: checklist.water?.notes || "" } })
+              }
+            >
+              <SelectTrigger className="h-8 text-xs border-slate-200">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUS_OPTIONS.map((opt) => (
+                  <SelectItem key={opt} value={opt} className="text-xs">
+                    {opt}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              placeholder="Water notes (optional)"
+              value={checklist.water?.notes || ""}
+              onChange={(e) =>
+                onChange({ ...checklist, water: { ...(checklist.water || {}), status: checklist.water?.status || "Pending", notes: e.target.value } })
+              }
+              className="h-7 text-xs border-slate-200"
+            />
+          </div>
+        </div>
+
+        {/* Power */}
+        <div className="space-y-1.5 p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200/80">
+          <Label className="text-xs font-semibold text-slate-700 dark:text-slate-200">Power</Label>
+          <div className="grid grid-cols-1 gap-1.5">
+            <Select
+              value={checklist.power?.status || "Pending"}
+              onValueChange={(val) =>
+                onChange({ ...checklist, power: { ...(checklist.power || {}), status: val, notes: checklist.power?.notes || "" } })
+              }
+            >
+              <SelectTrigger className="h-8 text-xs border-slate-200">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUS_OPTIONS.map((opt) => (
+                  <SelectItem key={opt} value={opt} className="text-xs">
+                    {opt}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              placeholder="Power notes (optional)"
+              value={checklist.power?.notes || ""}
+              onChange={(e) =>
+                onChange({ ...checklist, power: { ...(checklist.power || {}), status: checklist.power?.status || "Pending", notes: e.target.value } })
+              }
+              className="h-7 text-xs border-slate-200"
+            />
+          </div>
+        </div>
+
+        {/* Town permit for demo */}
+        <div className="space-y-1.5 p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200/80">
+          <Label className="text-xs font-semibold text-slate-700 dark:text-slate-200">Town Permit for Demo</Label>
+          <div className="grid grid-cols-1 gap-1.5">
+            <Select
+              value={checklist.townPermitDemo?.status || "Pending"}
+              onValueChange={(val) =>
+                onChange({
+                  ...checklist,
+                  townPermitDemo: { ...(checklist.townPermitDemo || {}), status: val, notes: checklist.townPermitDemo?.notes || "" },
+                })
+              }
+            >
+              <SelectTrigger className="h-8 text-xs border-slate-200">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUS_OPTIONS.map((opt) => (
+                  <SelectItem key={opt} value={opt} className="text-xs">
+                    {opt}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              placeholder="Demo permit notes"
+              value={checklist.townPermitDemo?.notes || ""}
+              onChange={(e) =>
+                onChange({
+                  ...checklist,
+                  townPermitDemo: { ...(checklist.townPermitDemo || {}), status: checklist.townPermitDemo?.status || "Pending", notes: e.target.value },
+                })
+              }
+              className="h-7 text-xs border-slate-200"
+            />
+          </div>
+        </div>
+
+        {/* Town permit for renovations */}
+        <div className="space-y-1.5 p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200/80">
+          <Label className="text-xs font-semibold text-slate-700 dark:text-slate-200">Town Permit for Renovations</Label>
+          <div className="grid grid-cols-1 gap-1.5">
+            <Select
+              value={checklist.townPermitRenovations?.status || "Pending"}
+              onValueChange={(val) =>
+                onChange({
+                  ...checklist,
+                  townPermitRenovations: { ...(checklist.townPermitRenovations || {}), status: val, notes: checklist.townPermitRenovations?.notes || "" },
+                })
+              }
+            >
+              <SelectTrigger className="h-8 text-xs border-slate-200">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUS_OPTIONS.map((opt) => (
+                  <SelectItem key={opt} value={opt} className="text-xs">
+                    {opt}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              placeholder="Renovation permit notes"
+              value={checklist.townPermitRenovations?.notes || ""}
+              onChange={(e) =>
+                onChange({
+                  ...checklist,
+                  townPermitRenovations: { ...(checklist.townPermitRenovations || {}), status: checklist.townPermitRenovations?.status || "Pending", notes: e.target.value },
+                })
+              }
+              className="h-7 text-xs border-slate-200"
+            />
+          </div>
+        </div>
+
+        {/* Site plan review - needed or not needed */}
+        <div className="space-y-1.5 p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200/80">
+          <Label className="text-xs font-semibold text-slate-700 dark:text-slate-200">Site Plan Review</Label>
+          <div className="grid grid-cols-1 gap-1.5">
+            <Select
+              value={checklist.sitePlanReview?.option || "Needed"}
+              onValueChange={(val) =>
+                onChange({
+                  ...checklist,
+                  sitePlanReview: { ...(checklist.sitePlanReview || {}), option: val, notes: checklist.sitePlanReview?.notes || "" },
+                })
+              }
+            >
+              <SelectTrigger className="h-8 text-xs border-slate-200">
+                <SelectValue placeholder="Review Needed?" />
+              </SelectTrigger>
+              <SelectContent>
+                {SITE_PLAN_OPTIONS.map((opt) => (
+                  <SelectItem key={opt} value={opt} className="text-xs">
+                    {opt}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              placeholder="Site plan review notes"
+              value={checklist.sitePlanReview?.notes || ""}
+              onChange={(e) =>
+                onChange({
+                  ...checklist,
+                  sitePlanReview: { ...(checklist.sitePlanReview || {}), option: checklist.sitePlanReview?.option || "Needed", notes: e.target.value },
+                })
+              }
+              className="h-7 text-xs border-slate-200"
+            />
+          </div>
+        </div>
+
+        {/* Certificate of occupancy */}
+        <div className="space-y-1.5 p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200/80">
+          <Label className="text-xs font-semibold text-slate-700 dark:text-slate-200">Certificate of Occupancy</Label>
+          <div className="grid grid-cols-1 gap-1.5">
+            <div className="grid grid-cols-2 gap-1">
+              <Select
+                value={checklist.certificateOfOccupancy?.status || "Pending"}
+                onValueChange={(val) =>
+                  onChange({
+                    ...checklist,
+                    certificateOfOccupancy: { ...(checklist.certificateOfOccupancy || {}), status: val, date: checklist.certificateOfOccupancy?.date || "", notes: checklist.certificateOfOccupancy?.notes || "" },
+                  })
+                }
+              >
+                <SelectTrigger className="h-8 text-xs border-slate-200">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {OCCUPANCY_OPTIONS.map((opt) => (
+                    <SelectItem key={opt} value={opt} className="text-xs">
+                      {opt}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                type="date"
+                value={checklist.certificateOfOccupancy?.date || ""}
+                onChange={(e) =>
+                  onChange({
+                    ...checklist,
+                    certificateOfOccupancy: { ...(checklist.certificateOfOccupancy || {}), status: checklist.certificateOfOccupancy?.status || "Pending", date: e.target.value, notes: checklist.certificateOfOccupancy?.notes || "" },
+                  })
+                }
+                className="h-8 text-xs px-1 border-slate-200"
+                placeholder="Date"
+              />
+            </div>
+            <Input
+              placeholder="Occupancy certificate notes"
+              value={checklist.certificateOfOccupancy?.notes || ""}
+              onChange={(e) =>
+                onChange({
+                  ...checklist,
+                  certificateOfOccupancy: { ...(checklist.certificateOfOccupancy || {}), status: checklist.certificateOfOccupancy?.status || "Pending", date: checklist.certificateOfOccupancy?.date || "", notes: e.target.value },
+                })
+              }
+              className="h-7 text-xs border-slate-200"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const Locations = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -196,6 +478,7 @@ const Locations = () => {
     photoDataUrl: "",
     photoFileName: "",
     attachments: [] as { fileName: string; url: string }[],
+    complianceChecklist: { ...DEFAULT_COMPLIANCE_CHECKLIST },
   });
 
   const [editFormData, setEditFormData] = useState({
@@ -212,6 +495,7 @@ const Locations = () => {
     photoDataUrl: "",
     photoFileName: "",
     attachments: [] as { fileName: string; url: string }[],
+    complianceChecklist: { ...DEFAULT_COMPLIANCE_CHECKLIST },
   });
 
   useEffect(() => {
@@ -227,8 +511,9 @@ const Locations = () => {
         if (!mounted) return;
         setApiError(e instanceof Error ? e.message : "Failed to load locations");
       } finally {
-        if (!mounted) return;
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
     void load();
@@ -303,6 +588,7 @@ const Locations = () => {
         photoDataUrl: formData.photoDataUrl || undefined,
         photoFileName: formData.photoFileName || undefined,
         attachments: formData.attachments,
+        complianceChecklist: formData.complianceChecklist,
       };
       await createResource<Location>("locations", newLocation);
       setSubmitSuccess(true);
@@ -325,6 +611,7 @@ const Locations = () => {
         photoDataUrl: "",
         photoFileName: "",
         attachments: [],
+        complianceChecklist: { ...DEFAULT_COMPLIANCE_CHECKLIST },
       });
     } catch (e) {
       setFormError(e instanceof Error ? e.message : "Failed to add location");
@@ -366,6 +653,7 @@ const Locations = () => {
       photoDataUrl: location.photoDataUrl || "",
       photoFileName: location.photoFileName || "",
       attachments: location.attachments || [],
+      complianceChecklist: location.complianceChecklist || { ...DEFAULT_COMPLIANCE_CHECKLIST },
     });
     setEditLocationOpen(true);
 
@@ -403,6 +691,7 @@ const Locations = () => {
         photoDataUrl: editFormData.photoDataUrl || undefined,
         photoFileName: editFormData.photoFileName || undefined,
         attachments: editFormData.attachments,
+        complianceChecklist: editFormData.complianceChecklist,
       });
       await refreshLocations();
       setEditLocationOpen(false);
@@ -600,6 +889,11 @@ const Locations = () => {
                         }} className="bg-slate-800 hover:bg-slate-900 text-white shadow-md">Add</Button>
                     </div>
                 </div>
+
+                <ComplianceChecklistFormSection
+                  checklist={formData.complianceChecklist || DEFAULT_COMPLIANCE_CHECKLIST}
+                  onChange={(cl) => setFormData({ ...formData, complianceChecklist: cl })}
+                />
 
                 <div className="space-y-2">
                   <Label htmlFor="notes" className="text-sm font-semibold">Notes</Label>
@@ -864,6 +1158,46 @@ const Locations = () => {
                   </div>
                </div>
 
+               {/* Location Compliance Checklist */}
+               <div className="col-span-2 space-y-3 pt-4 border-t border-slate-100">
+                  <p className="text-xs font-bold text-blue-600 uppercase tracking-widest flex items-center gap-1.5">
+                    <Sparkles className="h-4 w-4 text-blue-500" /> Location Compliance Checklist
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200/60 text-xs">
+                    <div className="p-3 bg-white rounded-lg border flex flex-col justify-between">
+                      <span className="font-bold text-slate-700">Water Utility</span>
+                      <Badge className="w-fit mt-1 text-[10px] bg-blue-100 text-blue-700 border-0">{selectedLocation?.complianceChecklist?.water?.status || "Pending"}</Badge>
+                      {selectedLocation?.complianceChecklist?.water?.notes && <p className="text-[11px] text-slate-500 mt-1.5 italic">"{selectedLocation.complianceChecklist.water.notes}"</p>}
+                    </div>
+                    <div className="p-3 bg-white rounded-lg border flex flex-col justify-between">
+                      <span className="font-bold text-slate-700">Power Utility</span>
+                      <Badge className="w-fit mt-1 text-[10px] bg-amber-100 text-amber-700 border-0">{selectedLocation?.complianceChecklist?.power?.status || "Pending"}</Badge>
+                      {selectedLocation?.complianceChecklist?.power?.notes && <p className="text-[11px] text-slate-500 mt-1.5 italic">"{selectedLocation.complianceChecklist.power.notes}"</p>}
+                    </div>
+                    <div className="p-3 bg-white rounded-lg border flex flex-col justify-between">
+                      <span className="font-bold text-slate-700">Town Permit for Demo</span>
+                      <Badge className="w-fit mt-1 text-[10px] bg-purple-100 text-purple-700 border-0">{selectedLocation?.complianceChecklist?.townPermitDemo?.status || "Pending"}</Badge>
+                      {selectedLocation?.complianceChecklist?.townPermitDemo?.notes && <p className="text-[11px] text-slate-500 mt-1.5 italic">"{selectedLocation.complianceChecklist.townPermitDemo.notes}"</p>}
+                    </div>
+                    <div className="p-3 bg-white rounded-lg border flex flex-col justify-between">
+                      <span className="font-bold text-slate-700">Town Permit for Renovations</span>
+                      <Badge className="w-fit mt-1 text-[10px] bg-indigo-100 text-indigo-700 border-0">{selectedLocation?.complianceChecklist?.townPermitRenovations?.status || "Pending"}</Badge>
+                      {selectedLocation?.complianceChecklist?.townPermitRenovations?.notes && <p className="text-[11px] text-slate-500 mt-1.5 italic">"{selectedLocation.complianceChecklist.townPermitRenovations.notes}"</p>}
+                    </div>
+                    <div className="p-3 bg-white rounded-lg border flex flex-col justify-between">
+                      <span className="font-bold text-slate-700">Site Plan Review</span>
+                      <Badge className="w-fit mt-1 text-[10px] bg-emerald-100 text-emerald-700 border-0">{selectedLocation?.complianceChecklist?.sitePlanReview?.option || "Needed"}</Badge>
+                      {selectedLocation?.complianceChecklist?.sitePlanReview?.notes && <p className="text-[11px] text-slate-500 mt-1.5 italic">"{selectedLocation.complianceChecklist.sitePlanReview.notes}"</p>}
+                    </div>
+                    <div className="p-3 bg-white rounded-lg border flex flex-col justify-between">
+                      <span className="font-bold text-slate-700">Certificate of Occupancy</span>
+                      <Badge className="w-fit mt-1 text-[10px] bg-green-100 text-green-700 border-0">{selectedLocation?.complianceChecklist?.certificateOfOccupancy?.status || "Pending"}</Badge>
+                      {selectedLocation?.complianceChecklist?.certificateOfOccupancy?.date && <p className="text-[10px] text-slate-400 mt-1 font-mono">Date: {selectedLocation.complianceChecklist.certificateOfOccupancy.date}</p>}
+                      {selectedLocation?.complianceChecklist?.certificateOfOccupancy?.notes && <p className="text-[11px] text-slate-500 mt-1.5 italic">"{selectedLocation.complianceChecklist.certificateOfOccupancy.notes}"</p>}
+                    </div>
+                  </div>
+               </div>
+
                {selectedLocation?.notes && (
                  <div className="col-span-2 pt-4 border-t border-slate-100">
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Internal Notes</p>
@@ -1005,6 +1339,11 @@ const Locations = () => {
                   </SelectContent>
                 </Select>
               </div>
+
+              <ComplianceChecklistFormSection
+                checklist={editFormData.complianceChecklist || DEFAULT_COMPLIANCE_CHECKLIST}
+                onChange={(cl) => setEditFormData({ ...editFormData, complianceChecklist: cl })}
+              />
 
               <div className="space-y-2">
                 <Label className="text-sm font-semibold">Internal Notes</Label>

@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/
 import { Button } from "@/components/admin/ui/button";
 import { Badge } from "@/components/admin/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/admin/ui/table";
-import { PieChart, Download, RefreshCw, FileText, ArrowUpRight, ArrowDownRight, Scale } from "lucide-react";
+import { PieChart, Download, RefreshCw, FileText, ArrowUpRight, ArrowDownRight, Scale, Building2, MapPin } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 
 export default function FinancialReporting() {
@@ -12,12 +12,43 @@ export default function FinancialReporting() {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"PL" | "BS">("PL");
 
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [companyLocations, setCompanyLocations] = useState<any[]>([]);
+  const [selectedCompany, setSelectedCompany] = useState("");
+  const [selectedLocation, setSelectedLocation] = useState("");
+
+  const loadCompanies = async () => {
+    try {
+      const res = await apiFetch("/api/companies");
+      if (res) setCompanies(res.items || []);
+    } catch (e) { console.error(e); }
+  };
+
+  const loadLocations = async (companyId: string) => {
+    if (!companyId) { setCompanyLocations([]); return; }
+    try {
+      const res = await apiFetch(`/api/company-locations?company=${companyId}`);
+      setCompanyLocations(res?.items || []);
+    } catch { setCompanyLocations([]); }
+  };
+
+  const handleCompanyChange = (companyId: string) => {
+    setSelectedCompany(companyId);
+    setSelectedLocation("");
+    loadLocations(companyId);
+  };
+
   const load = async () => {
     try {
       setLoading(true);
+      const queryParams = new URLSearchParams();
+      if (selectedCompany) queryParams.append("company", selectedCompany);
+      if (selectedLocation) queryParams.append("location", selectedLocation);
+      const qs = queryParams.toString() ? `?${queryParams.toString()}` : "";
+
       const [plRes, bsRes] = await Promise.all([
-        apiFetch("/api/atlasbook/reports/pl"),
-        apiFetch("/api/atlasbook/reports/balance-sheet")
+        apiFetch(`/api/atlasbook/reports/pl${qs}`),
+        apiFetch(`/api/atlasbook/reports/balance-sheet${qs}`)
       ]);
       if (plRes?.success) setPl(plRes);
       if (bsRes?.success) setBs(bsRes);
@@ -28,7 +59,8 @@ export default function FinancialReporting() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { loadCompanies(); }, []);
+  useEffect(() => { load(); }, [selectedCompany, selectedLocation]);
 
   return (
     <div className="space-y-6">
@@ -46,19 +78,37 @@ export default function FinancialReporting() {
         </div>
       </div>
 
-      <div className="flex gap-4 border-b">
-        <button 
-          onClick={() => setView("PL")}
-          className={`pb-4 px-4 font-bold text-sm transition-all ${view === "PL" ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground"}`}
-        >
-          Profit & Loss
-        </button>
-        <button 
-          onClick={() => setView("BS")}
-          className={`pb-4 px-4 font-bold text-sm transition-all ${view === "BS" ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground"}`}
-        >
-          Balance Sheet
-        </button>
+      <div className="flex gap-4 border-b items-center justify-between">
+        <div className="flex gap-4">
+          <button 
+            onClick={() => setView("PL")}
+            className={`pb-4 px-4 font-bold text-sm transition-all ${view === "PL" ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            Profit & Loss
+          </button>
+          <button 
+            onClick={() => setView("BS")}
+            className={`pb-4 px-4 font-bold text-sm transition-all ${view === "BS" ? "border-b-2 border-primary text-primary" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            Balance Sheet
+          </button>
+        </div>
+        <div className="flex gap-4 pb-2">
+          <div className="flex items-center gap-2">
+            <Building2 size={16} className="text-muted-foreground" />
+            <select className="h-8 rounded-md border border-input bg-background px-2 text-xs" value={selectedCompany} onChange={e => handleCompanyChange(e.target.value)}>
+              <option value="">All Companies</option>
+              {companies.map(c => <option key={c.id || c._id} value={c.id || c._id}>{c.name}</option>)}
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <MapPin size={16} className="text-muted-foreground" />
+            <select className="h-8 rounded-md border border-input bg-background px-2 text-xs" value={selectedLocation} onChange={e => setSelectedLocation(e.target.value)} disabled={!selectedCompany}>
+              <option value="">All Locations</option>
+              {companyLocations.map(loc => <option key={loc._id} value={loc._id}>{loc.label}</option>)}
+            </select>
+          </div>
+        </div>
       </div>
 
       {loading ? (

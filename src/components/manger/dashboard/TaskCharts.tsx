@@ -14,6 +14,8 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/manger/api";
 import { useNavigate } from "react-router-dom";
+import { useTheme } from "@/contexts/ThemeContext";
+import { cn } from "@/lib/utils";
 
 type TaskApi = {
   _id?: string;
@@ -69,6 +71,8 @@ const STATUS_COLORS: Record<string, string> = {
 
 export function TaskCharts() {
   const navigate = useNavigate();
+  const { uiTheme } = useTheme();
+  const isMetallic = uiTheme.theme === "metallic-elite";
 
   const tasksQuery = useQuery({
     queryKey: ["manager-dashboard", "tasks"],
@@ -120,6 +124,7 @@ export function TaskCharts() {
       name: k === "in-progress" ? "In Progress" : k[0].toUpperCase() + k.slice(1),
       value: total > 0 ? Math.round((statusCounts[k] / total) * 100) : 0,
       color: STATUS_COLORS[k] || "hsl(217, 91%, 60%)",
+      key: k,
     }));
 
   const barSize = typeof window !== "undefined" && window.innerWidth < 640 ? 12 : 16;
@@ -129,13 +134,36 @@ export function TaskCharts() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 md:gap-6">
       <Card
-        className="shadow-soft border-0 sm:border cursor-pointer hover:shadow-lg transition-all"
+        className={cn(
+          "cursor-pointer transition-all hover:scale-[1.01]",
+          isMetallic
+            ? "border border-[#ffd27a]/35 bg-gradient-to-br from-[#2b2c2d] to-[#111315] hover:border-[#ffd27a]/60 shadow-[inset_0_1px_2px_rgba(255,255,255,0.15),_0_10px_20px_rgba(0,0,0,0.7)] relative overflow-hidden"
+            : "shadow-soft border-0 sm:border hover:shadow-lg"
+        )}
         onClick={() => navigate("/manager/tasks")}
       >
-        <CardHeader className="px-4 sm:px-6 py-4 sm:py-5">
-          <CardTitle className="text-base sm:text-lg md:text-xl font-semibold">Weekly Task Overview</CardTitle>
+        {isMetallic && (
+          <>
+            {/* Corner brackets */}
+            <div className="metallic-corner-bracket metallic-bracket-tl" />
+            <div className="metallic-corner-bracket metallic-bracket-tr" />
+            <div className="metallic-corner-bracket metallic-bracket-bl" />
+            <div className="metallic-corner-bracket metallic-bracket-br" />
+            
+            {/* Screws */}
+            <div className="absolute top-1.5 left-1.5 opacity-60"><div className="metallic-screw scale-[0.75]" /></div>
+            <div className="absolute top-1.5 right-1.5 opacity-60"><div className="metallic-screw scale-[0.75]" /></div>
+            <div className="absolute bottom-1.5 left-1.5 opacity-60"><div className="metallic-screw scale-[0.75]" /></div>
+            <div className="absolute bottom-1.5 right-1.5 opacity-60"><div className="metallic-screw scale-[0.75]" /></div>
+          </>
+        )}
+        <CardHeader className="px-4 sm:px-6 py-4 sm:py-5 relative z-10">
+          <CardTitle className={cn(
+            "text-base sm:text-lg md:text-xl font-semibold",
+            isMetallic ? "text-white" : ""
+          )}>Weekly Task Overview</CardTitle>
         </CardHeader>
-        <CardContent className="px-2 sm:px-4 pb-4 sm:pb-6">
+        <CardContent className="px-2 sm:px-4 pb-4 sm:pb-6 relative z-10">
           <div className="h-[200px] sm:h-[220px] md:h-[250px] lg:h-[280px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
@@ -147,32 +175,56 @@ export function TaskCharts() {
                   bottom: 5,
                 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" strokeOpacity={0.5} />
+                <defs>
+                  <linearGradient id="metallicGoldGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#ffd27a" />
+                    <stop offset="50%" stopColor="#c89537" />
+                    <stop offset="100%" stopColor="#8a611c" />
+                  </linearGradient>
+                  <linearGradient id="metallicSteelGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#8d8f91" />
+                    <stop offset="50%" stopColor="#4b4d4e" />
+                    <stop offset="100%" stopColor="#2b2c2d" />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid 
+                  strokeDasharray="3 3" 
+                  stroke={isMetallic ? "rgba(200, 149, 55, 0.15)" : "hsl(var(--border))"} 
+                  strokeOpacity={isMetallic ? 0.7 : 0.5} 
+                />
                 <XAxis
                   dataKey="day"
                   tick={{
-                    fill: "hsl(var(--muted-foreground))",
+                    fill: isMetallic ? "#cfd7dc" : "hsl(var(--muted-foreground))",
                     fontSize: 10,
                     fontWeight: 400,
                   }}
-                  axisLine={{ stroke: "hsl(var(--border))", strokeWidth: 1 }}
+                  axisLine={{ stroke: isMetallic ? "rgba(200, 149, 55, 0.3)" : "hsl(var(--border))", strokeWidth: 1 }}
                   tickLine={false}
                   interval={0}
                   height={30}
                 />
                 <YAxis
                   tick={{
-                    fill: "hsl(var(--muted-foreground))",
+                    fill: isMetallic ? "#cfd7dc" : "hsl(var(--muted-foreground))",
                     fontSize: 10,
                     fontWeight: 400,
                   }}
-                  axisLine={{ stroke: "hsl(var(--border))", strokeWidth: 1 }}
+                  axisLine={{ stroke: isMetallic ? "rgba(200, 149, 55, 0.3)" : "hsl(var(--border))", strokeWidth: 1 }}
                   tickLine={false}
                   width={30}
                   allowDecimals={false}
                 />
                 <Tooltip
-                  contentStyle={{
+                  contentStyle={isMetallic ? {
+                    backgroundColor: "rgba(20, 23, 25, 0.95)",
+                    border: "1px solid rgba(200, 149, 55, 0.4)",
+                    borderRadius: "8px",
+                    fontSize: "11px",
+                    padding: "8px",
+                    boxShadow: "0 10px 25px rgba(0,0,0,0.8)",
+                    color: "#f7f7f7",
+                  } : {
                     backgroundColor: "hsl(var(--card))",
                     border: "1px solid hsl(var(--border))",
                     borderRadius: "8px",
@@ -183,68 +235,150 @@ export function TaskCharts() {
                   labelStyle={{
                     fontWeight: 600,
                     marginBottom: "4px",
+                    color: isMetallic ? "#ffd27a" : "inherit"
                   }}
                 />
-                <Bar dataKey="completed" name="Completed" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} barSize={barSize} />
-                <Bar dataKey="pending" name="Pending" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} barSize={barSize} />
+                <Bar 
+                  dataKey="completed" 
+                  name="Completed" 
+                  fill={isMetallic ? "url(#metallicGoldGrad)" : "hsl(var(--chart-2))"} 
+                  radius={[4, 4, 0, 0]} 
+                  barSize={barSize} 
+                />
+                <Bar 
+                  dataKey="pending" 
+                  name="Pending" 
+                  fill={isMetallic ? "url(#metallicSteelGrad)" : "hsl(var(--chart-3))"} 
+                  radius={[4, 4, 0, 0]} 
+                  barSize={barSize} 
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
 
           <div className="flex items-center justify-center gap-4 mt-3 sm:hidden">
             <div className="flex items-center gap-1.5">
-              <div className="h-2.5 w-2.5 rounded-full bg-[hsl(var(--chart-2))]" />
-              <span className="text-xs text-muted-foreground">Completed</span>
+              <div 
+                className="h-2.5 w-2.5 rounded-full" 
+                style={{ background: isMetallic ? "linear-gradient(#ffd27a, #c89537)" : "hsl(var(--chart-2))" }} 
+              />
+              <span className={cn("text-xs", isMetallic ? "text-[#cfd7dc]" : "text-muted-foreground")}>Completed</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="h-2.5 w-2.5 rounded-full bg-[hsl(var(--chart-3))]" />
-              <span className="text-xs text-muted-foreground">Pending</span>
+              <div 
+                className="h-2.5 w-2.5 rounded-full" 
+                style={{ background: isMetallic ? "linear-gradient(#8d8f91, #2b2c2d)" : "hsl(var(--chart-3))" }} 
+              />
+              <span className={cn("text-xs", isMetallic ? "text-[#cfd7dc]" : "text-muted-foreground")}>Pending</span>
             </div>
           </div>
         </CardContent>
       </Card>
 
       <Card
-        className="shadow-soft border-0 sm:border cursor-pointer hover:shadow-lg transition-all"
+        className={cn(
+          "cursor-pointer transition-all hover:scale-[1.01]",
+          isMetallic
+            ? "border border-[#ffd27a]/35 bg-gradient-to-br from-[#2b2c2d] to-[#111315] hover:border-[#ffd27a]/60 shadow-[inset_0_1px_2px_rgba(255,255,255,0.15),_0_10px_20px_rgba(0,0,0,0.7)] relative overflow-hidden"
+            : "shadow-soft border-0 sm:border hover:shadow-lg"
+        )}
         onClick={() => navigate("/manager/tasks")}
       >
-        <CardHeader className="px-4 sm:px-6 py-4 sm:py-5">
-          <CardTitle className="text-base sm:text-lg md:text-xl font-semibold">Task Distribution</CardTitle>
+        {isMetallic && (
+          <>
+            {/* Corner brackets */}
+            <div className="metallic-corner-bracket metallic-bracket-tl" />
+            <div className="metallic-corner-bracket metallic-bracket-tr" />
+            <div className="metallic-corner-bracket metallic-bracket-bl" />
+            <div className="metallic-corner-bracket metallic-bracket-br" />
+            
+            {/* Screws */}
+            <div className="absolute top-1.5 left-1.5 opacity-60"><div className="metallic-screw scale-[0.75]" /></div>
+            <div className="absolute top-1.5 right-1.5 opacity-60"><div className="metallic-screw scale-[0.75]" /></div>
+            <div className="absolute bottom-1.5 left-1.5 opacity-60"><div className="metallic-screw scale-[0.75]" /></div>
+            <div className="absolute bottom-1.5 right-1.5 opacity-60"><div className="metallic-screw scale-[0.75]" /></div>
+          </>
+        )}
+        <CardHeader className="px-4 sm:px-6 py-4 sm:py-5 relative z-10">
+          <CardTitle className={cn(
+            "text-base sm:text-lg md:text-xl font-semibold",
+            isMetallic ? "text-white" : ""
+          )}>Task Distribution</CardTitle>
         </CardHeader>
-        <CardContent className="px-2 sm:px-4 pb-4 sm:pb-6">
+        <CardContent className="px-2 sm:px-4 pb-4 sm:pb-6 relative z-10">
           <div className="h-auto sm:h-[220px] md:h-[250px] lg:h-[280px] w-full">
             <div className="flex flex-col sm:flex-row items-center h-full">
-              <div className="w-full sm:w-[60%] h-[180px] sm:h-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
-                    <Pie
-                      data={taskDistributionData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={innerRadius}
-                      outerRadius={outerRadius}
-                      paddingAngle={2}
-                      dataKey="value"
-                      labelLine={false}
-                      label={false}
-                    >
-                      {taskDistributionData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "8px",
-                        fontSize: "11px",
-                        padding: "8px",
-                        boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-                      }}
-                      formatter={(value: number) => [`${value}%`, "Percentage"]}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
+              <div className="w-full sm:w-[60%] h-[180px] sm:h-full relative flex items-center justify-center">
+                {isMetallic && (
+                  <div className="absolute w-[140px] h-[140px] sm:w-[170px] sm:h-[170px] rounded-full bg-gradient-to-br from-[#3a3b3c] via-[#111315] to-[#4a4b4c] border-4 border-[#ffd27a]/30 shadow-[0_0_15px_rgba(0,0,0,0.8),_inset_0_4px_10px_rgba(0,0,0,0.9)] flex items-center justify-center z-0 pointer-events-none">
+                    {/* Inner ring that aligns with the inner radius of the donut chart */}
+                    <div className="w-[85px] h-[85px] sm:w-[105px] sm:h-[105px] rounded-full bg-[#111315] border border-[#ffd27a]/15 shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)]" />
+                  </div>
+                )}
+                <div className="w-full h-full relative z-10">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
+                      <defs>
+                        <linearGradient id="metallicPie_completed" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#ffd27a" />
+                          <stop offset="100%" stopColor="#8a611c" />
+                        </linearGradient>
+                        <linearGradient id="metallicPie_in-progress" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#6ee7b7" />
+                          <stop offset="100%" stopColor="#047857" />
+                        </linearGradient>
+                        <linearGradient id="metallicPie_pending" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#8d8f91" />
+                          <stop offset="100%" stopColor="#2b2c2d" />
+                        </linearGradient>
+                        <linearGradient id="metallicPie_overdue" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#fca5a5" />
+                          <stop offset="100%" stopColor="#b91c1c" />
+                        </linearGradient>
+                      </defs>
+                      <Pie
+                        data={taskDistributionData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={innerRadius}
+                        outerRadius={outerRadius}
+                        paddingAngle={2}
+                        dataKey="value"
+                        labelLine={false}
+                        label={false}
+                      >
+                        {taskDistributionData.map((entry, index) => {
+                          const gradId = `metallicPie_${entry.key}`;
+                          return (
+                            <Cell 
+                              key={`cell-${index}`} 
+                              fill={isMetallic ? `url(#${gradId})` : entry.color} 
+                            />
+                          );
+                        })}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={isMetallic ? {
+                          backgroundColor: "rgba(20, 23, 25, 0.95)",
+                          border: "1px solid rgba(200, 149, 55, 0.4)",
+                          borderRadius: "8px",
+                          fontSize: "11px",
+                          padding: "8px",
+                          boxShadow: "0 10px 25px rgba(0,0,0,0.8)",
+                          color: "#f7f7f7",
+                        } : {
+                          backgroundColor: "hsl(var(--card))",
+                          border: "1px solid hsl(var(--border))",
+                          borderRadius: "8px",
+                          fontSize: "11px",
+                          padding: "8px",
+                          boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+                        }}
+                        formatter={(value: number) => [`${value}%`, "Percentage"]}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
 
               <div className="w-full sm:w-[40%] mt-3 sm:mt-0 sm:pl-2">
@@ -253,11 +387,22 @@ export function TaskCharts() {
                     <div key={item.name} className="flex items-center gap-2 sm:gap-3">
                       <div
                         className="h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: item.color }}
+                        style={{
+                          backgroundColor: item.color,
+                          backgroundImage: isMetallic 
+                            ? item.key === "completed" 
+                              ? "linear-gradient(#ffd27a, #8a611c)" 
+                              : item.key === "in-progress"
+                              ? "linear-gradient(#6ee7b7, #047857)"
+                              : item.key === "overdue"
+                              ? "linear-gradient(#fca5a5, #b91c1c)"
+                              : "linear-gradient(#8d8f91, #2b2c2d)"
+                            : undefined
+                        }}
                       />
                       <div className="flex-1 min-w-0 flex items-center justify-between">
-                        <span className="text-xs sm:text-sm text-muted-foreground truncate">{item.name}</span>
-                        <span className="text-xs sm:text-sm font-medium ml-1 sm:ml-auto">{item.value}%</span>
+                        <span className={cn("text-xs sm:text-sm truncate", isMetallic ? "text-[#cfd7dc]" : "text-muted-foreground")}>{item.name}</span>
+                        <span className={cn("text-xs sm:text-sm font-medium ml-1 sm:ml-auto", isMetallic ? "text-white" : "")}>{item.value}%</span>
                       </div>
                     </div>
                   ))}
@@ -267,7 +412,7 @@ export function TaskCharts() {
           </div>
 
           <div className="mt-3 pt-2 border-t sm:hidden">
-            <p className="text-xs text-center text-muted-foreground">
+            <p className={cn("text-xs text-center", isMetallic ? "text-[#cfd7dc]/60" : "text-muted-foreground")}>
               Total tasks: 100% • {taskDistributionData.length} categories
             </p>
           </div>

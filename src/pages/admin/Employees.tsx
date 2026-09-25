@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
@@ -7,6 +8,7 @@ import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/admin/ui/avatar";
 import { useForm } from "react-hook-form";
+import { EmployeeFileWorkspace } from "@/components/admin/employees/EmployeeFileWorkspace";
 import {
   Select,
   SelectContent,
@@ -66,6 +68,7 @@ import { getAuthState } from "@/lib/auth";
 import { Pagination } from "@/components/Pagination";
 import { useSocket } from "@/contexts/SocketContext";
 import { cn } from "@/lib/utils";
+import { DEPARTMENTS_AND_POSITIONS, DEPARTMENTS } from "@/constants/jobPositions";
 
 interface Employee {
   id: string;
@@ -224,6 +227,7 @@ const Employees = () => {
     email: string;
     phone: string;
     category: string;
+    customCategory?: string;
     createUser: "no" | "yes";
     userRole: "super-admin" | "admin" | "manager" | "team-lead" | "employee";
     userStatus: "active" | "inactive" | "pending";
@@ -233,9 +237,11 @@ const Employees = () => {
     payType: "hourly" | "monthly";
     payRate: string;
     shift: string;
+    shiftObject?: Shift;
     hireDate: string;
     password: string;
     department: string;
+    onboardingRequired: boolean;
   };
 
   const addForm = useForm<AddEmployeeValues>({
@@ -246,6 +252,7 @@ const Employees = () => {
       email: "",
       phone: "",
       category: "",
+      customCategory: "",
       createUser: "no",
       userRole: "manager",
       userStatus: "active",
@@ -257,6 +264,7 @@ const Employees = () => {
       shift: "",
       hireDate: "",
       password: "",
+      onboardingRequired: true,
     },
   });
 
@@ -265,12 +273,20 @@ const Employees = () => {
   } = addForm;
 
   const createUserChoice = addForm.watch("createUser");
+  const watchedCategory = addForm.watch("category");
 
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [workspaceEmployeeId, setWorkspaceEmployeeId] = useState<string | null>(
+    () => searchParams.get("id") || null
+  );
   const [viewProfileOpen, setViewProfileOpen] = useState(false);
   const [editEmployeeOpen, setEditEmployeeOpen] = useState(false);
+  const [showCustomCategoryEdit, setShowCustomCategoryEdit] = useState(false);
+  const [customCategoryEditVal, setCustomCategoryEditVal] = useState("");
   const [deactivateConfirmOpen, setDeactivateConfirmOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [shiftOpen, setShiftOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   // Reset Password state - Super Admin only
   const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
@@ -296,6 +312,7 @@ const Employees = () => {
     hireDate: "",
     userRole: "employee" as "super-admin" | "admin" | "manager" | "team-lead" | "employee",
     userStatus: "active" as "active" | "inactive" | "pending",
+    onboardingRequired: true,
   });
 
   const [shiftFormData, setShiftFormData] = useState({
@@ -354,8 +371,9 @@ const Employees = () => {
         if (!mounted) return;
         setApiError(e instanceof Error ? e.message : "Failed to load employees");
       } finally {
-        if (!mounted) return;
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 
@@ -403,7 +421,7 @@ const Employees = () => {
           .toUpperCase(),
         email: values.email.trim(),
         phone: values.phone,
-        category: values.category,
+        category: values.category === "__custom__" ? (values.customCategory || "").trim().toLowerCase() : values.category,
         role: values.role,
         company: values.company || "",
         status: values.status,
@@ -411,6 +429,7 @@ const Employees = () => {
         payRate: values.payRate,
         shift: values.shift,
         hireDate: values.hireDate,
+        onboardingRequired: values.onboardingRequired,
         // Login credentials — only set if this employee should have task manager access
         ...(isLoginUser && {
           password: values.password,
@@ -443,7 +462,10 @@ const Employees = () => {
 
   const handleViewProfile = (employee: Employee) => {
     setSelectedEmployee(employee);
-    setViewProfileOpen(true);
+    setWorkspaceEmployeeId(employee.id);
+    const next = new URLSearchParams(searchParams);
+    next.set("id", employee.id);
+    setSearchParams(next, { replace: true });
   };
 
   useEffect(() => {
@@ -473,6 +495,8 @@ const Employees = () => {
 
   const handleEditEmployee = (employee: Employee) => {
     setSelectedEmployee(employee);
+    setShowCustomCategoryEdit(false);
+    setCustomCategoryEditVal("");
     setEditFormData({
       name: employee.name,
       email: employee.email,
@@ -488,6 +512,7 @@ const Employees = () => {
       hireDate: employee.hireDate,
       userRole: (employee as any).userRole || "employee",
       userStatus: (employee as any).userStatus || "active",
+      onboardingRequired: (employee as any).onboardingRequired !== false,
     });
 
     setEditEmployeeOpen(true);
@@ -522,6 +547,7 @@ const Employees = () => {
         hireDate: editFormData.hireDate,
         userRole: editFormData.userRole,
         userStatus: editFormData.userStatus,
+        onboardingRequired: editFormData.onboardingRequired,
       } as any);
 
       // 2. Immediately update the local list so the table reflects changes without waiting for a re-fetch
@@ -551,6 +577,7 @@ const Employees = () => {
                 department: editFormData.department,
                 userRole: editFormData.userRole,
                 userStatus: editFormData.userStatus,
+                onboardingRequired: editFormData.onboardingRequired,
               } as any
             : emp
         )
@@ -558,6 +585,8 @@ const Employees = () => {
 
       setEditEmployeeOpen(false);
       setSelectedEmployee(null);
+      setShowCustomCategoryEdit(false);
+      setCustomCategoryEditVal("");
 
       // 3. Sync linked user login account in the background (best-effort)
       listResource<any>("users", { limit: 1000 }).then((usersResult) => {
@@ -596,10 +625,34 @@ const Employees = () => {
         status: selectedEmployee.status === "inactive" ? "active" : "inactive",
       });
       await refreshEmployees();
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
       setDeactivateConfirmOpen(false);
       setSelectedEmployee(null);
     } catch (e) {
       setApiError(e instanceof Error ? e.message : "Failed to update employee");
+    }
+  };
+
+  const handleDeleteConfirm = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDeleteEmployee = async () => {
+    if (!selectedEmployee) return;
+    try {
+      setApiError(null);
+      await deleteResource("employees", selectedEmployee.id);
+      await refreshEmployees();
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+      setDeleteConfirmOpen(false);
+      setSelectedEmployee(null);
+    } catch (e) {
+      setApiError(e instanceof Error ? e.message : "Failed to delete employee");
     }
   };
 
@@ -706,6 +759,23 @@ const Employees = () => {
         return null;
     }
   };
+
+  if (workspaceEmployeeId) {
+    return (
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+        <EmployeeFileWorkspace
+          employeeId={workspaceEmployeeId}
+          onBack={() => {
+            setWorkspaceEmployeeId(null);
+            const next = new URLSearchParams(searchParams);
+            next.delete("id");
+            setSearchParams(next, { replace: true });
+            refreshEmployees();
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <>
@@ -877,30 +947,51 @@ const Employees = () => {
                             {c}
                           </option>
                         ))}
+                        <option value="__custom__">+ Add Custom Category...</option>
                       </select>
+                      {watchedCategory === "__custom__" && (
+                        <input
+                          type="text"
+                          {...addForm.register("customCategory", {
+                            required: watchedCategory === "__custom__" ? "Custom category is required" : false
+                          })}
+                          placeholder="Enter custom category"
+                          className="w-full mt-2 rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                        />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Role *</label>
+                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Role (Position / Title) *</label>
                       <input
                         type="text"
+                        list="admin-add-job-positions-list"
                         {...addForm.register("role", {
                           required: "Role is required",
                           validate: (v) => (String(v || "").trim() ? true : "Role is required"),
                         })}
                         aria-invalid={!!addErrors.role}
-                        placeholder="e.g., Maintenance Technician"
+                        placeholder="Select or type position (e.g., Software Engineer)"
                         className={
                           "w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all " +
                           (addErrors.role ? "border-destructive focus:ring-destructive/20" : "")
                         }
                       />
+                      <datalist id="admin-add-job-positions-list">
+                        {DEPARTMENTS_AND_POSITIONS.map((group) => (
+                          <optgroup key={group.department} label={group.department}>
+                            {group.positions.map((pos) => (
+                              <option key={pos} value={pos}>
+                                {pos} ({group.department})
+                              </option>
+                            ))}
+                          </optgroup>
+                        ))}
+                      </datalist>
                       {addErrors.role && (
                         <p className="mt-1 text-xs text-destructive">{String(addErrors.role.message || "Role is required")}</p>
                       )}
                     </div>
                   </div>
-
-                
 
                   <div>
                     <label className="block text-xs sm:text-sm font-medium mb-1.5">Company</label>
@@ -924,9 +1015,11 @@ const Employees = () => {
                       className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
                     >
                       <option value="">Select department</option>
-                      <option value="Coding">Coding</option>
-                      <option value="Electrician">Electrician</option>
-                      <option value="Mechanic">Mechanic</option>
+                      {DEPARTMENTS.map((dept) => (
+                        <option key={dept} value={dept}>
+                          {dept}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
@@ -1063,6 +1156,18 @@ const Employees = () => {
                         <option value="yes">Yes — can log in</option>
                       </select>
                     </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-2">
+                    <input
+                      type="checkbox"
+                      id="onboardingRequired"
+                      {...addForm.register("onboardingRequired")}
+                      className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                    />
+                    <label htmlFor="onboardingRequired" className="text-xs sm:text-sm font-medium cursor-pointer select-none">
+                      On Boarding Required
+                    </label>
                   </div>
                 </motion.form>
 
@@ -1208,81 +1313,45 @@ const Employees = () => {
                   </div>
                 </div>
 
-                {/* Filter Dropdowns - Grid on mobile, row on tablet+ */}
-                <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 sm:gap-3">
-                  <div className="col-span-1">
-                    <label className="block text-xs text-muted-foreground mb-1.5 sm:hidden">
-                      Status
-                    </label>
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="w-full h-9 sm:h-10 text-xs sm:text-sm rounded-lg border-0 bg-muted/50 focus:ring-2 focus:ring-primary/20">
-                        <SelectValue placeholder="Status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Status</SelectItem>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                        <SelectItem value="on-leave">On Leave</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="col-span-1">
-                    <label className="block text-xs text-muted-foreground mb-1.5 sm:hidden">
-                      Category
-                    </label>
-                    <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                      <SelectTrigger className="w-full h-9 sm:h-10 text-xs sm:text-sm rounded-lg border-0 bg-muted/50 focus:ring-2 focus:ring-primary/20">
-                        <SelectValue placeholder="Category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Categories</SelectItem>
-                        {categoryOptions.map((c) => c ? (
-                          <SelectItem key={c} value={c} className="text-xs sm:text-sm">
-                            {c}
-                          </SelectItem>
-                        ) : null)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="col-span-1">
-                    <label className="block text-xs text-muted-foreground mb-1.5 sm:hidden">
-                      Role
-                    </label>
-                    <Select value={roleFilter} onValueChange={setRoleFilter}>
-                      <SelectTrigger className="w-full h-9 sm:h-10 text-xs sm:text-sm rounded-lg border-0 bg-muted/50 focus:ring-2 focus:ring-primary/20">
-                        <SelectValue placeholder="Role" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Roles</SelectItem>
-                        {roles.map((r) => r ? (
-                          <SelectItem key={r} value={r} className="text-xs sm:text-sm">
-                            {r}
-                          </SelectItem>
-                        ) : null)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="col-span-1">
-                    <label className="block text-xs text-muted-foreground mb-1.5 sm:hidden">
-                      Company
-                    </label>
-                    <Select value={companyFilter} onValueChange={setCompanyFilter}>
-                      <SelectTrigger className="w-full h-9 sm:h-10 text-xs sm:text-sm rounded-lg border-0 bg-muted/50 focus:ring-2 focus:ring-primary/20">
-                        <SelectValue placeholder="Company" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Companies</SelectItem>
-                        {companies.filter((company) => !!company.name).map((company) => (
-                          <SelectItem key={company.id} value={company.name} className="text-xs sm:text-sm">
-                            {company.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                {/* Quick Filter Chips (Replaces Mobile-Buggy Dropdowns) */}
+                <div className="w-full overflow-x-auto no-scrollbar py-1 flex items-center gap-1.5 shrink-0">
+                  <Button
+                    size="sm"
+                    variant={statusFilter === "all" && categoryFilter === "all" && roleFilter === "all" && companyFilter === "all" ? "default" : "outline"}
+                    onClick={() => {
+                      setStatusFilter("all");
+                      setCategoryFilter("all");
+                      setRoleFilter("all");
+                      setCompanyFilter("all");
+                    }}
+                    className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+                  >
+                    All Employees
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={statusFilter === "active" ? "default" : "outline"}
+                    onClick={() => setStatusFilter(statusFilter === "active" ? "all" : "active")}
+                    className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+                  >
+                    Active
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={statusFilter === "on-leave" ? "default" : "outline"}
+                    onClick={() => setStatusFilter(statusFilter === "on-leave" ? "all" : "on-leave")}
+                    className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+                  >
+                    On Leave
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={statusFilter === "inactive" ? "default" : "outline"}
+                    onClick={() => setStatusFilter(statusFilter === "inactive" ? "all" : "inactive")}
+                    className="h-8 text-xs font-semibold rounded-full px-3 shrink-0 text-destructive"
+                  >
+                    Inactive
+                  </Button>
                 </div>
               </div>
             </CardContent>
@@ -1980,28 +2049,70 @@ const Employees = () => {
                     className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
                   />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Category</label>
-                  <select
-                    value={editFormData.category}
-                    onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value })}
-                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
-                  >
-                    <option value="">Select category</option>
-                    {categoryOptions.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
+                 <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="block text-xs sm:text-sm font-medium">Category</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCustomCategoryEdit(!showCustomCategoryEdit);
+                        if (!showCustomCategoryEdit) {
+                          setCustomCategoryEditVal(editFormData.category);
+                        } else {
+                          setEditFormData({ ...editFormData, category: "" });
+                        }
+                      }}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      {showCustomCategoryEdit ? "Select existing" : "+ Add custom"}
+                    </button>
+                  </div>
+                  {showCustomCategoryEdit ? (
+                    <input
+                      type="text"
+                      value={customCategoryEditVal}
+                      onChange={(e) => {
+                        setCustomCategoryEditVal(e.target.value);
+                        setEditFormData({ ...editFormData, category: e.target.value });
+                      }}
+                      placeholder="Enter custom category"
+                      className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                    />
+                  ) : (
+                    <select
+                      value={editFormData.category}
+                      onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value })}
+                      className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                    >
+                      <option value="">Select category</option>
+                      {categoryOptions.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Role *</label>
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Role (Position / Title) *</label>
                   <input
                     type="text"
+                    list="admin-edit-job-positions-list"
                     value={editFormData.role}
                     onChange={(e) => setEditFormData({ ...editFormData, role: e.target.value })}
+                    placeholder="Select or type position (e.g., Software Engineer)"
                     className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
                     required
                   />
+                  <datalist id="admin-edit-job-positions-list">
+                    {DEPARTMENTS_AND_POSITIONS.map((group) => (
+                      <optgroup key={group.department} label={group.department}>
+                        {group.positions.map((pos) => (
+                          <option key={pos} value={pos}>
+                            {pos} ({group.department})
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </datalist>
                 </div>
               </div>
 
@@ -2028,9 +2139,11 @@ const Employees = () => {
                     className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
                   >
                     <option value="">Select department</option>
-                    <option value="Coding">Coding</option>
-                    <option value="Electrician">Electrician</option>
-                    <option value="Mechanic">Mechanic</option>
+                    {DEPARTMENTS.map((dept) => (
+                      <option key={dept} value={dept}>
+                        {dept}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -2130,6 +2243,19 @@ const Employees = () => {
                     <option value="pending">Pending</option>
                   </select>
                 </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="editOnboardingRequired"
+                  checked={editFormData.onboardingRequired}
+                  onChange={(e) => setEditFormData({ ...editFormData, onboardingRequired: e.target.checked })}
+                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <label htmlFor="editOnboardingRequired" className="text-xs sm:text-sm font-medium cursor-pointer select-none">
+                  On Boarding Required
+                </label>
               </div>
             </motion.form>
           )}
@@ -2283,6 +2409,50 @@ const Employees = () => {
                 {selectedEmployee?.status === "inactive" ? "Restore" : "Archive"}
               </Button>
             </motion.div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Permanent Delete Confirm Dialog */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent className="w-[95vw] max-w-md mx-auto p-4 sm:p-6">
+          <DialogHeader className="space-y-1.5 sm:space-y-2">
+            <DialogTitle className="text-base sm:text-lg text-destructive flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" />
+              Delete Employee Permanently
+            </DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm">
+              This will permanently delete this employee and automatically unassign them from all tasks, projects, and workspaces.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedEmployee && (
+            <motion.div
+              className="rounded-lg bg-destructive/10 border border-destructive/20 p-3 sm:p-4 text-xs sm:text-sm mt-2"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              <p className="font-bold text-destructive">{selectedEmployee.name}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{selectedEmployee.email}</p>
+            </motion.div>
+          )}
+
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteConfirmOpen(false)}
+              className="w-full sm:w-auto order-2 sm:order-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDeleteEmployee}
+              className="w-full sm:w-auto order-1 sm:order-2 bg-red-600 hover:bg-red-700 text-white shadow-md"
+            >
+              Delete & Reset Tasks
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
