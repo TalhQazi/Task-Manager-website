@@ -38,6 +38,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import {
   compositeVirtualBackground,
+  compositeSimpleBlur,
   getSelfieSegmenter,
   loadBackgroundImage,
 } from "./virtualBackground";
@@ -125,6 +126,8 @@ export default function MeetingRoom() {
   const { socket } = useSocket();
 
   const [meetingData, setMeetingData] = useState<any>(null);
+  const [meetingLoadError, setMeetingLoadError] = useState<string | null>(null);
+  const [meetingReady, setMeetingReady] = useState(false);
   const [participants, setParticipants] = useState<Map<string, ParticipantInfo>>(new Map());
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
 
@@ -211,22 +214,40 @@ export default function MeetingRoom() {
   }, []);
 
   const isHost = Boolean(
-    meetingData?.hostId === currentUser.id ||
-      ["super-admin", "admin", "manager"].includes(currentUser.role)
+    meetingData &&
+      (String(meetingData.hostId) === String(currentUser.id) ||
+        (meetingData.hostEmail &&
+          currentUser.email &&
+          String(meetingData.hostEmail).toLowerCase() === String(currentUser.email).toLowerCase()))
   );
 
-  // Fetch meeting metadata
+  // Fetch meeting metadata — must exist before joining socket room
   useEffect(() => {
     if (!code) return;
     let isMounted = true;
+    setMeetingLoadError(null);
+    setMeetingReady(false);
     apiFetch<{ item: any }>(`/api/meetings/code/${encodeURIComponent(code)}`)
       .then((res) => {
-        if (isMounted && res?.item) {
+        if (!isMounted) return;
+        if (res?.item) {
           setMeetingData(res.item);
+          setMeetingReady(true);
+        } else {
+          setMeetingLoadError("Meeting not found for this room code.");
         }
       })
       .catch((err) => {
-        console.warn("Could not fetch meeting metadata, continuing as instant room:", err);
+        if (!isMounted) return;
+        const msg =
+          err?.message ||
+          "Meeting not found. Ask the host for a valid room code, or start a new meeting.";
+        setMeetingLoadError(msg);
+        toast({
+          title: "Cannot open meeting",
+          description: msg,
+          variant: "destructive",
+        });
       });
     return () => {
       isMounted = false;
@@ -359,6 +380,14 @@ export default function MeetingRoom() {
     }
     if (bgVideoRef.current) {
       bgVideoRef.current.pause();
+      const cloneTracks = (bgVideoRef.current.srcObject as MediaStream | null)?.getTracks?.() || [];
+      cloneTracks.forEach((t) => {
+        try {
+          t.stop();
+        } catch {
+          /* ignore */
+        }
+      });
       bgVideoRef.current.srcObject = null;
       bgVideoRef.current = null;
     }
@@ -391,8 +420,14 @@ export default function MeetingRoom() {
       }
 
       const videoTrack = raw.getVideoTracks()[0];
-      if (!videoTrack) {
-        await applyOutgoingStream(raw);
+      if (!videoTrack || videoTrack.readyState !== "live") {
+        toast({
+          title: "Camera required",
+          description: "Turn on your camera to use background blur.",
+          variant: "destructive",
+        });
+        setBgMode("none");
+        if (raw) await applyOutgoingStream(raw);
         return;
       }
 
@@ -414,27 +449,15 @@ export default function MeetingRoom() {
               description: "Could not load this scene. Try Blur instead.",
               variant: "destructive",
             });
+            setBgMode("none");
             return;
           }
         }
       }
 
-      let segmenter: Awaited<ReturnType<typeof getSelfieSegmenter>>;
-      try {
-        segmenter = await getSelfieSegmenter();
-      } catch (err) {
-        console.warn("Selfie segmentation unavailable:", err);
-        toast({
-          title: "Background engine loading failed",
-          description: "Check your network connection and try again.",
-          variant: "destructive",
-        });
-        return;
-      }
-
       const canvas = bgCanvasRef.current || document.createElement("canvas");
       bgCanvasRef.current = canvas;
-      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      const ctx = canvas.getContext("2d", { willReadFrequently: true, alpha: false });
       if (!ctx) {
         await applyOutgoingStream(raw);
         return;
@@ -448,14 +471,16 @@ export default function MeetingRoom() {
         return;
       }
 
+      // Clone track so camera can feed preview + processor at the same time
+      const clonedTrack = videoTrack.clone();
       const hiddenVideo = document.createElement("video");
       hiddenVideo.playsInline = true;
       hiddenVideo.muted = true;
-      hiddenVideo.srcObject = new MediaStream([videoTrack]);
+      hiddenVideo.autoplay = true;
+      hiddenVideo.srcObject = new MediaStream([clonedTrack]);
       bgVideoRef.current = hiddenVideo;
       await hiddenVideo.play().catch(() => {});
 
-      // Wait for first frame dimensions
       await new Promise<void>((resolve) => {
         if (hiddenVideo.videoWidth > 0) {
           resolve();
@@ -466,31 +491,71 @@ export default function MeetingRoom() {
           resolve();
         };
         hiddenVideo.addEventListener("loadeddata", onMeta);
-        setTimeout(resolve, 800);
+        setTimeout(resolve, 1200);
       });
+
+      const w0 = hiddenVideo.videoWidth || 640;
+      const h0 = hiddenVideo.videoHeight || 480;
+      canvas.width = w0;
+      canvas.height = h0;
 
       bgActiveRef.current = true;
       let busy = false;
-
-      segmenter.onResults((results) => {
-        if (!bgActiveRef.current) return;
-        const w = canvas.width || hiddenVideo.videoWidth || 640;
-        const h = canvas.height || hiddenVideo.videoHeight || 480;
-        if (canvas.width !== w || canvas.height !== h) {
-          canvas.width = w;
-          canvas.height = h;
-        }
-        compositeVirtualBackground(
-          ctx,
-          personCanvas,
-          personCtx,
-          results,
-          w,
-          h,
-          bgImage,
-          mode === "blur"
-        );
+      let useSegmentation = true;
+      let firstFrameDone = false;
+      let resolveFirstFrame: (() => void) | null = null;
+      const firstFrameReady = new Promise<void>((resolve) => {
+        resolveFirstFrame = resolve;
       });
+      const markFirstFrame = () => {
+        if (firstFrameDone) return;
+        firstFrameDone = true;
+        resolveFirstFrame?.();
+      };
+
+      let segmenter: Awaited<ReturnType<typeof getSelfieSegmenter>> | null = null;
+      try {
+        segmenter = await getSelfieSegmenter();
+        segmenter.onResults((results) => {
+          if (!bgActiveRef.current) return;
+          const w = canvas.width || hiddenVideo.videoWidth || 640;
+          const h = canvas.height || hiddenVideo.videoHeight || 480;
+          if (canvas.width !== w || canvas.height !== h) {
+            canvas.width = w;
+            canvas.height = h;
+          }
+          compositeVirtualBackground(
+            ctx,
+            personCanvas,
+            personCtx,
+            results,
+            w,
+            h,
+            bgImage,
+            mode === "blur"
+          );
+          markFirstFrame();
+        });
+      } catch (err) {
+        console.warn("Selfie segmentation unavailable, using simple blur fallback:", err);
+        useSegmentation = false;
+        if (mode !== "blur") {
+          toast({
+            title: "Background engine unavailable",
+            description: "Could not load AI segmentation. Using simple blur instead.",
+          });
+        }
+      }
+
+      // Safety: don't hang forever if MediaPipe never returns a frame
+      setTimeout(() => {
+        if (!firstFrameDone && bgActiveRef.current) {
+          if (!useSegmentation || mode === "blur") {
+            compositeSimpleBlur(ctx, hiddenVideo, canvas.width, canvas.height);
+          }
+          markFirstFrame();
+        }
+      }, useSegmentation ? 2500 : 200);
 
       const tick = async () => {
         if (!bgActiveRef.current || !bgVideoRef.current) return;
@@ -505,9 +570,19 @@ export default function MeetingRoom() {
         if (!busy && v.readyState >= 2) {
           busy = true;
           try {
-            await segmenter.send({ image: v });
+            if (useSegmentation && segmenter) {
+              await segmenter.send({ image: v });
+            } else if (mode === "blur" || !bgImage) {
+              compositeSimpleBlur(ctx, v, w, h);
+              markFirstFrame();
+            }
           } catch (err) {
-            console.warn("Segmentation frame failed:", err);
+            console.warn("Background frame failed, falling back to simple blur:", err);
+            useSegmentation = false;
+            if (mode === "blur") {
+              compositeSimpleBlur(ctx, v, w, h);
+              markFirstFrame();
+            }
           } finally {
             busy = false;
           }
@@ -519,6 +594,9 @@ export default function MeetingRoom() {
       };
 
       void tick();
+      await firstFrameReady;
+
+      if (!bgActiveRef.current) return;
 
       const processedTrack = canvas.captureStream(24).getVideoTracks()[0];
       const audioTracks = raw.getAudioTracks();
@@ -527,7 +605,9 @@ export default function MeetingRoom() {
 
       toast({
         title: mode === "blur" ? "Background blur on" : "Virtual background on",
-        description: "Scene fills the full video behind you.",
+        description: useSegmentation
+          ? "Background is blurred behind you."
+          : "Simple blur applied (AI model unavailable).",
       });
     },
     [applyOutgoingStream, stopBgProcessor, toast]
@@ -650,9 +730,9 @@ export default function MeetingRoom() {
     };
   }, [stopBgProcessor]);
 
-  // Socket.io room lifecycle & WebRTC signaling — wait until media is ready
+  // Socket.io room lifecycle & WebRTC signaling — wait until media + meeting are ready
   useEffect(() => {
-    if (!socket || !code || !mediaReady) return;
+    if (!socket || !code || !mediaReady || !meetingReady || meetingLoadError) return;
     if (joinedRoomRef.current) return;
     joinedRoomRef.current = true;
 
@@ -664,6 +744,16 @@ export default function MeetingRoom() {
       role: currentUser.role,
       isHost,
     });
+
+    const handleMeetingError = ({ message }: { message?: string }) => {
+      toast({
+        title: "Meeting error",
+        description: message || "Could not join this room",
+        variant: "destructive",
+      });
+      navigate(getMeetingsPathPrefix(location.pathname));
+    };
+    socket.on("meeting:error", handleMeetingError);
 
     // Existing participants received on join
     const handleExisting = ({ participants: existingList }: any) => {
@@ -844,13 +934,14 @@ export default function MeetingRoom() {
       socket.off("meeting:ended", handleMeetingEnded);
       socket.off("meeting:user-left", handleUserLeft);
       socket.off("meeting:recording-state", handleRemoteRecording);
+      socket.off("meeting:error", handleMeetingError);
 
       // Close all peer connections
       peerConnectionsRef.current.forEach((pc) => pc.close());
       peerConnectionsRef.current.clear();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- join once per room after media ready
-  }, [socket, code, mediaReady, createPeerConnection, syncLocalTracksToPeer]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- join once per room after media + meeting ready
+  }, [socket, code, mediaReady, meetingReady, meetingLoadError, createPeerConnection, syncLocalTracksToPeer]);
 
   // Scroll chat to bottom
   useEffect(() => {
@@ -1378,6 +1469,21 @@ export default function MeetingRoom() {
       startCaptions(lang);
     }
   };
+
+  if (meetingLoadError) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-[#0a0a0f] text-white px-6 text-center">
+        <p className="text-lg font-semibold">Cannot open this meeting room</p>
+        <p className="text-sm text-neutral-400 max-w-md">{meetingLoadError}</p>
+        <p className="text-xs text-neutral-500">
+          Each host gets a unique room code. Join only with the host’s invite link or code — do not reuse another person’s number.
+        </p>
+        <Button type="button" onClick={() => navigate(getMeetingsPathPrefix(location.pathname))}>
+          Back to Meetings
+        </Button>
+      </div>
+    );
+  }
 
   // Copy meeting link
   const copyMeetingLink = async () => {
