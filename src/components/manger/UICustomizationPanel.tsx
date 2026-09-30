@@ -124,7 +124,7 @@ export function ManagerUICustomizationPanel() {
           <Palette className="w-8 h-8" />
         </div>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Theme Engine</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Theme Engine</h1>
           <p className="text-muted-foreground mt-1">Customize the interface exactly the way you want it.</p>
         </div>
       </div>
@@ -194,7 +194,7 @@ export function ManagerUICustomizationPanel() {
           {saveSuccess && (
             <span className="text-green-500 text-sm font-medium animate-fade-in">Settings saved successfully!</span>
           )}
-          <Button onClick={saveSettings} disabled={loading} className="px-8 w-full sm:w-auto">
+          <Button onClick={saveSettings} disabled={loading} className="px-4 sm:px-8 w-full sm:w-auto">
             Save Preferences
           </Button>
         </div>

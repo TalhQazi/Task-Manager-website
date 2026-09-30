@@ -91,8 +91,9 @@ export default function Reports() {
         if (!mounted) return;
         setApiError(e instanceof Error ? e.message : "Failed to load reports");
       } finally {
-        if (!mounted) return;
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
     void load();
@@ -167,7 +168,7 @@ export default function Reports() {
   return (
     <>
       {/* Mobile-first container */}
-      <div className="pl-12 space-y-4 sm:space-y-5 md:space-y-6 pr-2 sm:pr-0">
+      <div className="px-2 sm:pl-6 space-y-4 sm:space-y-5 md:space-y-6 pr-2 sm:pr-0 page-shell">
         
         {/* Page Header - Responsive */}
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">

@@ -49,11 +49,31 @@ export function SocketProvider({ children }: SocketProviderProps) {
     const empRaw = localStorage.getItem("employee_auth");
     if (!authRaw && !empRaw) return;
 
+    // Pass the JWT on the handshake so the server can derive privileged rooms
+    // (WIP manager/employee rooms) from a verified identity rather than from
+    // client-supplied `register-user` claims.
+    let handshakeToken = "";
+    try {
+      const parsed = JSON.parse(authRaw || empRaw || "{}");
+      handshakeToken = parsed?.token || "";
+    } catch {
+      // ignore parse errors — the socket still connects anonymously
+    }
 
-    const socket = io("https://task.se7eninc.com", {
+    const getSocketUrl = () => {
+      const raw = String(import.meta.env.VITE_API_URL || "").trim();
+      if (raw) return raw;
+      if (typeof window !== "undefined" && window.location?.hostname === "localhost") {
+        return "http://localhost:5000";
+      }
+      return "https://task.se7eninc.com";
+    };
+
+    const socket = io(getSocketUrl(), {
       path: "/api/socket.io/",
       withCredentials: true,
       transports: ["websocket", "polling"],
+      auth: { token: handshakeToken },
     });
 
 

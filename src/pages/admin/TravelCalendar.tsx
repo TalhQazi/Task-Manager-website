@@ -319,37 +319,48 @@ const AdminTravelCalendar = () => {
                 onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Status</label>
-              <Select value={filters.status || "all"} onValueChange={(value) => setFilters({ ...filters, status: value === "all" ? undefined : value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="planned">Planned</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="in-progress">In Progress</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Purpose</label>
-              <Select value={filters.purpose || "all"} onValueChange={(value) => setFilters({ ...filters, purpose: value === "all" ? undefined : value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Purpose" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Purpose</SelectItem>
-                  <SelectItem value="business">Business</SelectItem>
-                  <SelectItem value="conference">Conference</SelectItem>
-                  <SelectItem value="meeting">Meeting</SelectItem>
-                  <SelectItem value="training">Training</SelectItem>
-                  <SelectItem value="personal">Personal</SelectItem>
-                </SelectContent>
-              </Select>
+            {/* Quick Filter Chips (Replaces Mobile-Buggy Dropdowns) */}
+            <div className="col-span-1 sm:col-span-2 overflow-x-auto no-scrollbar py-1 flex items-center gap-1.5 shrink-0">
+              <Button
+                size="sm"
+                variant={!filters.status && !filters.purpose ? "default" : "outline"}
+                onClick={() => setFilters({ ...filters, status: undefined, purpose: undefined })}
+                className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+              >
+                All Travel
+              </Button>
+              <Button
+                size="sm"
+                variant={filters.status === "planned" ? "default" : "outline"}
+                onClick={() => setFilters({ ...filters, status: filters.status === "planned" ? undefined : "planned" })}
+                className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+              >
+                Planned
+              </Button>
+              <Button
+                size="sm"
+                variant={filters.status === "approved" ? "default" : "outline"}
+                onClick={() => setFilters({ ...filters, status: filters.status === "approved" ? undefined : "approved" })}
+                className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+              >
+                Approved
+              </Button>
+              <Button
+                size="sm"
+                variant={filters.status === "in-progress" ? "default" : "outline"}
+                onClick={() => setFilters({ ...filters, status: filters.status === "in-progress" ? undefined : "in-progress" })}
+                className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+              >
+                In Progress
+              </Button>
+              <Button
+                size="sm"
+                variant={filters.status === "completed" ? "default" : "outline"}
+                onClick={() => setFilters({ ...filters, status: filters.status === "completed" ? undefined : "completed" })}
+                className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+              >
+                Completed
+              </Button>
             </div>
           </div>
         </CardContent>

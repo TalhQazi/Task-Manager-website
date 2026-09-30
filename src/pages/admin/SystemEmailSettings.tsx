@@ -7,7 +7,7 @@ import { Switch } from "@/components/admin/ui/switch";
 import { Label } from "@/components/admin/ui/label";
 import { apiFetch } from "@/lib/admin/apiClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Mail, Shield, Save, CheckCircle, AlertCircle, Eye, EyeOff, Send, FlaskConical } from "lucide-react";
+import { Loader2, Mail, Shield, Save, CheckCircle, AlertCircle, Eye, EyeOff, Send, FlaskConical, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 type EmailConfig = {
@@ -38,6 +38,18 @@ type SystemSettings = {
     replyAdded: Template;
     projectAssignment: Template;
     projectReassignment: Template;
+    preAdverseAction: Template;
+    finalAdverseAction: Template;
+    patentExpiration: Template;
+    lunchBreakAlert: Template;
+    meetingInvite?: Template;
+    pollAssignment?: Template;
+  };
+  taskRewardSystemEnabled?: boolean;
+  scheConfig?: {
+    enableReligiousHolidays: boolean;
+    switchNeutralSeasonal: boolean;
+    forceCompanyUnifiedTheme: string;
   };
 };
 
@@ -119,7 +131,7 @@ export default function SystemEmailSettings() {
 
   if (error || !formData) {
     return (
-      <div className="p-8 text-center">
+      <div className="p-4 sm:p-8 text-center">
         <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
         <h2 className="text-xl font-bold">Error loading settings</h2>
         <p className="text-muted-foreground">{(error as any)?.message || "Something went wrong"}</p>
@@ -143,12 +155,13 @@ export default function SystemEmailSettings() {
   const handleTemplateChange = (key: keyof SystemSettings["templates"], field: keyof Template, value: any) => {
     setFormData((prev) => {
       if (!prev) return null;
+      const existing = prev.templates[key] || { enabled: true, subject: "", body: "" };
       return {
         ...prev,
         templates: {
           ...prev.templates,
           [key]: {
-            ...prev.templates[key],
+            ...existing,
             [field]: value,
           },
         },
@@ -164,9 +177,9 @@ export default function SystemEmailSettings() {
   };
 
   return (
-    <div className="pl-12 space-y-6 pb-12">
+    <div className="px-2 sm:pl-6 space-y-6 pb-12 page-shell">
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">System Email Settings</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">System Email Settings</h1>
         <p className="text-muted-foreground">
           Configure SMTP and automated email templates for the entire system.
         </p>
@@ -283,7 +296,7 @@ export default function SystemEmailSettings() {
               description="Sent when a new employee or user is registered"
               template={formData.templates.userRegistration}
               onChange={(field, val) => handleTemplateChange("userRegistration", field, val)}
-              placeholders={["{name}"]}
+              placeholders={["{name}", "{websiteUrl}", "{googlePlayUrl}", "{appleStoreUrl}"]}
             />
 
             {/* Manager Registration */}
@@ -292,7 +305,7 @@ export default function SystemEmailSettings() {
               description="Sent when a new manager account is created"
               template={formData.templates.managerRegistration}
               onChange={(field, val) => handleTemplateChange("managerRegistration", field, val)}
-              placeholders={["{name}"]}
+              placeholders={["{name}", "{websiteUrl}", "{googlePlayUrl}", "{appleStoreUrl}"]}
             />
 
             {/* Forgot Password */}
@@ -357,6 +370,56 @@ export default function SystemEmailSettings() {
               onChange={(field, val) => handleTemplateChange("projectReassignment", field, val)}
               placeholders={["{name}", "{projectName}"]}
             />
+
+            {/* Pre-Adverse Action */}
+            <TemplateCard
+              title="Pre-Adverse Action"
+              description="Sent when background check triggers potential adverse action"
+              template={formData.templates.preAdverseAction}
+              onChange={(field, val) => handleTemplateChange("preAdverseAction", field, val)}
+              placeholders={["{name}"]}
+            />
+
+            {/* Final Adverse Action */}
+            <TemplateCard
+              title="Final Adverse Action"
+              description="Sent when adverse action is finalized"
+              template={formData.templates.finalAdverseAction}
+              onChange={(field, val) => handleTemplateChange("finalAdverseAction", field, val)}
+              placeholders={["{name}"]}
+            />
+
+            {/* Patent Expiration */}
+            <TemplateCard
+              title="Patent Expiration"
+              description="Sent daily for patents close to expiration"
+              template={formData.templates.patentExpiration}
+              onChange={(field, val) => handleTemplateChange("patentExpiration", field, val)}
+              placeholders={["{name}", "{patentName}", "{daysUntilExpiration}", "{expirationDate}", "{applicationNumber}", "{category}"]}
+            />
+
+            {/* Lunch/Break Status Alert */}
+            <TemplateCard
+              title="Lunch/Break Status Alert"
+              description="Sent when employee went on lunch/break or exceeded time limit"
+              template={formData.templates.lunchBreakAlert}
+              onChange={(field, val) => handleTemplateChange("lunchBreakAlert", field, val)}
+              placeholders={["{name}", "{employeeName}", "{statusUpdate}", "{time}"]}
+            />
+
+            <TemplateCard
+              title="Poll Assignment"
+              description="Sent when a new Ideas & Polls poll is published to an audience"
+              template={
+                formData.templates.pollAssignment || {
+                  enabled: true,
+                  subject: "New Poll: {pollTitle}",
+                  body: "Hello {name},\n\nA new poll has been published.\n\nPoll: {pollTitle}\nDetails: {pollDescription}\nCloses: {closesAt}\n\nPlease log in to vote.",
+                }
+              }
+              onChange={(field, val) => handleTemplateChange("pollAssignment", field, val)}
+              placeholders={["{name}", "{pollTitle}", "{pollDescription}", "{closesAt}"]}
+            />
           </div>
         </div>
 
@@ -386,6 +449,102 @@ export default function SystemEmailSettings() {
                 checked={formData.taskRewardSystemEnabled}
                 onCheckedChange={(val) => setFormData(prev => prev ? { ...prev, taskRewardSystemEnabled: val } : null)}
               />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Seasonal Cinematic Header Engine (SCHE) */}
+        <Card className="shadow-md border-primary/10 overflow-hidden">
+          <CardHeader className="bg-primary/5 border-b border-primary/10">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Sparkles className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle>Seasonal Cinematic Header Engine (SCHE)</CardTitle>
+                <CardDescription>Configure global cultural sensitivity and display overrides</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6 space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="religious-themes">Enable Religious Holiday Themes</Label>
+                <p className="text-sm text-muted-foreground">
+                  Allow displays of religious festivals (Diwali, Eid, Hanukkah, Ramadan) based on user locale.
+                </p>
+              </div>
+              <Switch
+                id="religious-themes"
+                checked={formData.scheConfig?.enableReligiousHolidays ?? true}
+                onCheckedChange={(val) => setFormData(prev => prev ? {
+                  ...prev,
+                  scheConfig: {
+                    ...prev.scheConfig || { enableReligiousHolidays: true, switchNeutralSeasonal: false, forceCompanyUnifiedTheme: "" },
+                    enableReligiousHolidays: val
+                  }
+                } : null)}
+              />
+            </div>
+
+            <div className="h-[1px] bg-border" />
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="neutral-seasonal">Switch to Neutral Seasonal Themes</Label>
+                <p className="text-sm text-muted-foreground">
+                  Force standard seasonal animations (Spring, Summer, Autumn, Winter) instead of religious overlays.
+                </p>
+              </div>
+              <Switch
+                id="neutral-seasonal"
+                checked={formData.scheConfig?.switchNeutralSeasonal ?? false}
+                onCheckedChange={(val) => setFormData(prev => prev ? {
+                  ...prev,
+                  scheConfig: {
+                    ...prev.scheConfig || { enableReligiousHolidays: true, switchNeutralSeasonal: false, forceCompanyUnifiedTheme: "" },
+                    switchNeutralSeasonal: val
+                  }
+                } : null)}
+              />
+            </div>
+
+            <div className="h-[1px] bg-border" />
+
+            <div className="space-y-2">
+              <Label htmlFor="unified-override">Force Company-Wide Unified Theme</Label>
+              <select
+                id="unified-override"
+                className="w-full px-3 py-2 text-sm border rounded-md bg-white dark:bg-zinc-950 border-input"
+                value={formData.scheConfig?.forceCompanyUnifiedTheme ?? ""}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setFormData(prev => prev ? {
+                    ...prev,
+                    scheConfig: {
+                      ...prev.scheConfig || { enableReligiousHolidays: true, switchNeutralSeasonal: false, forceCompanyUnifiedTheme: "" },
+                      forceCompanyUnifiedTheme: val
+                    }
+                  } : null);
+                }}
+              >
+                <option value="">-- No Global Override (Use Location Hierarchy) --</option>
+                <option value="lunar-new-year">Lunar New Year (Asia)</option>
+                <option value="diwali">Diwali (India)</option>
+                <option value="eid-al-fitr">Eid al-Fitr</option>
+                <option value="eid-al-adha">Eid al-Adha</option>
+                <option value="hanukkah">Hanukkah</option>
+                <option value="ramadan">Ramadan</option>
+                <option value="mid-autumn-festival">Chinese Mid-Autumn Festival</option>
+                <option value="golden-week">Golden Week (Japan)</option>
+                <option value="bastille-day">Bastille Day (France)</option>
+                <option value="oktoberfest">Oktoberfest (Germany)</option>
+                <option value="canada-day">Canada Day</option>
+                <option value="australia-day">Australia Day</option>
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Forces the selected thematic layout and micro-animations for all users globally, overriding localization settings.
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -451,7 +610,7 @@ export default function SystemEmailSettings() {
           <Button
             type="submit"
             size="lg"
-            className="px-8 gap-2 font-bold shadow-lg shadow-primary/20"
+            className="px-4 sm:px-8 gap-2 font-bold shadow-lg shadow-primary/20"
             disabled={mutation.isPending}
           >
             {mutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}

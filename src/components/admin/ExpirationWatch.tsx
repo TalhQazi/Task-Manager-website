@@ -101,7 +101,7 @@ export function ExpirationWatch() {
                   <p className="text-sm font-medium text-gray-600">{stat.label}</p>
                   <TrendingDown className={`h-4 w-4 ${stat.color}`} />
                 </div>
-                <p className={`text-3xl font-bold ${stat.color}`}>{stat.count}</p>
+                <p className={`text-2xl sm:text-3xl font-bold ${stat.color}`}>{stat.count}</p>
               </div>
             </CardContent>
           </Card>

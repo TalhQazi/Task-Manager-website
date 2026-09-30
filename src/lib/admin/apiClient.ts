@@ -29,17 +29,45 @@ export function getApiBaseUrl() {
  */
 export function toProxiedUrl(url: string | undefined | null): string | undefined {
   if (!url) return undefined;
-  // Don't proxy data: URLs, already-proxied URLs, or non-S3 URLs
-  if (url.startsWith("data:") || url.includes("/api/s3-proxy/")) return url;
-  
+  if (url.startsWith("data:")) return url;
+
+  const baseUrl = getApiBaseUrl().replace(/\/$/, "");
+  const token =
+    getAuthState().token ||
+    getEmployeeAuth()?.token ||
+    (typeof localStorage !== "undefined" ? localStorage.getItem("token") : null);
+
+  // If already proxied
+  if (url.includes("/api/s3-proxy/")) {
+    let proxied = url;
+    if (proxied.startsWith("/")) {
+      proxied = `${baseUrl}${proxied}`;
+    }
+    if (token && !proxied.includes("token=")) {
+      proxied = `${proxied}${proxied.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`;
+    }
+    return proxied;
+  }
+
+  // Local server uploads ("/uploads/<key>", "uploads/<key>", "http://.../uploads/<key>")
+  const uploadsMatch = url.match(/(?:\/|^)uploads\/(.+)$/);
+  if (uploadsMatch) {
+    const key = uploadsMatch[1];
+    return `${baseUrl}/api/s3-proxy/${key}${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+  }
+
   // Match S3 URLs pattern: https://<bucket>.s3.<region>.amazonaws.com/<key>
   const s3Match = url.match(/https:\/\/[^/]+\.s3\.[^/]+\.amazonaws\.com\/(.+)/);
-  if (!s3Match) return url;
-  
-  const s3Key = s3Match[1];
-  const baseUrl = getApiBaseUrl().replace(/\/$/, "");
-  const token = getAuthState().token;
-  return `${baseUrl}/api/s3-proxy/${s3Key}${token ? `?token=${token}` : ""}`;
+  if (s3Match) {
+    const s3Key = s3Match[1];
+    return `${baseUrl}/api/s3-proxy/${s3Key}${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+  }
+
+  if (url.startsWith("/")) {
+    return `${baseUrl}${url}`;
+  }
+
+  return url;
 }
 
 async function parseJsonSafe(res: Response) {
@@ -96,8 +124,11 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   }
 
   if (!res.ok) {
-    const body = (await parseJsonSafe(res)) as ApiErrorBody | string | null;
-    const msg = typeof body === "string" ? body : body?.error?.message;
+    const body = (await parseJsonSafe(res)) as (ApiErrorBody & { message?: string }) | string | null;
+    const msg =
+      typeof body === "string"
+        ? body
+        : body?.error?.message || body?.message;
     throw new Error(msg || `Request failed (${res.status})`);
   }
 
@@ -153,7 +184,19 @@ export type CrudResource =
   | "onboarding"
   | "do-not-hire"
   | "companies"
-  | "company-registry";
+  | "company-registry"
+  | "legal/cases"
+  | "legal/courts"
+  | "legal/deadlines"
+  | "legal/calendar"
+  | "legal/documents"
+  | "legal/evidence"
+  | "legal/filings"
+  | "legal/tasks"
+  | "legal/contacts"
+  | "legal/notes"
+  | "legal/notifications"
+  | "legal/reports";
 
 type ListResponse<T> = { items?: T[] } | T[];
 
@@ -223,54 +266,101 @@ export async function downloadTaskAttachment(
 ): Promise<void> {
   const baseUrl = getApiBaseUrl();
   const url = `${String(baseUrl).replace(/\/$/, "")}/api/tasks/${encodeURIComponent(taskId)}/attachments/${attachmentIndex}/download`;
-  
   const auth = getAuthState();
   
-  const res = await fetch(url, {
-    headers: auth.token ? { Authorization: `Bearer ${auth.token}` } : {},
-  });
-  
-  if (!res.ok) {
-    throw new Error(`Download failed (${res.status})`);
+  try {
+    const res = await fetch(url, {
+      headers: auth.token ? { Authorization: `Bearer ${auth.token}` } : {},
+    });
+    
+    if (!res.ok) {
+      throw new Error(`Download failed (${res.status})`);
+    }
+    
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = fileName || "download";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
+  } catch (err) {
+    console.warn("downloadTaskAttachment fetch failed, trying direct link fallback:", err);
+    const token = auth.token;
+    const directUrl = `${url}${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+    const a = document.createElement("a");
+    a.href = directUrl;
+    a.download = fileName || "download";
+    a.target = "_blank";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   }
-  
-  const blob = await res.blob();
-  const objectUrl = URL.createObjectURL(blob);
-  
-  const a = document.createElement("a");
-  a.href = objectUrl;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  
-  URL.revokeObjectURL(objectUrl);
 }
 
 // Download any URL with authentication
 export async function downloadViaUrl(url: string, fileName: string): Promise<void> {
-  const auth = getAuthState();
-  
-  // Use fetch to get the blob with headers
-  const res = await fetch(url, {
-    headers: auth.token ? { Authorization: `Bearer ${auth.token}` } : {},
-  });
-  
-  if (!res.ok) {
-    throw new Error(`Download failed (${res.status})`);
+  if (!url) return;
+
+  if (url.startsWith("data:")) {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName || "download";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    return;
+  }
+
+  const baseUrl = getApiBaseUrl().replace(/\/$/, "");
+  const token =
+    getAuthState().token ||
+    getEmployeeAuth()?.token ||
+    (typeof localStorage !== "undefined" ? localStorage.getItem("token") : null);
+
+  let targetUrl = toProxiedUrl(url) || url;
+  if (targetUrl.startsWith("/")) {
+    targetUrl = `${baseUrl}${targetUrl}`;
   }
   
-  const blob = await res.blob();
-  const objectUrl = URL.createObjectURL(blob);
-  
-  const a = document.createElement("a");
-  a.href = objectUrl;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  
-  URL.revokeObjectURL(objectUrl);
+  try {
+    const res = await fetch(targetUrl, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    
+    if (!res.ok) {
+      throw new Error(`Download failed (${res.status})`);
+    }
+    
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = fileName || "download";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
+  } catch (err) {
+    console.warn("downloadViaUrl fetch failed, using fallback direct download:", err);
+    const separator = targetUrl.includes("?") ? "&" : "?";
+    let directUrl = `${targetUrl}${separator}download=true&fileName=${encodeURIComponent(fileName || "download")}`;
+    if (token && !directUrl.includes("token=")) {
+      directUrl += `&token=${encodeURIComponent(token)}`;
+    }
+    const a = document.createElement("a");
+    a.href = directUrl;
+    a.download = fileName || "download";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
 }
 
 // Admin Scrum Records API
@@ -419,9 +509,12 @@ export async function deleteComment(taskId: string, commentId: string) {
 }
 
 // EOD Reports API for Admin
-export async function getAdminEODReports(params?: { date?: string; employeeId?: string; status?: string; page?: number; limit?: number }) {
+export async function getAdminEODReports(params?: { date?: string; from?: string; to?: string; location?: string; employeeId?: string; status?: string; page?: number; limit?: number }) {
   const qs = new URLSearchParams();
   if (params?.date) qs.set("date", params.date);
+  if (params?.from) qs.set("from", params.from);
+  if (params?.to) qs.set("to", params.to);
+  if (params?.location) qs.set("location", params.location);
   if (params?.employeeId) qs.set("employeeId", params.employeeId);
   if (params?.status) qs.set("status", params.status);
   if (params?.page) qs.set("page", String(params.page));
@@ -440,6 +533,7 @@ export async function getAdminEODReports(params?: { date?: string; employeeId?: 
       clockIn?: string;
       clockOut?: string;
       totalHours?: number;
+      employeeLocation?: string;
     }>;
     total: number;
     page: number;

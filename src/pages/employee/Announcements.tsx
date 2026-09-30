@@ -116,10 +116,10 @@ export default function EmployeeAnnouncements({
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6 page-shell">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+        <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">
           <Bell className="h-8 w-8 text-[#00C6FF]" />
           Announcements
         </h1>

@@ -60,7 +60,7 @@ export function StatCard(props: UnifiedStatCardProps) {
 
           <p
             className={cn(
-              "text-3xl font-bold mt-2",
+              "text-2xl sm:text-3xl font-bold mt-2",
               isGradient ? "text-white" : "text-foreground",
             )}
           >

@@ -58,6 +58,7 @@ interface AnnouncementModalProps {
   onClose: () => void;
   announcement?: any;
   onSuccess?: () => void;
+  onDelete?: (id: string) => void;
 }
 
 export default function AnnouncementModal({
@@ -65,6 +66,7 @@ export default function AnnouncementModal({
   onClose,
   announcement,
   onSuccess,
+  onDelete,
 }: AnnouncementModalProps) {
   const queryClient = useQueryClient();
   const [selectedTargets, setSelectedTargets] = useState<any[]>(announcement?.targets || []);
@@ -388,6 +390,19 @@ export default function AnnouncementModal({
 
             {/* Submit */}
             <div className="flex gap-3 pt-4">
+              {announcement && onDelete && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={() => {
+                    onClose();
+                    onDelete(announcement.id);
+                  }}
+                  className="gap-2 bg-red-600 hover:bg-red-700 text-white"
+                >
+                  Delete
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="outline"

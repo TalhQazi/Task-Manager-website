@@ -3,16 +3,17 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Input } from "@/components/admin/ui/input";
-import { Avatar, AvatarFallback } from "@/components/admin/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/admin/ui/avatar";
 import { Badge } from "@/components/admin/ui/badge";
 import { Search, Users, ChevronRight, CheckCircle2, Clock, AlertCircle } from "lucide-react";
-import { listResource } from "@/lib/admin/apiClient";
+import { listResource, apiFetch, toProxiedUrl } from "@/lib/admin/apiClient";
 
 interface Employee {
   id: string;
   name: string;
   email: string;
   status: "active" | "inactive" | "on-leave";
+  avatarUrl?: string;
 }
 
 interface User {
@@ -23,15 +24,11 @@ interface User {
   status: "active" | "inactive" | "pending";
 }
 
-interface Task {
-  id: string;
-  title: string;
-  assignees: string[];
-  assignee?: string;
-  status: "pending" | "in-progress" | "completed" | "overdue";
-  dueDate: string;
-  createdAt: string;
-}
+type TaskStats = { total: number; completed: number; pending: number; overdue: number };
+
+const EMPTY_STATS: TaskStats = { total: 0, completed: 0, pending: 0, overdue: 0 };
+
+const PAGE_SIZE = 25;
 
 const getInitials = (name: string) => {
   return String(name || "")
@@ -41,29 +38,6 @@ const getInitials = (name: string) => {
     .slice(0, 2)
     .join("")
     .toUpperCase();
-};
-
-const getEmployeeTaskStats = (employeeName: string, allTasks: Task[]) => {
-  const employeeTasks = allTasks.filter((task) =>
-    task.assignees?.includes(employeeName) || task.assignee === employeeName
-  );
-
-  const total = employeeTasks.length;
-  const completed = employeeTasks.filter((t) => t.status === "completed").length;
-  const pending = employeeTasks.filter((t) => t.status === "pending" || t.status === "in-progress").length;
-  const overdue = employeeTasks.filter((t) => t.status === "overdue").length;
-
-  return { total, completed, pending, overdue };
-};
-//noramlize the task assinged
-const normalizeTaskAssignees = (task: Task): Task => {
-  const legacyAssignee = typeof task.assignee === "string" ? task.assignee.trim() : "";
-  const assignees = Array.isArray(task.assignees)
-    ? task.assignees.filter(Boolean)
-    : legacyAssignee
-      ? [legacyAssignee]
-      : [];
-  return { ...task, assignees };
 };
 
 const statusClasses = {
@@ -76,18 +50,27 @@ const statusClasses = {
 const TaskHistory = () => {
   const navigate = useNavigate();
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [stats, setStats] = useState<Record<string, TaskStats>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true);
 
-        // Fetch tasks
-        const taskList = await listResource<Task>("tasks");
-        setTasks(taskList.map(normalizeTaskAssignees));
+        // Per-assignee stats via aggregation (no full task download → no hang)
+        try {
+          const res = await apiFetch<{ stats: Record<string, TaskStats> }>("/api/tasks/assignee-stats");
+          const lowerKeyed: Record<string, TaskStats> = {};
+          Object.entries(res.stats || {}).forEach(([name, s]) => {
+            lowerKeyed[name.toLowerCase().trim()] = s;
+          });
+          setStats(lowerKeyed);
+        } catch (err) {
+          console.error("Failed to load task stats:", err);
+        }
 
         // Fetch employees
         let allEmployees: Employee[] = [];
@@ -136,6 +119,16 @@ const TaskHistory = () => {
     emp.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const totalPages = Math.max(1, Math.ceil(filteredEmployees.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pagedEmployees = filteredEmployees.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  // Reset to first page whenever the search changes
+  useEffect(() => { setPage(1); }, [searchQuery]);
+
+  const statsFor = (employeeName: string): TaskStats =>
+    stats[employeeName.toLowerCase().trim()] || EMPTY_STATS;
+
   const handleEmployeeClick = (employeeName: string) => {
     navigate(`/admin/task-history/${encodeURIComponent(employeeName)}`);
   };
@@ -143,7 +136,7 @@ const TaskHistory = () => {
   return (
     <>
       <motion.div
-        className="pl-6 space-y-4 sm:space-y-6"
+        className="px-2 sm:pl-6 space-y-4 sm:space-y-6 page-shell"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
@@ -183,18 +176,18 @@ const TaskHistory = () => {
           </CardHeader>
           <CardContent className="p-0">
             {loading ? (
-              <div className="p-8 text-center">
+              <div className="p-4 sm:p-8 text-center">
                 <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />
                 <p className="text-sm text-muted-foreground mt-2">Loading employees...</p>
               </div>
             ) : filteredEmployees.length === 0 ? (
-              <div className="p-8 text-center">
+              <div className="p-4 sm:p-8 text-center">
                 <p className="text-muted-foreground">No employees found</p>
               </div>
             ) : (
               <div className="divide-y">
-                {filteredEmployees.map((employee, index) => {
-                  const stats = getEmployeeTaskStats(employee.name, tasks);
+                {pagedEmployees.map((employee, index) => {
+                  const stats = statsFor(employee.name);
                   return (
                     <motion.div
                       key={employee.id}
@@ -206,6 +199,7 @@ const TaskHistory = () => {
                     >
                       <div className="flex items-center gap-3">
                         <Avatar className="h-10 w-10 ring-2 ring-primary/20">
+                          {employee.avatarUrl && <AvatarImage src={toProxiedUrl(employee.avatarUrl) || employee.avatarUrl} alt={employee.name} className="object-cover" />}
                           <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white">
                             {getInitials(employee.name)}
                           </AvatarFallback>
@@ -254,6 +248,32 @@ const TaskHistory = () => {
                     </motion.div>
                   );
                 })}
+              </div>
+            )}
+
+            {/* Pagination — 25 employees per page */}
+            {!loading && filteredEmployees.length > PAGE_SIZE && (
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between p-4 border-t">
+                <span className="text-xs text-muted-foreground">
+                  Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredEmployees.length)} of {filteredEmployees.length}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    className="px-3 py-1.5 text-xs rounded-md border disabled:opacity-50 hover:bg-muted/50"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    Previous
+                  </button>
+                  <span className="text-xs text-muted-foreground">Page {currentPage} of {totalPages}</span>
+                  <button
+                    className="px-3 py-1.5 text-xs rounded-md border disabled:opacity-50 hover:bg-muted/50"
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
             )}
           </CardContent>

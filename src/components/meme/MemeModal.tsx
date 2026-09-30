@@ -48,24 +48,30 @@ export function MemeModal({ isOpen, imageUrl, caption, onClose }: MemeModalProps
 
   return (
     <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Motivational meme"
       style={{
         position: "fixed",
         inset: 0,
+        width: "100vw",
+        height: "100vh",
+        maxWidth: "none",
         zIndex: 9999,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         padding: 16,
+        boxSizing: "border-box",
         pointerEvents: "none",
       }}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Motivational meme"
         style={{
           width: "min(600px, 90vw)",
+          maxWidth: "min(600px, 90vw)",
           maxHeight: "min(85vh, 820px)",
+          margin: "0 auto",
           borderRadius: 12,
           overflow: "hidden",
           background: "#111",
@@ -74,6 +80,8 @@ export function MemeModal({ isOpen, imageUrl, caption, onClose }: MemeModalProps
           opacity: 1,
           animation: "memeIn 300ms ease-in forwards",
           pointerEvents: "auto",
+          display: "flex",
+          flexDirection: "column",
         }}
       >
         <style>{`
@@ -83,7 +91,7 @@ export function MemeModal({ isOpen, imageUrl, caption, onClose }: MemeModalProps
           }
         `}</style>
 
-        <div style={{ position: "relative" }}>
+        <div style={{ position: "relative", display: "flex", justifyContent: "center", alignItems: "center", background: "#0b0b0f" }}>
           <button
             type="button"
             onClick={onClose}
@@ -103,6 +111,7 @@ export function MemeModal({ isOpen, imageUrl, caption, onClose }: MemeModalProps
               alignItems: "center",
               justifyContent: "center",
               backdropFilter: "blur(6px)",
+              zIndex: 10,
             }}
           >
             <span style={{ fontSize: 20, lineHeight: 1 }}>×</span>
@@ -113,7 +122,8 @@ export function MemeModal({ isOpen, imageUrl, caption, onClose }: MemeModalProps
             alt={caption ? `Meme: ${caption}` : "Motivational meme"}
             style={{
               width: "100%",
-              height: "auto",
+              maxHeight: "calc(85vh - 150px)",
+              objectFit: "contain",
               display: "block",
               background: "#0b0b0f",
             }}
@@ -152,7 +162,7 @@ export function MemeModal({ isOpen, imageUrl, caption, onClose }: MemeModalProps
               fontWeight: 600,
             }}
           >
-            Got it
+            I Agree
           </button>
         </div>
       </div>

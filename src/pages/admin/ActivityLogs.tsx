@@ -354,7 +354,7 @@ export default function ActivityLogs() {
 
   return (
     <>
-      <div className="pl-6 space-y-4 md:space-y-6">
+      <div className="px-2 sm:pl-6 space-y-4 md:space-y-6 page-shell">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -380,7 +380,7 @@ export default function ActivityLogs() {
 
         {/* Stats Summary - Responsive Grid */}
         {summary && (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
             <Card className="overflow-hidden">
               <CardContent className="p-3 md:p-4">
                 <div className="flex items-center gap-2 md:gap-3">
@@ -812,7 +812,7 @@ export default function ActivityLogs() {
                     <TableHead className="w-[140px] whitespace-nowrap">Time</TableHead>
                     <TableHead className="w-[120px]">User</TableHead>
                     <TableHead className="w-[130px]">Action</TableHead>
-                    <TableHead className="min-w-[180px]">Resource</TableHead>
+                    <TableHead className="w-full sm:min-w-[180px] min-w-0">Resource</TableHead>
                     <TableHead className="w-[100px] text-right">IP Address</TableHead>
                   </TableRow>
                 </TableHeader>

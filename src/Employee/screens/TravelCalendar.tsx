@@ -71,7 +71,7 @@ const EmployeeTravelCalendar = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">My Travel Calendar</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">My Travel Calendar</h1>
         <p className="text-gray-600 mt-1">View your travel schedules</p>
       </div>
 
@@ -179,7 +179,7 @@ const EmployeeTravelCalendar = () => {
 
         {travelCalendars.length === 0 && (
           <Card>
-            <CardContent className="p-8 text-center">
+            <CardContent className="p-4 sm:p-8 text-center">
               <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No travel calendars found</h3>
               <p className="text-gray-600 mb-4">No travel schedules are currently available</p>

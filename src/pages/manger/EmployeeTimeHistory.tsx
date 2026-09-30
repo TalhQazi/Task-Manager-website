@@ -126,7 +126,7 @@ export default function EmployeeTimeHistory() {
   }, [employeeName]);
 
   return (
-    <div className="pl-6 space-y-6">
+    <div className="px-2 sm:px-0 sm:pl-6 space-y-6 page-shell">
       <div className="flex items-center gap-3">
         <Button
           type="button"

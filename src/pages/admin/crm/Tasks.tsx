@@ -309,7 +309,7 @@ export default function CRMTasks() {
   };
 
   return (
-    <div className="min-h-screen bg-[#080a0f] text-white">
+    <div className="min-h-screen bg-[#080a0f] text-white page-shell">
       <style>{`
         @keyframes modalIn { from { opacity:0; transform:scale(0.96) translateY(8px); } to { opacity:1; transform:scale(1) translateY(0); } }
         .scrollbar-thin::-webkit-scrollbar { width:4px; height:4px; }

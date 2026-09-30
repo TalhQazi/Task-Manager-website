@@ -58,13 +58,13 @@ export default function AnnouncementAnalytics({
         ) : (
           <div className="space-y-6">
             {/* Stats Overview */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="rounded-lg border border-white/10 bg-white/[0.02] p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Users className="h-4 w-4 text-white/60" />
                   <span className="text-sm text-white/60">Total Recipients</span>
                 </div>
-                <div className="text-3xl font-bold text-white">
+                <div className="text-2xl sm:text-3xl font-bold text-white">
                   {announcement?.sentCount || 0}
                 </div>
               </div>
@@ -74,7 +74,7 @@ export default function AnnouncementAnalytics({
                   <Eye className="h-4 w-4 text-[#00C6FF]" />
                   <span className="text-sm text-white/60">Read Rate</span>
                 </div>
-                <div className="text-3xl font-bold text-[#00C6FF]">
+                <div className="text-2xl sm:text-3xl font-bold text-[#00C6FF]">
                   {readPercentage}%
                 </div>
                 <div className="text-xs text-white/40 mt-1">
@@ -87,7 +87,7 @@ export default function AnnouncementAnalytics({
                   <CheckCircle2 className="h-4 w-4 text-green-400" />
                   <span className="text-sm text-white/60">Acknowledged</span>
                 </div>
-                <div className="text-3xl font-bold text-green-400">
+                <div className="text-2xl sm:text-3xl font-bold text-green-400">
                   {acknowledgedPercentage}%
                 </div>
                 <div className="text-xs text-white/40 mt-1">

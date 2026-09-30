@@ -210,7 +210,7 @@ export default function Announcements() {
 
   if (!isAdmin) {
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex h-screen items-center justify-center page-shell">
         <div className="text-center">
           <AlertCircle className="mx-auto h-12 w-12 text-red-500 mb-4" />
           <h1 className="text-xl font-semibold text-white">Access Denied</h1>
@@ -228,7 +228,7 @@ export default function Announcements() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+          <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">
             <Megaphone className="h-8 w-8 text-[#00C6FF]" />
             Announcements
           </h1>
@@ -250,7 +250,7 @@ export default function Announcements() {
           setPage(1);
           setSearchParams({ tab: newTab });
         }}>
-          <TabsList className="bg-white/[0.05] border border-white/10">
+          <TabsList className="bg-white/[0.05] border border-white/10 w-full max-w-full overflow-x-auto flex flex-nowrap justify-start h-auto no-scrollbar">
             <TabsTrigger value="all">All</TabsTrigger>
             <TabsTrigger value="active">Active</TabsTrigger>
             <TabsTrigger value="unread">Unread</TabsTrigger>
@@ -262,7 +262,7 @@ export default function Announcements() {
 
         {/* Filters */}
         <div className="flex flex-wrap gap-3 items-end">
-          <div className="flex-1 min-w-[200px]">
+          <div className="flex-1 min-w-0 w-full sm:min-w-[160px] min-w-0 basis-full sm:basis-auto">
             <label className="text-xs font-semibold text-white/70 mb-1 block">Priority</label>
             <Select value={filterPriority} onValueChange={(val) => {
               setFilterPriority(val);
@@ -281,7 +281,7 @@ export default function Announcements() {
             </Select>
           </div>
 
-          <div className="flex-1 min-w-[200px]">
+          <div className="flex-1 min-w-0 w-full sm:min-w-[160px] min-w-0 basis-full sm:basis-auto">
             <label className="text-xs font-semibold text-white/70 mb-1 block">Category</label>
             <Select value={filterCategory} onValueChange={(val) => {
               setFilterCategory(val);
@@ -303,7 +303,7 @@ export default function Announcements() {
             </Select>
           </div>
 
-          <div className="flex-1 min-w-[200px]">
+          <div className="flex-1 min-w-0 w-full sm:min-w-[160px] min-w-0 basis-full sm:basis-auto">
             <label className="text-xs font-semibold text-white/70 mb-1 block">Author</label>
             <Input 
               placeholder="Filter by author"
@@ -316,7 +316,7 @@ export default function Announcements() {
             />
           </div>
 
-          <div className="flex-1 min-w-[200px]">
+          <div className="flex-1 min-w-0 w-full sm:min-w-[160px] min-w-0 basis-full sm:basis-auto">
             <label className="text-xs font-semibold text-white/70 mb-1 block">From Date</label>
             <Input 
               type="date"
@@ -329,7 +329,7 @@ export default function Announcements() {
             />
           </div>
 
-          <div className="flex-1 min-w-[200px]">
+          <div className="flex-1 min-w-0 w-full sm:min-w-[160px] min-w-0 basis-full sm:basis-auto">
             <label className="text-xs font-semibold text-white/70 mb-1 block">To Date</label>
             <Input 
               type="date"
@@ -442,6 +442,7 @@ export default function Announcements() {
           setShowCreateModal(false);
           setSelectedAnnouncement(null);
         }}
+        onDelete={(id) => setDeleteId(id)}
       />
 
       {/* Analytics Modal */}

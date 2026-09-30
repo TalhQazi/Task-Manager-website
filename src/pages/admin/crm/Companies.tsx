@@ -517,7 +517,7 @@ export default function CRMCompanies() {
                 </div>
 
                 {/* Contacts / Deals / Status */}
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className={labelCls}>Contacts</label>
                     <input type="number" name="contactCount" value={formData.contactCount} onChange={handleInputChange}

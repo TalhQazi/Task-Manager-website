@@ -61,7 +61,7 @@ export default function CRMCommunication() {
   }), [logs]);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-6 max-w-7xl mx-auto space-y-6 page-shell">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Communication Log</h1>
@@ -82,19 +82,19 @@ export default function CRMCommunication() {
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
-          <div className="flex flex-wrap gap-2">
+          <div className="flex gap-2 overflow-x-auto no-scrollbar max-w-full">
             {TABS.map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition ${activeTab === tab ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition whitespace-nowrap shrink-0 ${activeTab === tab ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
               >
                 {tab}
                 <span className="ml-2 inline-flex h-6 min-w-[24px] items-center justify-center rounded-full bg-slate-200 text-[11px] font-semibold text-slate-700">{tabCounts[tab] || 0}</span>
               </button>
             ))}
           </div>
-          <div className="flex-1 min-w-[220px]">
+          <div className="w-full sm:flex-1 sm:min-w-[220px] min-w-0">
             <input
               type="text"
               value={searchQuery}

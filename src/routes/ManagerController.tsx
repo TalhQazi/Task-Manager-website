@@ -29,7 +29,7 @@ const OnboardingMonitoring = lazy(() => import("@/pages/manger/OnboardingMonitor
 const Reports = lazy(() => import("@/pages/manger/Reports"));
 const FounderMessages = lazy(() => import("@/pages/manger/FounderMessages"));
 const NotFound = lazy(() => import("@/pages/manger/NotFound"));
-const PersonalNotes = lazy(() => import("@/pages/manger/PersonalNotes"));
+const KnowledgeVault = lazy(() => import("@/pages/admin/KnowledgeVault"));
 const UICustomization = lazy(() => import("@/pages/manger/UICustomization"));
 const SignaCore = lazy(() => import("@/pages/admin/SignaCore"));
 const UphMaintenance = lazy(() => import("@/pages/admin/UphMaintenance"));
@@ -37,6 +37,8 @@ const ShoppingLists = lazy(() => import("@/pages/admin/ShoppingLists"));
 const ActivityLogs = lazy(() => import("@/pages/admin/ActivityLogs"));
 const TeamAttendance = lazy(() => import("@/pages/manger/TeamAttendance"));
 const ItineraryBuilder = lazy(() => import("@/pages/manger/ItineraryBuilder"));
+const ComplianceCenter = lazy(() => import("@/pages/manger/ComplianceCenter"));
+const CompanyInformation = lazy(() => import("@/pages/admin/CompanyInformation"));
 
 const CRMCommunication = lazy(() => import("@/pages/manger/crm/Communication"));
 const ManagerCRMCompanies = lazy(() => import("@/pages/manger/crm/Companies"));
@@ -49,6 +51,9 @@ const CRMFiles = lazy(() => import("@/pages/manger/crm/Files"));
 const TravelCalendar = lazy(() => import("@/pages/manger/TravelCalendar"));
 const ManagerBugs = lazy(() => import("@/pages/manger/Bugs"));
 const ManagerAnnouncements = lazy(() => import("@/pages/manger/Announcements"));
+const ManagerPolls = lazy(() => import("@/pages/manger/Polls"));
+const Meetings = lazy(() => import("@/pages/admin/Meetings"));
+const MeetingRoom = lazy(() => import("@/pages/shared/MeetingRoom"));
 
 function PageLoader() {
   return (
@@ -94,14 +99,18 @@ export default function ManagerController() {
       { path: "reports", element: <Reports /> },
       { path: "founder-messages", element: <FounderMessages /> },
       { path: "messages", element: <Messages /> },
+      { path: "meetings", element: <Meetings /> },
+      { path: "meetings/room/:code", element: <MeetingRoom /> },
       { path: "notifications", element: <Notifications /> },
       { path: "settings", element: <Settings /> },
-      { path: "personal-notes", element: <PersonalNotes /> },
+      { path: "knowledge-vault", element: <KnowledgeVault /> },
+      { path: "company-information", element: <CompanyInformation /> },
       { path: "ui-customization", element: <UICustomization /> },
       { path: "shopping-lists", element: <ShoppingLists /> },
       { path: "activity-logs", element: <ActivityLogs /> },
       { path: "team-attendance", element: <TeamAttendance /> },
       { path: "itinerary", element: <ItineraryBuilder /> },
+      { path: "compliance-center", element: <ComplianceCenter /> },
 
       { path: "crm/communication", element: <CRMCommunication /> },
       { path: "crm/companies", element: <ManagerCRMCompanies /> },
@@ -112,6 +121,7 @@ export default function ManagerController() {
       { path: "travel-calendar", element: <TravelCalendar /> },
       { path: "bugs", element: <ManagerBugs /> },
       { path: "announcements", element: <ManagerAnnouncements /> },
+      { path: "polls", element: <ManagerPolls /> },
 
 
       { path: "*", element: <NotFound /> },
@@ -125,6 +135,14 @@ export default function ManagerController() {
 
   if (!auth.isAuthenticated || (auth.role !== "manager" && auth.role !== "team-lead")) {
     return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
+  if (location.pathname.includes("/meetings/room/")) {
+    return (
+      <Suspense fallback={<PageLoader />}>
+        {element}
+      </Suspense>
+    );
   }
 
   return (
