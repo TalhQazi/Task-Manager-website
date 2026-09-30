@@ -269,7 +269,7 @@ export default function NewHireReporting() {
   };
 
   return (
-    <div className="pl-12 space-y-6 pr-2 sm:pr-0">
+    <div className="px-2 sm:pl-6 space-y-6 pr-2 sm:pr-0 page-shell">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -514,7 +514,7 @@ export default function NewHireReporting() {
                 <div className="space-y-4">
                   {logs.map((log) => (
                     <div key={log.id} className="p-4 rounded-xl bg-white/[0.02] border border-white/5 space-y-2">
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between flex-wrap">
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-black bg-white/5 px-2 py-0.5 rounded text-white/90">
                             Attempt #{log.attemptNumber}

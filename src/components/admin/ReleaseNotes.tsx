@@ -62,8 +62,8 @@ export function ReleaseNotes() {
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogContent className="max-w-md sm:max-w-lg border-0 bg-white/95 backdrop-blur-xl shadow-2xl p-0 overflow-hidden rounded-2xl">
-        <div className="bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-700 p-8 text-white relative">
-          <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
+        <div className="bg-gradient-to-br from-indigo-600 via-purple-600 to-indigo-700 p-4 sm:p-8 text-white relative">
+          <div className="absolute top-0 right-0 p-4 sm:p-8 opacity-10 pointer-events-none">
             <Sparkles size={120} />
           </div>
           <DialogHeader>

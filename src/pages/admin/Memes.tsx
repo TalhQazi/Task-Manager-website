@@ -332,7 +332,7 @@ export default function Memes() {
                   <img src={img} alt={m.caption || "meme"} className="w-full h-full object-cover" loading="lazy" />
                 </div>
                 <div className="p-4">
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div className="text-sm text-white/70">{m.category || "general"}</div>
                     <div className={`text-xs px-2 py-1 rounded-full border ${m.isActive ? "border-green-500/30 text-green-200 bg-green-500/10" : "border-white/10 text-white/60 bg-white/5"}`}>
                       {m.isActive ? "Active" : "Inactive"}

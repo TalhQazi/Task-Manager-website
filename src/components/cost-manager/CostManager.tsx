@@ -739,7 +739,7 @@ function SectionBlock({
             <thead>
               <tr className="text-muted-foreground border-b border-border/60 text-left">
                 <th className="px-3 py-1.5 w-8" title="Purchased">✓</th>
-                <th className="px-2 py-1.5 min-w-[160px]">Item</th>
+                <th className="px-2 py-1.5 w-full sm:min-w-[160px] min-w-0">Item</th>
                 <th className="px-2 py-1.5">Vendor</th>
                 <th className="px-2 py-1.5 text-right">Qty</th>
                 <th className="px-2 py-1.5 text-right">Unit Cost</th>

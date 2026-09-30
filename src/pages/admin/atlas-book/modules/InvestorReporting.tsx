@@ -54,7 +54,7 @@ export default function InvestorReporting() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-2">
             <Users className="h-8 w-8 text-primary" />
             Investor Reporting
           </h1>

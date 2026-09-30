@@ -470,7 +470,7 @@ export function Header({ onMenuClick }: HeaderProps) {
     return { x, y };
   };
 
-  // Banner header height (static 300px)
+  // Banner header height — CSS classes handle responsive sizes; value kept for any legacy refs
   const headerHeight = 300;
 
   // Dynamic background style based on settings
@@ -760,11 +760,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
   return (
     <header 
-      className="fixed top-0 left-0 right-0 z-50 shadow-floating"
-      style={{ 
-        height: `${headerHeight}px`,
-        left: '0',
-      }}
+      className="fixed top-0 left-0 right-0 z-50 shadow-floating h-40 sm:h-[220px] md:h-[300px]"
     >
       <div 
         key={`header-bg-${headerImageUrl || 'none'}-${headerSettings?.updatedAt || headerSettings?.height || '0'}`}
@@ -792,11 +788,11 @@ export function Header({ onMenuClick }: HeaderProps) {
         <div className="absolute inset-0 flex flex-col pointer-events-none">
           {/* Header Content Area */}
           <div 
-            className="flex-1 relative flex flex-col justify-end px-3 sm:px-6 lg:px-8 md:pl-64 pb-8 sm:pb-12 md:pb-16 animate-fade-in pointer-events-auto"
+            className="flex-1 relative flex flex-col justify-end px-3 sm:px-6 lg:px-8 md:pl-56 pb-4 sm:pb-8 md:pb-16 animate-fade-in pointer-events-auto"
           >
             {/* Branding and Profile */}
             {/* Header Picture Edit Button (Camera Icon) */}
-            <div className="absolute top-4 right-4 z-20 flex gap-2">
+            <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-20 flex gap-1.5 sm:gap-2">
               <button 
                 onClick={() => navigate("/admin/theme-engine")}
                 className="p-2 rounded-full bg-black/20 hover:bg-black/40 text-white transition-all backdrop-blur-sm border border-white/20"
@@ -852,7 +848,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                <div className="flex items-center justify-start gap-4">
+                <div className="flex flex-wrap items-center justify-start gap-2 sm:gap-4">
                   <div className="md:hidden">
                     <button type="button" className="group inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/[0.14] transition-all" aria-label="Open navigation" onClick={() => onMenuClick?.()}><Menu className="h-5 w-5 text-white" /></button>
                   </div>
@@ -874,7 +870,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                       </div>
                       <div className="max-h-[400px] overflow-y-auto">
                         {messagesQuery.data?.length === 0 ? (
-                          <div className="p-8 text-center">
+                          <div className="p-4 sm:p-8 text-center">
                             <Mail className="h-8 w-8 text-slate-500 mx-auto mb-2" />
                             <p className="text-xs text-slate-400">No messages found</p>
                           </div>
@@ -896,7 +892,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                                 )}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between gap-2 mb-0.5">
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-0.5">
                                   <span className="text-[13px] font-semibold text-white truncate">{c.employee?.name}</span>
                                   {c.lastMessage?.createdAt && (
                                     <span className="text-[10px] text-slate-400 whitespace-nowrap">
@@ -947,7 +943,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                       </div>
                       <div className="max-h-[400px] overflow-y-auto">
                         {notifications.length === 0 ? (
-                          <div className="p-8 text-center">
+                          <div className="p-4 sm:p-8 text-center">
                             <Bell className="h-8 w-8 text-slate-500 mx-auto mb-2" />
                             <p className="text-sm text-slate-300">You're all caught up!</p>
                           </div>

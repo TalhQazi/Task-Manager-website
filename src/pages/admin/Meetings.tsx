@@ -422,7 +422,7 @@ export default function AdminMeetings() {
       : "UTC";
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 page-shell">
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/60 pb-6">
         <div>
@@ -662,7 +662,7 @@ export default function AdminMeetings() {
                         ) : (
                           <ul className="space-y-1 max-h-28 overflow-y-auto">
                             {invitees.map((p) => (
-                              <li key={p.name} className="flex items-center justify-between gap-2">
+                              <li key={p.name} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                 <span className="text-foreground truncate">{p.name}</span>
                                 {p.role && (
                                   <span className="text-[10px] text-muted-foreground capitalize shrink-0">
@@ -689,7 +689,7 @@ export default function AdminMeetings() {
                         ) : (
                           <ul className="space-y-1 max-h-28 overflow-y-auto">
                             {joiners.map((p) => (
-                              <li key={p.name} className="flex items-center justify-between gap-2">
+                              <li key={p.name} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                 <span className="text-foreground truncate">{p.name}</span>
                                 {p.role && (
                                   <span className="text-[10px] text-muted-foreground capitalize shrink-0">
@@ -716,7 +716,7 @@ export default function AdminMeetings() {
                             ? m.recordings
                             : [{ fileName: "meeting-recording.webm", recordedByName: m.hostName, url: m.recordingUrl! }]
                           ).map((rec, idx) => (
-                            <li key={`${rec.url}-${idx}`} className="flex items-center justify-between gap-2 text-muted-foreground">
+                            <li key={`${rec.url}-${idx}`} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-muted-foreground">
                               <span className="truncate text-foreground">
                                 {rec.fileName || `Recording ${idx + 1}`}
                                 {rec.recordedByName ? ` · ${rec.recordedByName}` : ""}
@@ -866,7 +866,7 @@ export default function AdminMeetings() {
                 </div>
 
                 {/* Bottom Card Actions */}
-                <div className="pt-3 border-t border-border/50 flex items-center justify-between gap-2 mt-auto">
+                <div className="pt-3 border-t border-border/50 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mt-auto">
                   <div className="flex items-center gap-1.5">
                     <Button
                       type="button"
@@ -1019,7 +1019,7 @@ export default function AdminMeetings() {
 
             {/* Attendees selector */}
             <div>
-              <div className="flex items-center justify-between gap-2 mb-1.5">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-1.5">
                 <label className="text-xs font-semibold text-foreground">Invite Team Members</label>
                 <span className="text-[10px] text-muted-foreground">
                   {selectedAttendees.length} selected
@@ -1128,7 +1128,7 @@ export default function AdminMeetings() {
                   key={`${rec.url}-${idx}`}
                   className="rounded-xl border border-border bg-card p-3 space-y-2"
                 >
-                  <div className="flex items-center justify-between gap-2 text-xs">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-xs">
                     <div className="min-w-0">
                       <div className="font-medium text-foreground truncate">
                         {rec.fileName || `Recording ${idx + 1}`}

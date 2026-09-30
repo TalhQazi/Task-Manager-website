@@ -329,7 +329,7 @@ export default function EmployeeAssetLibrary({
               </div>
             )}
 
-            <div className="flex items-center justify-between gap-2 px-1 py-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-1 py-3">
               <div className="text-xs text-muted-foreground">{total} total</div>
               <div className="flex items-center gap-2">
                 <Button
@@ -415,7 +415,7 @@ export default function EmployeeAssetLibrary({
                   }
 
                   return (
-                    <div className="p-8 text-center text-sm text-muted-foreground">
+                    <div className="p-4 sm:p-8 text-center text-sm text-muted-foreground">
                       Preview not available for this file type.
                     </div>
                   );

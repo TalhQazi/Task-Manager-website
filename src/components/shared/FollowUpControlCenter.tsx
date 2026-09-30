@@ -377,7 +377,7 @@ export default function FollowUpControlCenter({ taskId, isManager = false, isAdm
               <h4 className="text-xs font-bold text-gray-300 uppercase tracking-wide">No Follow-up Scheduled</h4>
               <p className="text-[11px] text-gray-500 max-w-xs mx-auto">Set an independent follow-up timer for this task to enforce structured execution timelines.</p>
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <Button size="xs" onClick={() => handleCreateTimer(15)} disabled={submitting} className="text-[10px] font-bold bg-[#111] hover:bg-[#1a1a1a] border border-white/10 text-gray-300">
                 15 Min
               </Button>
@@ -428,7 +428,7 @@ export default function FollowUpControlCenter({ taskId, isManager = false, isAdm
             {timer.status !== "completed" && (
               <div className="space-y-2">
                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Escalation State</span>
-                <div className="grid grid-cols-4 gap-1.5 relative">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 relative">
                   {[1, 2, 3, 4].map(lvl => {
                     const isActive = timer.escalationLevel >= lvl;
                     const isOverdue = timer.status === "overdue" && timer.escalationLevel >= lvl;
@@ -483,7 +483,7 @@ export default function FollowUpControlCenter({ taskId, isManager = false, isAdm
             {snoozeOpen && (
               <div className="p-3 bg-black/60 border border-white/5 rounded-xl space-y-3">
                 <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block">Snooze Duration</span>
-                <div className="grid grid-cols-4 gap-1.5">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                   {[5, 15, 30, 60].map(m => (
                     <Button key={m} size="xs" onClick={() => handleSnooze(m)} className="bg-white/5 hover:bg-white/10 text-gray-300 border-none text-[10px] font-bold">
                       {m}m

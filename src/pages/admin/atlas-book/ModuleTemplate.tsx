@@ -11,11 +11,11 @@ interface AtlasModuleProps {
 
 export default function AtlasModule({ title, features, accounts, icon: Icon = Book }: AtlasModuleProps) {
   return (
-    <div className="px-4 md:px-6 md:pl-6 space-y-6">
+    <div className="px-2 sm:px-4 md:px-6 md:pl-6 space-y-6 page-shell">
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            {Icon && <Icon className="h-8 w-8 text-primary" />}
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-2 min-w-0 break-words">
+            {Icon && <Icon className="h-6 w-6 sm:h-8 sm:w-8 text-primary shrink-0" />}
             {title}
           </h1>
           <p className="text-muted-foreground">Comprehensive module management within AtlasBooks.</p>

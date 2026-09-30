@@ -345,7 +345,7 @@ export default function ExpenseSheets() {
   // If a sheet is selected, display the CostManager
   if (activeSheetId) {
     return (
-      <div className="pl-6 space-y-4 px-2 sm:px-0">
+      <div className="pl-2 sm:pl-6 space-y-4 px-2 sm:px-0 page-shell">
         <div className="flex items-center gap-3">
           <Button
             variant="outline"
@@ -367,7 +367,7 @@ export default function ExpenseSheets() {
   }
 
   return (
-    <div className="pl-6 space-y-4 sm:space-y-5 md:space-y-6 px-2 sm:px-0">
+    <div className="pl-2 sm:pl-6 space-y-4 sm:space-y-5 md:space-y-6 px-2 sm:px-0 page-shell">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6">
         <div className="space-y-1.5 sm:space-y-2">
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">

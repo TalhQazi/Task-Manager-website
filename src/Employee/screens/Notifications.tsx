@@ -473,7 +473,7 @@ function NotificationList({
 }: NotificationListProps) {
   if (notifications.length === 0) {
     return (
-      <div className="p-8 text-center text-gray-500">
+      <div className="p-4 sm:p-8 text-center text-gray-500">
         <Bell className="h-12 w-12 mx-auto mb-3 opacity-30" />
         <p>{emptyMessage}</p>
       </div>

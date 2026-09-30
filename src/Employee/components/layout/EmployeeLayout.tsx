@@ -84,7 +84,7 @@ export function EmployeeLayout() {
 
   return (
     <div
-      className="min-h-screen tb-employee-panel pt-40 sm:pt-[220px] md:pt-[300px]"
+      className="min-h-screen tb-employee-panel pt-40 sm:pt-[220px] md:pt-[300px] overflow-x-hidden"
       style={{ background: dashboardBg }}
     >
       <EmployeeHeader onMenuClick={() => setMobileSidebarOpen(true)} />
@@ -94,15 +94,15 @@ export function EmployeeLayout() {
           <EmployeeSidebar />
         </div>
 
-        <main className={cn("flex-1 min-h-[calc(100vh-9rem)]", "md:ml-56")}>
-          <div className="w-full px-4 py-4 sm:py-6 animate-fade-in">
+        <main className={cn("flex-1 min-h-[calc(100vh-9rem)] min-w-0", "md:ml-56")}>
+          <div className="w-full px-3 sm:px-4 lg:px-6 py-4 sm:py-6 animate-fade-in overflow-x-hidden">
             <Outlet />
           </div>
         </main>
       </div>
 
       <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
-        <SheetContent side="left" className="p-0 w-64">
+        <SheetContent side="left" className="p-0 w-[min(18rem,85vw)] max-w-[85vw]">
           <SheetHeader className="sr-only">
             <SheetTitle>Navigation Menu</SheetTitle>
             <SheetDescription>Main navigation for employees</SheetDescription>

@@ -132,7 +132,7 @@ export default function AuditCompliance() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-2">
             <ShieldCheck className="h-8 w-8 text-primary" />
             Audit & Compliance
           </h1>
@@ -147,7 +147,7 @@ export default function AuditCompliance() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="shadow-soft">
           <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
               <div className="p-2 bg-emerald-500/10 text-emerald-600 rounded-lg"><ShieldCheck size={20} /></div>
               <Badge className="bg-emerald-500">Passed</Badge>
             </div>

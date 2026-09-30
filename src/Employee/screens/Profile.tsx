@@ -819,7 +819,7 @@ const hasTaxInfo =
     return (
       <div className="max-w-4xl mx-auto space-y-6">
         <Card>
-          <CardContent className="p-8 text-center">
+          <CardContent className="p-4 sm:p-8 text-center">
             <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3 text-[#133767]" />
             <p className="text-muted-foreground">Loading profile...</p>
           </CardContent>
@@ -832,7 +832,7 @@ const hasTaxInfo =
     return (
       <div className="max-w-4xl mx-auto space-y-6">
         <Card>
-          <CardContent className="p-8 text-center">
+          <CardContent className="p-4 sm:p-8 text-center">
             <p className="text-muted-foreground">Failed to load profile</p>
             <Button onClick={loadProfile} className="mt-4">
               Retry
@@ -1619,7 +1619,7 @@ const hasTaxInfo =
               )}
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="border-2 border-dashed rounded-lg p-8 text-center bg-gray-50">
+              <div className="border-2 border-dashed rounded-lg p-4 sm:p-8 text-center bg-gray-50">
                 <Upload className="h-12 w-12 mx-auto text-gray-400 mb-3" />
                 <p className="text-sm text-gray-500 mb-2">Upload your signature image</p>
                 <p className="text-xs text-gray-400">Allowed formats: JPG, PNG (Max 10MB)</p>

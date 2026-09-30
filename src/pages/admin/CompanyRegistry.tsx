@@ -694,7 +694,7 @@ export default function CompanyRegistry() {
                         >
                           {/* Company Name */}
                           <td className="px-4 py-3 border-r border-border/20">
-                            <div className="flex items-center gap-2.5 min-w-[160px]">
+                            <div className="flex items-center gap-2.5 w-full sm:min-w-[160px] min-w-0">
                               <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${COLOR_TAGS[entry.colorTag]?.class} border`}>
                                 {entry.companyName.charAt(0).toUpperCase()}
                               </div>

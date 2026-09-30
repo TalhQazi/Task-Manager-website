@@ -138,7 +138,7 @@ export default function ItineraryHistory() {
   return (
     <>
       <motion.div
-        className="pl-6 space-y-4 sm:space-y-6"
+        className="px-2 sm:pl-6 space-y-4 sm:space-y-6 page-shell"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.4 }}
@@ -211,14 +211,14 @@ export default function ItineraryHistory() {
           </CardHeader>
           <CardContent className="p-0">
             {loading ? (
-              <div className="p-8 text-center">
+              <div className="p-4 sm:p-8 text-center">
                 <div className="animate-spin h-9 w-9 border-4 border-primary border-t-transparent rounded-full mx-auto" />
                 <p className="mt-3 text-sm text-muted-foreground">Loading itinerary history...</p>
               </div>
             ) : error ? (
-              <div className="p-8 text-center text-destructive">{error}</div>
+              <div className="p-4 sm:p-8 text-center text-destructive">{error}</div>
             ) : filteredItineraries.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground">No itineraries found for this date.</div>
+              <div className="p-4 sm:p-8 text-center text-muted-foreground">No itineraries found for this date.</div>
             ) : (
               <div className="divide-y">
                 {filteredItineraries.map((itinerary) => {

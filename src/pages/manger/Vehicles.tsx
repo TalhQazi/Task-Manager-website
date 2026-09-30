@@ -747,7 +747,7 @@ export default function Vehicles() {
   const maintenanceCount = useMemo(() => vehicles.filter((v) => v.status === "maintenance").length, [vehicles]);
 
   return (
-    <div className="pl-6 space-y-6">
+    <div className="px-2 sm:px-0 sm:pl-6 space-y-6 page-shell">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="page-header mb-0">
@@ -1624,7 +1624,7 @@ export default function Vehicles() {
                 </DropdownMenu>
               </div>
 
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
                 <Badge
                   variant="secondary"
                   className={cn("capitalize", statusStyles[vehicle.status])}

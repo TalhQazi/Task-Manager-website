@@ -83,7 +83,7 @@ export default function QuoteComparisonModal({ sheetIds, open, onOpenChange }: Q
               {error}
             </div>
           ) : quotes.length < 2 ? (
-            <div className="p-8 text-center text-muted-foreground text-sm">
+            <div className="p-4 sm:p-8 text-center text-muted-foreground text-sm">
               Please select at least 2 expense/quote sheets from the list to compare them side-by-side.
             </div>
           ) : (

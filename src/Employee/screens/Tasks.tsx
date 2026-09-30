@@ -421,7 +421,7 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
   }
 
   return (
-    <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary flex-shrink-0 border border-primary/20 uppercase">
+    <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary flex-shrink-0 border border-primary/20 uppercase page-shell">
       {String(projectName || "P").slice(0, 2).toUpperCase()}
     </div>
   );
@@ -2719,7 +2719,7 @@ export default function Tasks() {
 
                     {/* Activity Feed */}
                     <div className="pt-6 border-t border-border/60">
-                      <div className="flex items-center justify-between mb-6">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
                         <h4 className="text-[13px] font-bold text-foreground/70 uppercase tracking-widest flex items-center gap-2">
                           <TrendingUp className="w-4 h-4 text-primary" /> Activity Feed
                         </h4>
@@ -2757,7 +2757,7 @@ export default function Tasks() {
                                   )}
                                 </Avatar>
                                 <div className="flex-1 space-y-2 min-w-0 bg-card p-4 rounded-2xl border border-border/60 ml-2 group-hover:border-primary/20 transition-all shadow-xs group-hover:shadow-md">
-                                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between flex-wrap">
                                     <div className="flex items-center gap-2">
                                       <span className="font-black text-[13px] text-foreground tracking-tight">{c.authorFullName || c.authorUsername}</span>
                                       {c.authorRole && <Badge variant="secondary" className="text-[9px] h-4 font-black bg-muted/50 text-muted-foreground uppercase px-1 border-none">{c.authorRole}</Badge>}
@@ -2839,7 +2839,7 @@ export default function Tasks() {
 
                 {/* Right Pane: Property Deck */}
                 <div className="w-full md:w-[320px] lg:w-[360px] bg-muted/10 shrink-0 border-t md:border-t-0 md:border-l border-border/50 overflow-y-auto hidden md:block">
-                  <div className="p-8 space-y-10">
+                  <div className="p-4 sm:p-8 space-y-10">
                     <h3 className="text-[11px] font-black text-muted-foreground/60 uppercase tracking-[0.2em] flex items-center gap-2 pb-3 border-b border-border/60">Property Deck</h3>
 
                     <div className="space-y-3">
@@ -3076,7 +3076,7 @@ export default function Tasks() {
                       <div className="sticky bottom-4 z-20 mt-auto pt-6 px-4 pb-4">
                         <div className="relative rounded-3xl border border-border/60 bg-white/60 dark:bg-black/40 backdrop-blur-2xl overflow-hidden focus-within:border-primary/40 focus-within:ring-4 focus-within:ring-primary/5 transition-all shadow-xl">
                           {commentAttachments.length > 0 && (
-                            <div className="p-3 border-b bg-muted/5 grid grid-cols-6 gap-2">
+                            <div className="p-3 border-b bg-muted/5 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
                               {commentAttachments.map((f, i) => (
                                 <div key={i} className="relative rounded-lg border border-border/50 bg-background p-1 aspect-square group">
                                   {f.type.startsWith("image/") ? <img src={URL.createObjectURL(f)} alt={f.name} className="w-full h-full object-cover rounded" /> : <FileText className="h-4 w-4 mx-auto mt-1 text-muted-foreground" />}
@@ -3114,7 +3114,7 @@ export default function Tasks() {
 
                 {/* Right: Sidebar */}
                 <div className="w-full md:w-[320px] bg-muted/5 border-t md:border-t-0 md:border-l border-border/40 overflow-y-auto hidden md:block">
-                  <div className="p-8 space-y-10">
+                  <div className="p-4 sm:p-8 space-y-10">
                     <div className="space-y-4">
                       <label className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-[0.2em] block">Description</label>
                       <p className="text-[13px] font-semibold text-foreground/70 leading-relaxed italic">{selectedProject.description || "Project parameters undefined."}</p>
@@ -3657,7 +3657,7 @@ export default function Tasks() {
                     autoPlay
                   />
                 ) : (
-                  <div className="flex flex-col items-center justify-center p-8 sm:p-12 bg-white/5 rounded-2xl border border-white/10 min-w-[260px] sm:min-w-[300px] max-w-full">
+                  <div className="flex flex-col items-center justify-center p-6 sm:p-12 bg-white/5 rounded-2xl border border-white/10 min-w-[260px] sm:min-w-[300px] max-w-full">
                     <FileText className="w-20 h-20 text-white/40 mb-4" />
                     <p className="text-white font-semibold mb-2">{previewName}</p>
                     <p className="text-white/40 text-xs mb-6">Preview not available for this type</p>

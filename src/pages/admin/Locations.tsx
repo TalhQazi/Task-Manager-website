@@ -745,7 +745,7 @@ const Locations = () => {
   }, [locationsList]);
 
   return (
-    <div className="pl-6 space-y-4 sm:space-y-6 md:space-y-8 pr-2 sm:pr-0 pb-10">
+    <div className="px-2 sm:pl-6 space-y-4 sm:space-y-6 md:space-y-8 pr-2 sm:pr-0 pb-10 page-shell">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="space-y-1">
@@ -918,7 +918,7 @@ const Locations = () => {
 
             <div className="p-6 bg-slate-50 flex flex-col sm:flex-row justify-end gap-3 border-t">
               <Button variant="outline" onClick={() => setAddLocationOpen(false)} className="border-0 shadow-none hover:bg-slate-100 font-medium text-slate-600 order-2 sm:order-1">Discard</Button>
-              <Button onClick={handleAddLocation} disabled={submitLoading} className="bg-blue-600 hover:bg-blue-700 text-white px-8 shadow-lg shadow-blue-500/20 font-bold order-1 sm:order-2">
+              <Button onClick={handleAddLocation} disabled={submitLoading} className="bg-blue-600 hover:bg-blue-700 text-white px-4 sm:px-8 shadow-lg shadow-blue-500/20 font-bold order-1 sm:order-2">
                 {submitLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
                 Confirm & Create
               </Button>
@@ -940,7 +940,7 @@ const Locations = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground mb-1">{stat.label}</p>
-                  <p className="text-3xl font-bold text-slate-900 dark:text-white">{stat.value}</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">{stat.value}</p>
                 </div>
                 <div className={cn("h-12 w-12 rounded-xl flex items-center justify-center bg-opacity-10", `bg-${stat.color}-500`)}>
                   <stat.icon className={cn("h-6 w-6", `text-${stat.color}-500`)} />
@@ -1354,7 +1354,7 @@ const Locations = () => {
 
           <div className="p-6 bg-slate-50 border-t flex flex-col sm:flex-row justify-end gap-3">
              <Button variant="outline" onClick={() => setEditLocationOpen(false)} className="font-semibold text-slate-500 border-0 hover:bg-slate-100 order-2 sm:order-1">Cancel Changes</Button>
-             <Button onClick={saveEditLocation} disabled={submitLoading} className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 shadow-lg shadow-blue-500/30 order-1 sm:order-2">
+             <Button onClick={saveEditLocation} disabled={submitLoading} className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 sm:px-8 shadow-lg shadow-blue-500/30 order-1 sm:order-2">
                {submitLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
                Update Record
              </Button>
@@ -1365,7 +1365,7 @@ const Locations = () => {
       {/* Archive Modal */}
       <Dialog open={deactivateConfirmOpen} onOpenChange={setDeactivateConfirmOpen}>
         <DialogContent className="max-w-md p-0 overflow-hidden rounded-2xl border-0 shadow-2xl">
-          <div className="p-8 text-center">
+          <div className="p-4 sm:p-8 text-center">
             <div className={cn(
               "h-20 w-20 rounded-full mx-auto flex items-center justify-center mb-6",
               selectedLocation?.status === 'active' ? "bg-amber-100" : "bg-blue-100"

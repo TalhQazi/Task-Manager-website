@@ -185,7 +185,7 @@ function GridSkeleton() {
   return (
     <div className="rounded-xl border border-white/10 bg-black/20 p-3 sm:p-4">
       <div className="mb-3 h-3 w-40 animate-pulse rounded bg-white/10" />
-      <div className="grid grid-cols-4 gap-2 sm:grid-cols-8 sm:gap-2.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:grid-cols-8 sm:gap-2.5">
         {Array.from({ length: 16 }).map((_, i) => (
           <div key={i} className="h-[74px] animate-pulse rounded-lg bg-white/[0.04]" />
         ))}

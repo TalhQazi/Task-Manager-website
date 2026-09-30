@@ -1509,9 +1509,9 @@ export default function MeetingRoom() {
   const totalInRoom = participantList.length + 1;
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-neutral-950 text-white select-none overflow-hidden font-sans">
+    <div className="flex flex-col h-[100dvh] h-screen w-full max-w-[100vw] bg-neutral-950 text-white select-none overflow-hidden font-sans">
       {/* Top Header Bar */}
-      <header className="h-14 bg-neutral-900/90 backdrop-blur-md border-b border-neutral-800 flex items-center justify-between px-4 z-20 shrink-0">
+      <header className="h-12 sm:h-14 bg-neutral-900/90 backdrop-blur-md border-b border-neutral-800 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-2 sm:px-4 z-20 shrink-0 min-w-0">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -1853,7 +1853,7 @@ export default function MeetingRoom() {
       </div>
 
       {/* Bottom Zoom-style Control Toolbar */}
-      <footer className="h-20 bg-neutral-900/95 backdrop-blur-lg border-t border-neutral-800 flex items-center justify-between px-3 sm:px-6 z-40 shrink-0 relative">
+      <footer className="min-h-20 h-auto py-2 sm:py-0 sm:h-20 bg-neutral-900/95 backdrop-blur-lg border-t border-neutral-800 flex flex-wrap items-center justify-between gap-2 px-2 sm:px-6 z-40 shrink-0 relative">
         {/* Left: Audio & Video Controls */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Mic button */}

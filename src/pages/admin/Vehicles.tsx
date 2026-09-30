@@ -928,7 +928,7 @@ const Vehicles = () => {
   return (
     <>
       <motion.div 
-        className="pl-12 space-y-4 sm:space-y-5 md:space-y-6 pr-2 sm:pr-0 pb-6"
+        className="px-2 sm:pl-6 space-y-4 sm:space-y-5 md:space-y-6 sm:pr-0 pb-6 page-shell"
         variants={containerVariants}
         initial="hidden"
         animate="visible"

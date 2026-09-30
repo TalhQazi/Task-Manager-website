@@ -240,7 +240,7 @@ const isEmployee = role === "employee" || role === "developer";
 
                   {/* ITEMS */}
                   {/*items.map((item: any, i: number) => (
-                    <div key={item._id} className="grid grid-cols-6 gap-2">
+                    <div key={item._id} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
 
                       <Input
                         disabled={!isEditable || editingIndex !== i}

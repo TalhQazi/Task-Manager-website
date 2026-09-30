@@ -256,7 +256,7 @@ const Onboarding = () => {
 
   return (
     <>
-      <div className="pl-12 space-y-4 sm:space-y-5 md:space-y-6 pr-2 sm:pr-0">
+      <div className="px-2 sm:pl-6 space-y-4 sm:space-y-5 md:space-y-6 pr-2 sm:pr-0 page-shell">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6">
           <div className="space-y-1.5 sm:space-y-2">
             <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">

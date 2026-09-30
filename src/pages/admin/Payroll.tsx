@@ -573,7 +573,7 @@ const Payroll = () => {
   return (
     <>
       <motion.div
-        className="pl-12 space-y-4 sm:space-y-5 md:space-y-6 pr-2 sm:pr-0 pb-6"
+        className="px-2 sm:pl-6 space-y-4 sm:space-y-5 md:space-y-6 sm:pr-0 pb-6 page-shell"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
@@ -1042,7 +1042,7 @@ const Payroll = () => {
                     </div>
 
                     {/* Daily Stats */}
-                    <div className="grid grid-cols-3 gap-2 mt-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-4">
                       <div className="text-center">
                         <p className="text-xs text-muted-foreground">Peak Day</p>
                         <p className="text-sm font-semibold">

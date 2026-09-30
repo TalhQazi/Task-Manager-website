@@ -766,7 +766,7 @@ export default function ThemeEngine() {
               </div>
 
               {schedules.length === 0 ? (
-                <div className="p-8 text-center text-muted-foreground text-sm">
+                <div className="p-4 sm:p-8 text-center text-muted-foreground text-sm">
                   No active schedules found. Click "Re-Seed Default Manifests" to initialize defaults.
                 </div>
               ) : (
@@ -958,7 +958,7 @@ export default function ThemeEngine() {
 
               if (displayedAssets.length === 0) {
                 return (
-                  <div className="p-8 text-center text-muted-foreground text-xs rounded-xl border border-dashed">
+                  <div className="p-4 sm:p-8 text-center text-muted-foreground text-xs rounded-xl border border-dashed">
                     No uploaded assets found for this filter. Click "Upload New Asset" to upload custom graphics.
                   </div>
                 );
@@ -1144,7 +1144,7 @@ export default function ThemeEngine() {
               {legacySaveSuccess && (
                 <span className="text-green-500 text-sm font-medium animate-fade-in">Preferences saved!</span>
               )}
-              <Button onClick={saveLegacySettings} disabled={legacyLoading} className="px-8">
+              <Button onClick={saveLegacySettings} disabled={legacyLoading} className="px-4 sm:px-8">
                 Save Preferences
               </Button>
             </div>

@@ -199,7 +199,7 @@ export function PersonalTab({ employeeId, initialData, onRefresh }: PersonalTabP
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-slate-300">City</label>
                 <Input

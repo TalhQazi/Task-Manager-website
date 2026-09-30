@@ -19,7 +19,7 @@ interface WipEmployeeGridProps {
 
 const COLUMNS: Array<{ key: string; label: string; sortable?: boolean; className?: string }> = [
   { key: "employee", label: "Employee", className: "min-w-[190px]" },
-  { key: "task", label: "Task", className: "min-w-[200px]" },
+  { key: "task", label: "Task", className: "w-full sm:min-w-[200px] min-w-0" },
   { key: "project", label: "Project / Customer", className: "min-w-[150px]" },
   { key: "startedAt", label: "Started", sortable: true, className: "min-w-[90px]" },
   { key: "elapsedSeconds", label: "Elapsed", sortable: true, className: "min-w-[110px]" },

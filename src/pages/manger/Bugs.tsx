@@ -134,7 +134,7 @@ export default function ManagerBugs() {
   };
 
   return (
-    <div className="pl-6 space-y-4 sm:space-y-5 md:space-y-6 px-2 sm:px-0">
+    <div className="pl-2 sm:pl-6 space-y-4 sm:space-y-5 md:space-y-6 px-2 sm:px-0 page-shell">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">

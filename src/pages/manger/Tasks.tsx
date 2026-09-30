@@ -367,7 +367,7 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
   }
 
   return (
-    <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary flex-shrink-0 border border-primary/20 uppercase">
+    <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary flex-shrink-0 border border-primary/20 uppercase page-shell">
       {projectName.slice(0, 2).toUpperCase()}
     </div>
   );
@@ -2523,7 +2523,7 @@ export default function Tasks() {
 
       {/* Filters */}
       <div className="flex flex-col md:flex-row gap-3 md:gap-4 mb-4 items-stretch md:items-center">
-        <div className="relative flex-1 min-w-[220px] w-full">
+        <div className="relative w-full sm:flex-1 sm:min-w-[220px] min-w-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none z-10" />
           <Input
             placeholder={selectedProject ? "Search tasks in this project..." : "Search projects or tasks..."}
@@ -2687,7 +2687,7 @@ export default function Tasks() {
             {topContributors.map((contributor, index) => (
               <div
                 key={contributor.userId}
-                className="flex-shrink-0 bg-white dark:bg-background rounded-lg border border-amber-200/60 dark:border-amber-800/30 p-3 min-w-[180px] sm:min-w-[200px] shadow-sm"
+                className="flex-shrink-0 bg-white dark:bg-background rounded-lg border border-amber-200/60 dark:border-amber-800/30 p-3 w-full sm:min-w-[180px] min-w-0 sm:w-full sm:min-w-[200px] min-w-0 shadow-sm"
               >
                 <div className="flex items-center gap-3">
                   <div className="relative">
@@ -2716,7 +2716,7 @@ export default function Tasks() {
                     </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-2 mt-3 pt-2 border-t border-amber-100 dark:border-amber-800/30">
+                <div className="grid grid-cols-3 gap-1 sm:gap-2 mt-3 pt-2 border-t border-amber-100 dark:border-amber-800/30">
                   <div className="text-center">
                     <div className="text-xs font-semibold text-amber-700">{contributor.stats?.totalTasksCreated || 0}</div>
                     <div className="text-[10px] text-muted-foreground">Created</div>
@@ -3817,7 +3817,7 @@ export default function Tasks() {
 
                       {/* Activity Thread */}
                       <div className="pt-4 border-t border-border/60">
-                        <div className="flex items-center justify-between mb-6">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
                               <MessageSquare className="w-4 h-4 text-primary" />
@@ -3936,7 +3936,7 @@ export default function Tasks() {
                                                     <Smile className="w-3.5 h-3.5" />
                                                   </button>
                                                 </PopoverTrigger>
-                                                <PopoverContent className="w-fit p-1.5 grid grid-cols-4 gap-1" align={isMe ? "end" : "start"}>
+                                                <PopoverContent className="w-fit p-1.5 grid grid-cols-2 sm:grid-cols-4 gap-1" align={isMe ? "end" : "start"}>
                                                   {["👍", "❤️", "🔥", "🚀", "👏", "🎉", "😮", "🙏"].map(emoji => (
                                                     <button
                                                       key={emoji}
@@ -5124,7 +5124,7 @@ export default function Tasks() {
                         {projectCommentsLoading && projectComments.length === 0 ? (
                           <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
                         ) : projectComments.length === 0 ? (
-                          <div className="text-center p-8 text-muted-foreground border-2 border-dashed border-border/50 rounded-2xl bg-muted/5">
+                          <div className="text-center p-4 sm:p-8 text-muted-foreground border-2 border-dashed border-border/50 rounded-2xl bg-muted/5">
                             <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-20" />
                             <p className="text-sm font-medium">No discussion yet on this project.</p>
                           </div>
@@ -5137,7 +5137,7 @@ export default function Tasks() {
                               {projectCommentsLoading && projectComments.length === 0 ? (
                                 <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
                               ) : projectComments.length === 0 ? (
-                                <div className="text-center p-8 text-muted-foreground border-2 border-dashed border-border/50 rounded-2xl bg-muted/5">
+                                <div className="text-center p-4 sm:p-8 text-muted-foreground border-2 border-dashed border-border/50 rounded-2xl bg-muted/5">
                                   <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-20" />
                                   <p className="text-sm font-medium">No discussion yet on this project.</p>
                                 </div>
@@ -5574,7 +5574,7 @@ export default function Tasks() {
                     className="max-h-[85vh] max-w-full object-contain rounded-lg shadow-2xl" 
                   />
                 ) : (
-                  <div className="flex flex-col items-center justify-center p-8 sm:p-12 bg-white/5 rounded-2xl border border-white/10 min-w-[260px] sm:min-w-[300px] max-w-full">
+                  <div className="flex flex-col items-center justify-center p-6 sm:p-12 bg-white/5 rounded-2xl border border-white/10 min-w-[260px] sm:min-w-[300px] max-w-full">
                     <FileText className="w-20 h-20 text-white/40 mb-4" />
                     <p className="text-white font-semibold mb-2">{previewName}</p>
                     <p className="text-white/40 text-xs mb-6">Preview not available for this file type</p>
@@ -5727,7 +5727,7 @@ export default function Tasks() {
             </Button>
             <Button
               type="button"
-              className="bg-primary hover:bg-primary/90 font-bold uppercase tracking-widest text-[11px] h-10 px-8 shadow-lg shadow-primary/20 transition-all active:scale-95"
+              className="bg-primary hover:bg-primary/90 font-bold uppercase tracking-widest text-[11px] h-10 px-4 sm:px-8 shadow-lg shadow-primary/20 transition-all active:scale-95"
               onClick={handleReassign}
               disabled={isReassigning || reassignAssignees.length === 0}
             >

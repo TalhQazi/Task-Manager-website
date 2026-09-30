@@ -48,24 +48,30 @@ export function MemeModal({ isOpen, imageUrl, caption, onClose }: MemeModalProps
 
   return (
     <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Motivational meme"
       style={{
         position: "fixed",
         inset: 0,
+        width: "100vw",
+        height: "100vh",
+        maxWidth: "none",
         zIndex: 9999,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         padding: 16,
+        boxSizing: "border-box",
         pointerEvents: "none",
       }}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Motivational meme"
         style={{
           width: "min(600px, 90vw)",
+          maxWidth: "min(600px, 90vw)",
           maxHeight: "min(85vh, 820px)",
+          margin: "0 auto",
           borderRadius: 12,
           overflow: "hidden",
           background: "#111",

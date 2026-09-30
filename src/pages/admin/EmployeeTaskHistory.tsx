@@ -155,7 +155,7 @@ const EmployeeTaskHistory = () => {
   return (
     <>
       <motion.div
-        className="pl-6 space-y-4 sm:space-y-6"
+        className="px-2 sm:pl-6 space-y-4 sm:space-y-6 page-shell"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
@@ -223,12 +223,12 @@ const EmployeeTaskHistory = () => {
           </CardHeader>
           <CardContent className="p-0">
             {loading ? (
-              <div className="p-8 text-center">
+              <div className="p-4 sm:p-8 text-center">
                 <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto" />
                 <p className="text-sm text-muted-foreground mt-2">Loading tasks...</p>
               </div>
             ) : sortedTasks.length === 0 ? (
-              <div className="p-8 text-center">
+              <div className="p-4 sm:p-8 text-center">
                 <div className="flex justify-center mb-3">
                   <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
                     <FileText className="h-6 w-6 text-muted-foreground" />
@@ -335,7 +335,7 @@ const EmployeeTaskHistory = () => {
 
             {/* Pagination — 25 tasks per page */}
             {!loading && totalPages > 1 && (
-              <div className="flex items-center justify-between gap-2 p-4 border-t">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between p-4 border-t">
                 <span className="text-xs text-muted-foreground">
                   Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}
                 </span>

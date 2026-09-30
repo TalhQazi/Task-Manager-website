@@ -731,7 +731,7 @@ export default function AdminEODReports() {
                           </div>
 
                           {/* Hours and Clocking */}
-                          <div className="grid grid-cols-3 gap-2 py-1 bg-muted/40 rounded-lg text-center text-[11px] font-mono border border-border/20 print-border">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 py-1 bg-muted/40 rounded-lg text-center text-[11px] font-mono border border-border/20 print-border">
                             <div>
                               <span className="text-muted-foreground block text-[9px] uppercase font-bold">Clock In</span>
                               <span className="text-zinc-800 dark:text-zinc-200">{item.clockIn || "—"}</span>

@@ -3,7 +3,7 @@ import { Server, Cpu, HardDrive, Activity } from "lucide-react";
 export function ServerCards() {
   return (
     <div className="bg-[#121A2F] border border-white/10 rounded-2xl p-6 shadow-xl">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
         <h2 className="text-lg font-bold text-white flex items-center gap-2">
           <Server className="h-5 w-5 text-blue-400" />
           Server Resources
@@ -24,7 +24,7 @@ export function ServerCards() {
             <span className="text-white/40 text-sm">Ubuntu 22.04</span>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-2">
               <div className="flex justify-between text-xs">
                 <span className="text-white/60 flex items-center gap-1"><Cpu className="h-3 w-3" /> CPU</span>
@@ -65,7 +65,7 @@ export function ServerCards() {
             <span className="text-white/40 text-sm">MongoDB Atlas</span>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-2">
               <div className="flex justify-between text-xs">
                 <span className="text-white/60 flex items-center gap-1"><Cpu className="h-3 w-3" /> CPU</span>

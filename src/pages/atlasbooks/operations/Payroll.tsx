@@ -29,7 +29,7 @@ const Payroll: React.FC = () => {
   const totalPayroll = roster.reduce((sum, e) => sum + e.salary, 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 page-shell">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-extrabold tracking-wider uppercase text-white font-mono">

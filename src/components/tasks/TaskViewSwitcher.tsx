@@ -100,7 +100,7 @@ export function TaskViewSwitcher() {
       {/* Shared filter bar */}
       {!["executive", "wip", "workload"].includes(view) && (
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative flex-1 min-w-[200px]">
+          <div className="relative flex-1 w-full sm:min-w-[200px] min-w-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               defaultValue={filters.search || ""}

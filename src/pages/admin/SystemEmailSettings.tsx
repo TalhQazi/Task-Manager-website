@@ -131,7 +131,7 @@ export default function SystemEmailSettings() {
 
   if (error || !formData) {
     return (
-      <div className="p-8 text-center">
+      <div className="p-4 sm:p-8 text-center">
         <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
         <h2 className="text-xl font-bold">Error loading settings</h2>
         <p className="text-muted-foreground">{(error as any)?.message || "Something went wrong"}</p>
@@ -177,9 +177,9 @@ export default function SystemEmailSettings() {
   };
 
   return (
-    <div className="pl-12 space-y-6 pb-12">
+    <div className="px-2 sm:pl-6 space-y-6 pb-12 page-shell">
       <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">System Email Settings</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">System Email Settings</h1>
         <p className="text-muted-foreground">
           Configure SMTP and automated email templates for the entire system.
         </p>
@@ -610,7 +610,7 @@ export default function SystemEmailSettings() {
           <Button
             type="submit"
             size="lg"
-            className="px-8 gap-2 font-bold shadow-lg shadow-primary/20"
+            className="px-4 sm:px-8 gap-2 font-bold shadow-lg shadow-primary/20"
             disabled={mutation.isPending}
           >
             {mutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}

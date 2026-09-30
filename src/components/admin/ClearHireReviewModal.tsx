@@ -318,7 +318,7 @@ const ClearHireReviewModal = memo(({
               </p>
               
               <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between gap-2 p-2 border rounded bg-white">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between p-2 border rounded bg-white">
                   <div className="flex-1">
                     <p className="text-xs font-semibold text-slate-700">Pre-Adverse Action Notice</p>
                     <p className="text-[10px] text-slate-400">
@@ -342,7 +342,7 @@ const ClearHireReviewModal = memo(({
                   </Button>
                 </div>
 
-                <div className="flex items-center justify-between gap-2 p-2 border rounded bg-white">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between p-2 border rounded bg-white">
                   <div className="flex-1">
                     <p className="text-xs font-semibold text-slate-700">Final Adverse Action Notice</p>
                     <p className="text-[10px] text-slate-400">

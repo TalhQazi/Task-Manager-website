@@ -578,7 +578,7 @@ export default function Cases() {
   );
 
   return (
-    <motion.div className="pl-12 pr-2 sm:pr-0 pb-6 space-y-6" variants={containerVariants} initial="hidden" animate="visible">
+    <motion.div className="px-2 sm:pl-6 pr-2 sm:pr-0 pb-6 space-y-6 page-shell" variants={containerVariants} initial="hidden" animate="visible">
       {/* Header */}
       <motion.div variants={itemVariants} className="relative overflow-hidden rounded-xl bg-gradient-to-r from-blue-900/40 via-indigo-900/20 to-transparent p-6 border border-white/10">
         <div className="relative flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">

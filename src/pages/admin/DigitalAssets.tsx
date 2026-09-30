@@ -50,7 +50,7 @@ export function DigitalAssets() {
   const emailCount = emailAccountsQuery.data?.length ?? 0;
 
   return (
-    <div className="pl-6 space-y-4 sm:space-y-5 md:space-y-6">
+    <div className="px-2 sm:px-0 sm:pl-6 space-y-4 sm:space-y-5 md:space-y-6 page-shell">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="space-y-1.5 sm:space-y-2">
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">
@@ -71,7 +71,7 @@ export function DigitalAssets() {
       </div>
 
       <Tabs defaultValue="active-websites" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto p-1 gap-1">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto p-1 gap-1 text-[10px] sm:text-sm">
           <TabsTrigger value="active-websites" className="py-2.5 flex items-center justify-center gap-2">
             <span>Active Websites</span>
             <Badge variant="secondary" className="px-1.5 py-0 text-[11px] font-semibold rounded-full min-w-[20px] text-center">

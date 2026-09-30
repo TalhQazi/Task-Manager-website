@@ -190,7 +190,7 @@ export default function ArchiveData() {
 
   return (
     <>
-      <div className="pl-6 space-y-4 sm:space-y-5 md:space-y-6 px-2 sm:px-0">
+      <div className="pl-2 sm:pl-6 space-y-4 sm:space-y-5 md:space-y-6 px-2 sm:px-0 page-shell">
         <div className="space-y-1.5 sm:space-y-2">
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
             <Archive className="h-6 w-6 sm:h-7 sm:w-7 text-blue-600" />

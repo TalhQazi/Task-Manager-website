@@ -91,7 +91,7 @@ export function EmployeeFileWorkspace({ employeeId, onBack }: EmployeeFileWorksp
 
   if (error || !fileData) {
     return (
-      <div className="p-8 max-w-lg mx-auto text-center space-y-4">
+      <div className="p-4 sm:p-8 max-w-lg mx-auto text-center space-y-4">
         <div className="p-4 rounded-xl bg-rose-950/40 border border-rose-800/60 text-rose-400 text-sm">
           {error || "Employee record not found"}
         </div>

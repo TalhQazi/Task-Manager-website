@@ -287,7 +287,7 @@ export default function Documents() {
   );
 
   return (
-    <motion.div className="pl-12 pr-2 sm:pr-0 pb-6 space-y-6" variants={containerVariants} initial="hidden" animate="visible">
+    <motion.div className="px-2 sm:pl-6 pr-2 sm:pr-0 pb-6 space-y-6 page-shell" variants={containerVariants} initial="hidden" animate="visible">
       {/* Header */}
       <motion.div variants={itemVariants} className="relative overflow-hidden rounded-xl bg-gradient-to-r from-blue-900/40 via-indigo-900/20 to-transparent p-6 border border-white/10">
         <div className="relative flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
@@ -505,7 +505,7 @@ export default function Documents() {
                 className="w-full h-[60vh] rounded-lg border-0 bg-white"
               />
             ) : (
-              <div className="flex flex-col items-center justify-center gap-3 p-8 text-center">
+              <div className="flex flex-col items-center justify-center gap-3 p-4 sm:p-8 text-center">
                 <FileText className="h-12 w-12 text-slate-500" />
                 <p className="text-sm text-slate-300">{previewAttachment?.fileName}</p>
                 <p className="text-xs text-slate-500">Preview is not available for this file type. You can download it instead.</p>

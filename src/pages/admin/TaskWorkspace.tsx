@@ -9,7 +9,7 @@ export default function TaskWorkspace() {
   return (
     <div className="p-6 h-[calc(100vh-var(--header-height,300px))] flex flex-col gap-4">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-2">
           <LayoutGrid className="h-7 w-7 text-primary" /> Task Workspace
         </h1>
         <p className="text-muted-foreground">One shared task dataset — nine ways to see it. Card, List, Compact, Kanban, Workload, Calendar, Timeline, WIP & Executive.</p>

@@ -616,7 +616,7 @@ const TimeTracking = () => {
   return (
     <>
       {/* Mobile-first container */}
-      <div className="ml-12 pl-6 space-y-4 sm:space-y-5 md:space-y-6 px-2 sm:px-0">
+      <div className="pl-2 sm:pl-6 space-y-4 sm:space-y-5 md:space-y-6 px-2 sm:px-0 page-shell">
         
         {/* Page Header - Responsive */}
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6">
@@ -804,7 +804,7 @@ const TimeTracking = () => {
                 <div className="mt-3 space-y-2">
                   {complianceFlags.slice(0, 6).map((f) => (
                     <div key={f.id} className="rounded-md border p-2 bg-background">
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <p className="text-xs sm:text-sm font-medium truncate">{f.employee}</p>
                         <Badge
                           variant="secondary"
@@ -833,7 +833,7 @@ const TimeTracking = () => {
                 <div className="mt-3 space-y-2">
                   {overtimeTrackers.slice(0, 6).map((o) => (
                     <div key={o.id} className="rounded-md border p-2 bg-background">
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <p className="text-xs sm:text-sm font-medium truncate">{o.employee}</p>
                         <Badge
                           variant="secondary"

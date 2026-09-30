@@ -977,7 +977,7 @@ export default function Messaging() {
 
   return (
     <>
-      <div className="pl-12 space-y-4 sm:space-y-5 md:space-y-6 pr-2 sm:pr-0">
+      <div className="px-2 sm:pl-6 space-y-4 sm:space-y-5 md:space-y-6 pr-2 sm:pr-0 page-shell">
         
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -1189,7 +1189,7 @@ export default function Messaging() {
         {view === "list" && activeTab === "groups" && (
           <Card>
             <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
                 <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
                   <Users className="h-5 w-5 text-purple-600" />
                   Your Enterprise Groups & Channels
@@ -1327,7 +1327,7 @@ export default function Messaging() {
 
                     if (displayConversations.length === 0) {
                       return (
-                        <div className="p-8 text-center">
+                        <div className="p-4 sm:p-8 text-center">
                           <p className="text-muted-foreground">
                             {listFilter === "archived" 
                               ? "No archived conversations" 
@@ -1380,7 +1380,7 @@ export default function Messaging() {
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between gap-2">
+                              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                 <div className="flex items-center gap-2">
                                   <p className="font-medium truncate">{conv.employee.name}</p>
                                   {conv.employee.current_status === "LUNCH" && (

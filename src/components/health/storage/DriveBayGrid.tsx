@@ -20,7 +20,7 @@ function DriveTooltip({ drive, above }: { drive: Drive; above: boolean }) {
         above ? "bottom-full mb-2" : "top-full mt-2"
       )}
     >
-      <div className="mb-2 flex items-center justify-between gap-2">
+      <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <span className="text-xs font-bold text-white">Bay {String(drive.bay).padStart(2, "0")}</span>
         <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", tokens.bg, tokens.text)}>
           {tokens.label}
@@ -166,7 +166,7 @@ export function DriveBayGrid({ drives, onSelect, selectedBay }: DriveBayGridProp
         </span>
         <span className="hidden text-[10px] font-medium text-white/25 sm:block">2.5&quot; SAS / SATA</span>
       </div>
-      <div className="grid grid-cols-4 gap-2 sm:grid-cols-8 sm:gap-2.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:grid-cols-8 sm:gap-2.5">
         {drives.map((drive, i) => {
           // Bottom visual row(s) point tooltips upward to avoid clipping below.
           const cols = 8;

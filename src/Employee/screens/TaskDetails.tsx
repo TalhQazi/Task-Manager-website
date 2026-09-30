@@ -568,7 +568,7 @@ export default function EmployeeTaskDetails() {
     return (
       <div className="space-y-6">
         <Card>
-          <CardContent className="p-8 text-center text-muted-foreground">
+          <CardContent className="p-4 sm:p-8 text-center text-muted-foreground">
             <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3 text-[#133767]" />
             Loading task...
           </CardContent>
@@ -581,7 +581,7 @@ export default function EmployeeTaskDetails() {
     return (
       <div className="space-y-6">
         <Card>
-          <CardContent className="p-8 text-center text-muted-foreground">
+          <CardContent className="p-4 sm:p-8 text-center text-muted-foreground">
             Task not found.
             <div className="mt-4">
               <Button variant="outline" onClick={() => navigate(-1)}>
@@ -741,7 +741,7 @@ export default function EmployeeTaskDetails() {
                   {commentsLoading && comments.length === 0 ? (
                     <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
                   ) : comments.length === 0 ? (
-                    <div className="text-center p-8 text-muted-foreground border-2 border-dashed border-border/50 rounded-2xl bg-muted/5">
+                    <div className="text-center p-4 sm:p-8 text-muted-foreground border-2 border-dashed border-border/50 rounded-2xl bg-muted/5">
                       <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-20" />
                       <p className="text-sm font-medium">No activity here yet. Start the conversation!</p>
                     </div>

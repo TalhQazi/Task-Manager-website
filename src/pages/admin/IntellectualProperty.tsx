@@ -166,7 +166,7 @@ export function IntellectualProperty() {
   const templateEnabled = notifSettingsQuery.data?.templateEnabled ?? true;
 
   return (
-    <div className="pl-6 space-y-4 sm:space-y-5 md:space-y-6">
+    <div className="px-2 sm:px-0 sm:pl-6 space-y-4 sm:space-y-5 md:space-y-6 page-shell">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1.5 sm:space-y-2">
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">

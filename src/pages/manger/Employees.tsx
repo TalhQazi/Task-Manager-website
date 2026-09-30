@@ -594,7 +594,7 @@ export default function Employees() {
 
   if (workspaceEmployeeId) {
     return (
-      <div className="px-2 sm:px-4 lg:px-6 py-4 max-w-7xl mx-auto">
+      <div className="px-2 sm:px-4 lg:px-6 py-4 max-w-7xl mx-auto page-shell">
         <EmployeeFileWorkspace
           employeeId={workspaceEmployeeId}
           onBack={() => {

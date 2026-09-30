@@ -762,7 +762,7 @@ const Employees = () => {
 
   if (workspaceEmployeeId) {
     return (
-      <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto page-shell">
         <EmployeeFileWorkspace
           employeeId={workspaceEmployeeId}
           onBack={() => {

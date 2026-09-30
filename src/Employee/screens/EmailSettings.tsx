@@ -148,7 +148,7 @@ export default function EmployeeEmailSettings() {
 
   if (employeeError || systemError || !formData || !systemData) {
     return (
-      <div className="p-8 text-center">
+      <div className="p-4 sm:p-8 text-center">
         <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
         <h2 className="text-xl font-bold">Error loading settings</h2>
         <p className="text-muted-foreground">{(employeeError as any)?.message || (systemError as any)?.message || "Something went wrong"}</p>
@@ -198,7 +198,7 @@ export default function EmployeeEmailSettings() {
       <div className="w-full max-w-5xl px-4 md:px-8 space-y-6 pb-12">
         <div className="space-y-2">
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-3xl font-bold tracking-tight">Email Notification Settings</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Email Notification Settings</h1>
             <span className="text-xs font-bold px-2.5 py-1 rounded bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
               Personal Preferences
             </span>
@@ -346,7 +346,7 @@ export default function EmployeeEmailSettings() {
           <Button
             type="submit"
             size="lg"
-            className="px-8 gap-2 font-bold shadow-lg shadow-primary/20"
+            className="px-4 sm:px-8 gap-2 font-bold shadow-lg shadow-primary/20"
             disabled={mutation.isPending || isSaving}
           >
             {mutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}

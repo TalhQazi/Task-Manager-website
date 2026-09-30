@@ -661,7 +661,7 @@ export default function EmployeeMessages() {
       <div className="space-y-6">
         <h1 className="text-2xl font-bold">Messages</h1>
         <Card>
-          <CardContent className="p-8 text-center">
+          <CardContent className="p-3 sm:p-8 text-center">
             <MessageCircle className="h-12 w-12 mx-auto mb-3 text-gray-300 animate-pulse" />
             <p className="text-muted-foreground">Loading conversations...</p>
           </CardContent>
@@ -1063,7 +1063,7 @@ export default function EmployeeMessages() {
             </CardHeader>
             <CardContent className="p-4">
               {groups.length === 0 ? (
-                <div className="p-8 text-center">
+                <div className="p-3 sm:p-8 text-center">
                   <Users className="h-12 w-12 mx-auto mb-3 text-gray-300" />
                   <p className="text-muted-foreground font-semibold">No group channels found</p>
                   <p className="text-xs text-muted-foreground mt-1">Your manager or admin can add you to group channels.</p>
@@ -1129,7 +1129,7 @@ export default function EmployeeMessages() {
               </CardHeader>
               <CardContent className="p-0">
                 {filteredConversations.length === 0 ? (
-                  <div className="p-8 text-center">
+                  <div className="p-3 sm:p-8 text-center">
                     <MessageCircle className="h-12 w-12 mx-auto mb-3 text-gray-300" />
                     <p className="text-muted-foreground">
                       {searchTerm ? "No conversations found" : "No conversations yet"}

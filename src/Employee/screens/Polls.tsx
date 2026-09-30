@@ -115,13 +115,13 @@ export default function EmployeePolls() {
   const detail = detailQuery.data;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 page-shell">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Ideas & Polls</h1>
         <p className="text-sm text-muted-foreground mt-1">Vote on company polls and share your feedback</p>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {[
           { label: "Active", value: dash.active, icon: Vote },
           { label: "Pending Votes", value: dash.pending, icon: Clock },
@@ -139,9 +139,9 @@ export default function EmployeePolls() {
         ))}
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 overflow-x-auto no-scrollbar max-w-full pb-1">
         {(["active", "pending", "closed"] as const).map((t) => (
-          <Button key={t} size="sm" variant={tab === t ? "default" : "outline"} onClick={() => setTab(t)} className="capitalize">
+          <Button key={t} size="sm" variant={tab === t ? "default" : "outline"} onClick={() => setTab(t)} className="capitalize shrink-0 whitespace-nowrap">
             {t === "pending" ? "Pending Votes" : t}
           </Button>
         ))}
@@ -153,7 +153,7 @@ export default function EmployeePolls() {
         </div>
       ) : filtered.length === 0 ? (
         <Card>
-          <CardContent className="p-8 text-center text-muted-foreground">No polls in this tab.</CardContent>
+          <CardContent className="p-4 sm:p-8 text-center text-muted-foreground">No polls in this tab.</CardContent>
         </Card>
       ) : (
         <div className="space-y-3">

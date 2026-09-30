@@ -198,7 +198,7 @@ export default function Vendors() {
   };
 
   return (
-    <div className="pl-6 space-y-6 p-6">
+    <div className="px-2 sm:pl-6 space-y-6 p-3 sm:p-6 page-shell">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -233,7 +233,7 @@ export default function Vendors() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{vendors.length}</div>
+              <div className="text-2xl sm:text-3xl font-bold">{vendors.length}</div>
             </CardContent>
           </Card>
         </motion.div>
@@ -246,7 +246,7 @@ export default function Vendors() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-emerald-600">{approvedCount}</div>
+              <div className="text-2xl sm:text-3xl font-bold text-emerald-600">{approvedCount}</div>
             </CardContent>
           </Card>
         </motion.div>
@@ -259,7 +259,7 @@ export default function Vendors() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-rose-600">{notApprovedCount}</div>
+              <div className="text-2xl sm:text-3xl font-bold text-rose-600">{notApprovedCount}</div>
             </CardContent>
           </Card>
         </motion.div>
@@ -425,7 +425,7 @@ export default function Vendors() {
                   </div>
 
                   {/* 1-Click Action Footer */}
-                  <div className="px-6 pb-4 pt-2 border-t flex items-center justify-between gap-2" onClick={(e) => e.stopPropagation()}>
+                  <div className="px-6 pb-4 pt-2 border-t flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-2">
                       {vendor.phone && (
                         <Button asChild size="sm" variant="outline" className="h-8 text-xs gap-1.5 text-emerald-600 border-emerald-500/30 hover:bg-emerald-50 dark:hover:bg-emerald-950/40">

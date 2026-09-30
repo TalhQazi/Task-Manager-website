@@ -80,7 +80,7 @@ export default function ChartOfAccounts() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-2">
             <ListTree className="h-8 w-8 text-primary" />
             Chart of Accounts
           </h1>
@@ -177,7 +177,7 @@ export default function ChartOfAccounts() {
             <DialogTitle>Define Account</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="col-span-1 space-y-2">
                 <label className="text-sm font-medium">Account Code</label>
                 <Input placeholder="1001" value={form.code} onChange={e => setForm({...form, code: e.target.value})} />

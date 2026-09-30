@@ -271,7 +271,7 @@ export function CustomTimerWatch({ globalReminderDays }: { globalReminderDays?: 
 
                     <CardContent className="p-4 pt-3 space-y-3">
                       {/* Reminder Schedule Days */}
-                      <div className="flex items-center justify-between gap-2 p-2.5 bg-indigo-100/50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200/60 dark:border-indigo-800/60">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between p-2.5 bg-indigo-100/50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200/60 dark:border-indigo-800/60">
                         <div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-900 dark:text-indigo-200">
                           <Bell className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
                           <span>Reminder Schedule:</span>

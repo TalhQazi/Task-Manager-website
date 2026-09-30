@@ -95,12 +95,12 @@ export default function SearchAnalytics() {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input 
               placeholder="Type anything... 'Rent for Unit 101', 'Total assets in London', 'Pending bills'" 
-              className="h-16 pl-12 pr-4 text-lg border-none shadow-none bg-transparent focus-visible:ring-0"
+              className="h-16 pl-4 sm:pl-8 md:pl-12 pr-4 text-lg border-none shadow-none bg-transparent focus-visible:ring-0"
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />
           </div>
-          <Button type="submit" className="h-14 px-8 rounded-2xl gap-2 font-bold text-lg" disabled={loading}>
+          <Button type="submit" className="h-14 px-4 sm:px-8 rounded-2xl gap-2 font-bold text-lg" disabled={loading}>
             {loading ? "Searching..." : "Search"}
           </Button>
         </form>

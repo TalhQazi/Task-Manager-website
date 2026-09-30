@@ -29,7 +29,7 @@ export default function SystemHealth() {
   }, []);
 
   return (
-    <div className="flex-1 p-8 overflow-y-auto">
+    <div className="flex-1 p-4 sm:p-8 overflow-y-auto">
       <div className="max-w-7xl mx-auto space-y-8">
         <div className="flex items-center gap-3">
           <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center border border-blue-500/20">
@@ -46,21 +46,21 @@ export default function SystemHealth() {
           <div className="bg-white/[0.02] border border-white/10 rounded-xl p-6">
             <div className="text-white/60 text-sm font-medium mb-2">Servers</div>
             <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold text-white">{overview?.servers?.live || 0}</span>
+              <span className="text-2xl sm:text-3xl font-bold text-white">{overview?.servers?.live || 0}</span>
               <span className="text-white/40">/ {overview?.servers?.total || 0} Live</span>
             </div>
           </div>
           <div className="bg-white/[0.02] border border-white/10 rounded-xl p-6">
             <div className="text-white/60 text-sm font-medium mb-2">Websites</div>
             <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold text-white">{overview?.websites?.live || 0}</span>
+              <span className="text-2xl sm:text-3xl font-bold text-white">{overview?.websites?.live || 0}</span>
               <span className="text-white/40">/ {overview?.websites?.total || 0} Live</span>
             </div>
           </div>
           <div className="bg-white/[0.02] border border-white/10 rounded-xl p-6">
             <div className="text-white/60 text-sm font-medium mb-2">Open Incidents</div>
             <div className="flex items-baseline gap-2">
-              <span className={`text-3xl font-bold ${overview?.openIncidents > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+              <span className={`text-2xl sm:text-3xl font-bold ${overview?.openIncidents > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
                 {overview?.openIncidents || 0}
               </span>
             </div>

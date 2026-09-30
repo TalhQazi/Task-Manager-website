@@ -701,7 +701,7 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
         <div className="absolute inset-0 flex flex-col pointer-events-none">
           {/* Header Content Area */}
           <div
-            className="flex-1 relative flex flex-col justify-end px-3 sm:px-6 lg:px-8 md:pl-64 pb-3 sm:pb-6 md:pb-16 animate-fade-in pointer-events-auto"
+            className="flex-1 relative flex flex-col justify-end px-3 sm:px-6 lg:px-8 md:pl-56 pb-3 sm:pb-6 md:pb-16 animate-fade-in pointer-events-auto"
           >
             {/* Header Picture Edit Buttons */}
             <div className="absolute top-4 right-4 z-20 flex gap-2">
@@ -757,7 +757,7 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
                 </DropdownMenu>
 
                 {/* Quick Actions Bar (Bottom) */}
-                <div className="flex items-center justify-start gap-4">
+                <div className="flex flex-wrap items-center justify-start gap-2 sm:gap-4">
                   <div className="md:hidden">
                     <button type="button" className="group inline-flex h-9 w-9 items-center justify-center rounded-full transition-all" aria-label="Open navigation" title="Open navigation" onClick={() => onMenuClick?.()} style={{ backgroundColor: 'var(--tb-header-bg, rgba(255,255,255,0.1))' }}><Menu className="h-5 w-5" style={{ color: 'var(--tb-sidebar-text-color, white)' }} /></button>
                   </div>

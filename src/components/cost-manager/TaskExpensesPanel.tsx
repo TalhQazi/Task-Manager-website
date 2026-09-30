@@ -53,7 +53,7 @@ export default function TaskExpensesPanel({ taskId }: { taskId: string }) {
             .filter(Boolean)
             .join(" / ");
           return (
-            <div key={item.id} className="flex items-center justify-between gap-2 text-xs">
+            <div key={item.id} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-xs">
               <span className="flex items-center gap-1.5 min-w-0">
                 <span className="truncate font-medium">{String(item.itemName || "")}</span>
                 {(item.warnings || []).length > 0 && (

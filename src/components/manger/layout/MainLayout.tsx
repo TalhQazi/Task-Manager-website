@@ -914,7 +914,7 @@ export function MainLayout({ children }: MainLayoutProps) {
             <div 
               className={cn(
                 "flex-1 relative flex flex-col justify-end px-3 sm:px-6 lg:px-8 pb-4 sm:pb-8 md:pb-12 lg:pb-16 animate-fade-in pointer-events-auto",
-                isSidebarCollapsed ? "md:pl-24" : "md:pl-60 lg:pl-68"
+                isSidebarCollapsed ? "md:pl-20" : "md:pl-56 lg:pl-64"
               )}
             >
               {/* Header Picture Edit Button (Camera Icon) */}
@@ -1365,7 +1365,7 @@ export function MainLayout({ children }: MainLayoutProps) {
 
       {/* Mobile Sidebar */}
       <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
-        <SheetContent side="left" className="p-0 w-64 bg-gradient-to-b from-[#0B1323] via-[#0B1323] to-[#0F172A]">
+        <SheetContent side="left" className="p-0 w-[min(18rem,85vw)] max-w-[85vw] bg-gradient-to-b from-[#0B1323] via-[#0B1323] to-[#0F172A]">
           <SheetHeader className="sr-only">
             <SheetTitle>Navigation Menu</SheetTitle>
             <SheetDescription>Main navigation for managers</SheetDescription>
@@ -1463,12 +1463,12 @@ export function MainLayout({ children }: MainLayoutProps) {
         </div>
         <main
           className={cn(
-            "flex-1 min-h-screen pt-[180px] sm:pt-[240px] md:pt-[300px] transition-all duration-300",
+            "flex-1 min-h-screen min-w-0 pt-[180px] sm:pt-[240px] md:pt-[300px] transition-all duration-300 overflow-x-hidden",
             isSidebarCollapsed ? "md:ml-20" : "md:ml-56 lg:ml-64"
           )}
           style={{ background: isMetallic ? 'transparent' : 'var(--tb-dashboard-bg)' }}
         >
-          <div className="w-full px-4 py-4 sm:py-8 animate-fade-in">
+          <div className="w-full px-3 sm:px-4 lg:px-8 py-4 sm:py-8 animate-fade-in overflow-x-hidden page-shell">
             {children}
           </div>
         </main>

@@ -547,7 +547,7 @@ export default function Locations() {
       initial="hidden"
       animate="visible"
       variants={containerVariants}
-      className="pl-6 space-y-6"
+      className="px-2 sm:px-0 sm:pl-6 space-y-6 page-shell"
     >
       {/* Header */}
       <motion.div variants={headerVariants} className="flex items-center justify-between">
@@ -583,7 +583,7 @@ export default function Locations() {
 
       {/* Stats Cards */}
       <motion.div 
-        className="grid grid-cols-2 md:grid-cols-4 gap-4"
+        className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4"
         variants={{
           hidden: { opacity: 0 },
           visible: {

@@ -426,7 +426,7 @@ export default function EmployeeEODReports() {
           </DialogHeader>
 
           {selectedReport && (
-            <div className="p-6 space-y-5">
+            <div className="p-3 sm:p-6 space-y-5">
               {/* Header Details Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-muted/40 rounded-xl border border-border/50 text-xs">
                 <div>
@@ -510,7 +510,7 @@ export default function EmployeeEODReports() {
                 {/* Comments List */}
                 <div className="space-y-3 max-h-[260px] overflow-y-auto custom-scrollbar pr-1">
                   {(!selectedReport.comments || selectedReport.comments.length === 0) ? (
-                    <div className="p-6 text-center border border-dashed border-border/60 rounded-xl bg-muted/20">
+                    <div className="p-3 sm:p-6 text-center border border-dashed border-border/60 rounded-xl bg-muted/20">
                       <MessageSquare className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
                       <p className="text-xs font-medium text-muted-foreground">
                         No manager comments yet for this EOD report.

@@ -195,7 +195,7 @@ export default function Payroll() {
 
   if (loading) {
     return (
-      <div className="px-4 sm:px-6 p-6 text-center">
+      <div className="px-4 sm:px-6 p-6 text-center page-shell">
         <p>Loading payroll...</p>
       </div>
     );
@@ -238,7 +238,7 @@ export default function Payroll() {
 
       {/* SUMMARY CARDS */}
       {calculatedPayroll && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-2">
@@ -363,7 +363,7 @@ export default function Payroll() {
 
       {!calculatedPayroll && (
         <Card>
-          <CardContent className="p-8 text-center text-muted-foreground">
+          <CardContent className="p-4 sm:p-8 text-center text-muted-foreground">
             <p>No time entries found for this month</p>
           </CardContent>
         </Card>

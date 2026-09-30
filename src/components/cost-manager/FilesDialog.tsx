@@ -119,7 +119,7 @@ export default function FilesDialog({
             return (
               <div
                 key={att.id}
-                className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-border/60 text-sm"
+                className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-3 py-2 rounded-lg border border-border/60 text-sm"
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <FileText className="w-4 h-4 text-primary flex-shrink-0" />

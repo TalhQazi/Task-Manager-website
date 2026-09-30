@@ -224,7 +224,7 @@ export default function AppStoreLinks() {
   };
 
   return (
-    <div className="pl-6 space-y-4 sm:space-y-5 md:space-y-6">
+    <div className="px-2 sm:px-0 sm:pl-6 space-y-4 sm:space-y-5 md:space-y-6 page-shell">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="space-y-1.5 sm:space-y-2">
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
@@ -363,9 +363,9 @@ export default function AppStoreLinks() {
       <Card>
         <CardContent className="p-0">
           {linksQuery.isLoading ? (
-            <div className="p-8 text-center text-muted-foreground">Loading...</div>
+            <div className="p-4 sm:p-8 text-center text-muted-foreground">Loading...</div>
           ) : links.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground">
+            <div className="p-4 sm:p-8 text-center text-muted-foreground">
               No app store links yet. Add Google Play and Apple Store URLs to copy when you need them.
             </div>
           ) : (

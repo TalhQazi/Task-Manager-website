@@ -648,7 +648,7 @@ export default function Settings() {
                 )}
 
                 {!headerSettings.imageConfig.dataUrl && (
-                  <div className="rounded-lg border border-dashed border-muted-foreground/30 p-8 text-center">
+                  <div className="rounded-lg border border-dashed border-muted-foreground/30 p-4 sm:p-8 text-center">
                     <ImageIcon className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
                     <p className="text-sm text-muted-foreground">No image uploaded</p>
                     <p className="text-xs text-muted-foreground mt-1">Default color gradient will be used</p>
@@ -1054,7 +1054,7 @@ export default function Settings() {
   return (
     <>
       {/* Mobile-first container */}
-      <div className="pl-12 space-y-4 sm:space-y-5 md:space-y-6 pr-2 sm:pr-0">
+      <div className="px-2 sm:pl-6 space-y-4 sm:space-y-5 md:space-y-6 pr-2 sm:pr-0 page-shell">
 
         {/* Page Header - Responsive */}
         <div className="space-y-1.5 sm:space-y-2">

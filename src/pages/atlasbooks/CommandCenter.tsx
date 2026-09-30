@@ -173,7 +173,7 @@ const CommandCenter: React.FC = () => {
             {heatmapRows.map((row, idx) => (
               <div key={idx} className="flex items-center justify-between space-x-4">
                 <span className="text-xs font-bold text-[#34495e] w-24 truncate">{row.name}</span>
-                <div className="flex-1 grid grid-cols-6 gap-2">
+                <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
                   {row.cells.map((cellClass, cIdx) => (
                     <div 
                       key={cIdx} 

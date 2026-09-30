@@ -223,7 +223,7 @@ export default function ShoppingLists() {
       <div className="max-w-7xl mx-auto space-y-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">
+            <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">
               Shopping & Procurement
             </h1>
             <p className="text-muted-foreground mt-1">Manage vendor lists, assignments, and real-time store tracking.</p>

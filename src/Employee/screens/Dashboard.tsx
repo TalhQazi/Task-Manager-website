@@ -72,7 +72,7 @@ function CircularProgress({
   const strokeDashoffset = circumference - (percentage / 100) * circumference;
 
   return (
-    <div className="flex flex-col items-center">
+    <div className="flex flex-col items-center page-shell">
       <div className="relative w-24 h-24">
         <svg className="w-24 h-24 transform -rotate-90">
           <circle
@@ -840,7 +840,7 @@ export default function EmployeeDashboard() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
             <CircularProgress
               value={stats.total}
               total={Math.max(stats.total, 1)}

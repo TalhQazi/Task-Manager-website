@@ -348,7 +348,7 @@ export default function BreakTracking() {
       )}
 
       {/* KPI Cards Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         
         {/* KPI: Active Lunches */}
         <Card className="bg-white/[0.02] border-white/5 shadow-2xl backdrop-blur-md relative overflow-hidden group">
@@ -511,12 +511,12 @@ export default function BreakTracking() {
             </CardHeader>
             <CardContent className="p-0">
               {loading ? (
-                <div className="p-8 text-center text-sm text-white/40 flex items-center justify-center gap-2">
+                <div className="p-4 sm:p-8 text-center text-sm text-white/40 flex items-center justify-center gap-2">
                   <div className="h-4 w-4 border-2 border-[#00C6FF] border-t-transparent rounded-full animate-spin" />
                   Loading session data...
                 </div>
               ) : filteredSessions.length === 0 ? (
-                <div className="p-8 text-center text-sm text-white/40">
+                <div className="p-4 sm:p-8 text-center text-sm text-white/40">
                   No break sessions recorded for the selected filters.
                 </div>
               ) : (
@@ -615,12 +615,12 @@ export default function BreakTracking() {
             </CardHeader>
             <CardContent className="p-0 flex-1 overflow-y-auto no-scrollbar">
               {loading ? (
-                <div className="p-8 text-center text-sm text-white/40 flex items-center justify-center gap-2">
+                <div className="p-4 sm:p-8 text-center text-sm text-white/40 flex items-center justify-center gap-2">
                   <div className="h-4 w-4 border-2 border-[#00C6FF] border-t-transparent rounded-full animate-spin" />
                   Calculating stats...
                 </div>
               ) : filteredStats.length === 0 ? (
-                <div className="p-8 text-center text-sm text-white/40">
+                <div className="p-4 sm:p-8 text-center text-sm text-white/40">
                   No aggregated records found.
                 </div>
               ) : (

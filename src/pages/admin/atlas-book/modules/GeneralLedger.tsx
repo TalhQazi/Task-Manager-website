@@ -106,7 +106,7 @@ export default function GeneralLedger() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-2">
             <Calculator className="h-8 w-8 text-primary" />
             General Ledger
           </h1>
@@ -215,14 +215,14 @@ export default function GeneralLedger() {
             </div>
 
             <div className="space-y-4">
-              <div className="grid grid-cols-6 gap-2 text-xs font-bold uppercase text-muted-foreground px-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-xs font-bold uppercase text-muted-foreground px-2">
                 <div className="col-span-3">Account</div>
                 <div className="text-right">Debit</div>
                 <div className="text-right">Credit</div>
                 <div />
               </div>
               {form.lines.map((line, i) => (
-                <div key={i} className="grid grid-cols-6 gap-2 items-center">
+                <div key={i} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 items-center">
                   <div className="col-span-3">
                     <select 
                       className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm"

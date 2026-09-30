@@ -428,7 +428,7 @@ export default function CRMCommandCore() {
                 <div className="bg-neutral-900/40 border border-white/5 rounded-2xl p-6 shadow-2xl relative overflow-hidden backdrop-blur">
                   <div className="absolute top-0 right-0 w-24 h-24 rounded-full blur-3xl bg-amber-500/5" />
                   
-                  <div className="flex items-center justify-between mb-6">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
                     <div>
                       <h2 className="text-base font-extrabold text-white flex items-center gap-2">
                         <Activity className="w-4 h-4 text-amber-400" />
@@ -626,7 +626,7 @@ export default function CRMCommandCore() {
 
                 {/* Revenue Gravity Engine (RGE) Forecast list */}
                 <div className="bg-neutral-900/40 border border-white/5 rounded-2xl p-6 shadow-2xl backdrop-blur">
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
                     <div className="flex items-center gap-2">
                       <Zap className="w-4 h-4 text-violet-400 animate-bounce" />
                       <h2 className="text-base font-extrabold text-white">Revenue Gravity opportunities</h2>
@@ -726,7 +726,7 @@ export default function CRMCommandCore() {
                     automationRules.map((rule, idx) => (
                       <div key={idx} className="p-5 rounded-2xl bg-neutral-950/40 border border-white/5 hover:border-indigo-500/20 hover:bg-neutral-950/60 transition-all flex flex-col justify-between group">
                         <div>
-                          <div className="flex items-center justify-between mb-4">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
                             <span className="text-xs font-black text-white leading-tight truncate mr-2">{rule.name}</span>
                             <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${rule.isActive ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/25" : "bg-neutral-800 text-neutral-500"}`}>
                               {rule.isActive ? "Active" : "Disabled"}

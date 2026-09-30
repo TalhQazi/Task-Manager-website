@@ -42,7 +42,7 @@ export function WebsiteStatusTable() {
 
       <div className="flex-1 overflow-auto no-scrollbar p-2">
         {websites.length === 0 ? (
-          <div className="p-8 text-center text-white/40">No websites are currently being monitored. Enable monitoring in Digital Assets.</div>
+          <div className="p-4 sm:p-8 text-center text-white/40">No websites are currently being monitored. Enable monitoring in Digital Assets.</div>
         ) : (
           <div className="space-y-2">
             {websites.map((site) => (

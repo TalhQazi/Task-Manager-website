@@ -172,7 +172,7 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
   }
 
   return (
-    <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary flex-shrink-0 border border-primary/20 uppercase">
+    <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary flex-shrink-0 border border-primary/20 uppercase page-shell">
       {projectName.slice(0, 2).toUpperCase()}
     </div>
   );
@@ -2860,7 +2860,7 @@ export default function Tasks() {
 
       {/* Filters */}
       <div className="flex flex-col md:flex-row gap-3 md:gap-4 mb-4 items-stretch md:items-center">
-        <div className="relative flex-1 min-w-[220px] w-full">
+        <div className="relative flex-1 w-full sm:min-w-[220px] min-w-0 w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none z-10" />
           <Input
             placeholder={selectedProject ? "Search tasks in this project..." : "Search projects, tasks, or assignee..."}
@@ -3798,7 +3798,7 @@ export default function Tasks() {
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-64 p-2 z-[150]" align="end">
-                      <div className="grid grid-cols-6 gap-1 max-h-48 overflow-y-auto custom-scrollbar">
+                      <div className="grid grid-cols-3 sm:grid-cols-6 gap-1 max-h-48 overflow-y-auto custom-scrollbar">
                         {["📁", "🚀", "💻", "🎨", "📈", "⚙️", "🔧", "💡", "📅", "✏️", "🔥", "✨", "🌟", "🎯", "🏆", "🔒", "🔑", "📦", "📝", "📊", "💰", "📢", "💬", "❤️", "👍", "🍀", "🌍", "🍕", "☕", "🎮", "🎵", "🚗", "🏠", "🏢"].map((emoji) => (
                           <button
                             key={emoji}
@@ -4549,7 +4549,7 @@ export default function Tasks() {
                         {commentsLoading && comments.length === 0 ? (
                           <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
                         ) : comments.length === 0 ? (
-                          <div className="text-center p-8 text-muted-foreground border-2 border-dashed border-border/50 rounded-2xl bg-muted/5">
+                          <div className="text-center p-4 sm:p-8 text-muted-foreground border-2 border-dashed border-border/50 rounded-2xl bg-muted/5">
                             <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-20" />
                             <p className="text-sm font-medium">No activity here yet. Start the conversation!</p>
                           </div>
@@ -4618,7 +4618,7 @@ export default function Tasks() {
                                               <Smile className="w-3.5 h-3.5" />
                                             </button>
                                           </PopoverTrigger>
-                                          <PopoverContent className="w-fit p-1.5 grid grid-cols-4 gap-1" align={isMe ? "end" : "start"}>
+                                          <PopoverContent className="w-fit p-1.5 grid grid-cols-2 sm:grid-cols-4 gap-1" align={isMe ? "end" : "start"}>
                                             {["👍", "❤️", "🔥", "🚀", "👏", "🎉", "😮", "🙏"].map(emoji => (
                                               <button
                                                 key={emoji}
@@ -5389,7 +5389,7 @@ export default function Tasks() {
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-64 p-2 z-[150]" align="end">
-                      <div className="grid grid-cols-6 gap-1 max-h-48 overflow-y-auto custom-scrollbar">
+                      <div className="grid grid-cols-3 sm:grid-cols-6 gap-1 max-h-48 overflow-y-auto custom-scrollbar">
                         {["📁", "🚀", "💻", "🎨", "📈", "⚙️", "🔧", "💡", "📅", "✏️", "🔥", "✨", "🌟", "🎯", "🏆", "🔒", "🔑", "📦", "📝", "📊", "💰", "📢", "💬", "❤️", "👍", "🍀", "🌍", "🍕", "☕", "🎮", "🎵", "🚗", "🏠", "🏢"].map((emoji) => (
                           <button
                             key={emoji}
@@ -6016,7 +6016,7 @@ export default function Tasks() {
               </button>
             </div>
             {previewUrl && (
-              <div className="flex flex-col items-center bg-black/40 backdrop-blur-md p-8 rounded-2xl border border-white/10">
+              <div className="flex flex-col items-center bg-black/40 backdrop-blur-md p-4 sm:p-8 rounded-2xl border border-white/10">
                 {(previewUrl.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp)/i) || previewUrl.startsWith("data:image/")) ? (
                   <img 
                     src={previewUrl} 

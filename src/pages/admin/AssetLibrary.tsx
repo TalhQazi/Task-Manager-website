@@ -647,7 +647,7 @@ export default function AssetLibrary({
   const total = assetsQuery.data?.total ?? assets.length;
 
   return (
-    <div className="pl-6 space-y-4 sm:space-y-5 md:space-y-6">
+    <div className="px-2 sm:px-0 sm:pl-6 space-y-4 sm:space-y-5 md:space-y-6 page-shell">
       <AssetLibraryHeader title={title} description={description} hideCarousel={hideHeaderCarousel} />
 
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -729,7 +729,7 @@ export default function AssetLibrary({
       <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4">
         <Card className="flex flex-col h-[calc(100vh-260px)] min-h-[420px] overflow-hidden">
           <CardHeader className="pb-2">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <CardTitle className="text-base">Folders</CardTitle>
               {selectedFolder ? (
                 <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -1085,7 +1085,7 @@ export default function AssetLibrary({
           </CardContent>
 
           <div className="border-t bg-card px-4 py-3">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="text-xs text-muted-foreground font-medium">
                 Showing <span className="text-foreground">{(page - 1) * limit + 1}</span> to <span className="text-foreground">{Math.min(page * limit, total)}</span> of <span className="text-foreground">{total}</span> assets
               </div>
@@ -1442,7 +1442,7 @@ export default function AssetLibrary({
                     );
                   }
                   return (
-                    <div className="p-8 text-center text-sm text-muted-foreground">
+                    <div className="p-4 sm:p-8 text-center text-sm text-muted-foreground">
                       Preview not available for this file type.
                     </div>
                   );
@@ -1576,7 +1576,7 @@ export default function AssetLibrary({
             <div className="space-y-2 max-h-[400px] overflow-y-auto">
               {versionsQuery.data.map((v) => (
                 <div key={v.id} className="p-3 rounded-md border bg-muted/50 text-sm">
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div className="font-medium">Version {v.versionNumber}</div>
                     <div className="text-xs text-muted-foreground">
                       {v.createdAt ? new Date(v.createdAt).toLocaleString() : ""}

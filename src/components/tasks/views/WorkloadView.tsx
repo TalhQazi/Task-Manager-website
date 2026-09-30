@@ -23,7 +23,7 @@ export default function WorkloadView() {
           <div key={r.assignee} className="rounded-xl border border-border bg-card p-3 flex items-center gap-3">
             <span className="h-9 w-9 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center shrink-0">{initials(r.assignee)}</span>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between gap-2 mb-1">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-1">
                 <span className="font-medium text-sm truncate">{r.assignee}</span>
                 <span className="text-xs text-muted-foreground shrink-0">
                   {r.active} active

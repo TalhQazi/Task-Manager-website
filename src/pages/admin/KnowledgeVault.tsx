@@ -1106,11 +1106,11 @@ export default function KnowledgeVault() {
   /* -------------------------------------------------------------------------- */
 
   return (
-    <div className="flex flex-col h-[calc(100vh-2rem)] min-h-[600px] w-full bg-[#0b0f19] text-slate-100 antialiased font-sans select-none -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 overflow-hidden">
+    <div className="flex flex-col h-[calc(100dvh-2rem)] w-full bg-[#0b0f19] text-slate-100 antialiased font-sans select-none -m-4 sm:-m-6 lg:-m-8 p-3 sm:p-6 overflow-hidden page-shell">
       {/* -------------------------------------------------------------------- */}
       {/*                          TOP HEADER BAR                              */}
       {/* -------------------------------------------------------------------- */}
-      <header className="flex items-center justify-between gap-4 pb-4 border-b border-slate-800/80 shrink-0">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 pb-4 border-b border-slate-800/80 shrink-0">
         {/* Left: Logo & Subtitle */}
         <div className="flex flex-col">
           <div className="flex items-center gap-2">
@@ -1928,7 +1928,7 @@ export default function KnowledgeVault() {
                   {(activeNote.actionItems || []).map((item) => (
                     <div
                       key={item.id}
-                      className="group flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg bg-slate-900/40 hover:bg-slate-900/80 border border-slate-800/60 transition-all"
+                      className="group flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-2 py-1.5 rounded-lg bg-slate-900/40 hover:bg-slate-900/80 border border-slate-800/60 transition-all"
                     >
                       <label className="flex items-center gap-2.5 cursor-pointer flex-1 min-w-0">
                         <input
@@ -2747,7 +2747,7 @@ export default function KnowledgeVault() {
       <Dialog open={previewModalOpen} onOpenChange={setPreviewModalOpen}>
         <DialogContent className="bg-[#111827] border border-slate-700 text-slate-100 max-w-3xl max-h-[85vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle className="flex items-center justify-between gap-2 text-sm">
+            <DialogTitle className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-sm">
               <span className="truncate max-w-md">{previewAttachment?.fileName}</span>
               {previewAttachment && getAttachmentUrl(previewAttachment, auth.token) ? (
                 <a
@@ -2783,7 +2783,7 @@ export default function KnowledgeVault() {
                 className="w-full h-[60vh] rounded-lg border-0"
               />
             ) : (
-              <div className="flex flex-col items-center justify-center gap-3 p-8 text-center">
+              <div className="flex flex-col items-center justify-center gap-3 p-4 sm:p-8 text-center">
                 <FileText className="h-12 w-12 text-slate-500" />
                 <p className="text-xs text-slate-300">{previewAttachment?.fileName}</p>
                 {previewAttachment && getAttachmentUrl(previewAttachment, auth.token) ? (

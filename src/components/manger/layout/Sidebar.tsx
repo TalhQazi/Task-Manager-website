@@ -349,8 +349,8 @@ export function Sidebar({ mode = "desktop", onNavigate, isCollapsed = false, onT
         isMobile
           ? "w-64 h-full"
           : isCollapsed
-          ? "fixed left-0 top-[300px] bottom-0 w-20 shadow-floating"
-          : "fixed left-0 top-[300px] bottom-0 w-56 lg:w-64 shadow-floating",
+          ? "fixed left-0 top-[180px] sm:top-[240px] md:top-[300px] bottom-0 w-20 shadow-floating"
+          : "fixed left-0 top-[180px] sm:top-[240px] md:top-[300px] bottom-0 w-56 lg:w-64 shadow-floating",
         isMetallic && "border-r border-[#ffd27a]/20 shadow-[inset_-2px_0_10px_rgba(0,0,0,0.8),_inset_0_1px_2px_rgba(255,255,255,0.1)]"
       )}
       style={{

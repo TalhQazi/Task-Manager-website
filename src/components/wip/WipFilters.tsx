@@ -49,7 +49,7 @@ export function WipFilters({ value, onChange, departments = [], projects = [], e
   return (
     <div className={cn("flex flex-wrap items-center gap-2", className)}>
       {/* Search spans employee / task / project / customer / property / vehicle / location */}
-      <div className="relative min-w-[220px] flex-1">
+      <div className="relative w-full sm:min-w-[220px] min-w-0 flex-1">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/30" />
         <input
           value={search}

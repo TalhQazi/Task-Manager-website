@@ -271,7 +271,7 @@ export default function AdminPolls() {
   );
 
   return (
-    <div className="pl-6 space-y-6">
+    <div className="space-y-6 px-0 sm:px-0 page-shell">
       <div className="flex flex-col sm:flex-row justify-between gap-4 items-start sm:items-center">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Ideas & Polls</h1>
@@ -285,7 +285,7 @@ export default function AdminPolls() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {cards.map((c) => (
           <Card key={c.label} className="border-border/50 bg-card/60">
             <CardContent className="p-4 flex items-center justify-between">

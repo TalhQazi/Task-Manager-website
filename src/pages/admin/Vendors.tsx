@@ -346,7 +346,7 @@ export default function Vendors() {
 
   return (
     <>
-      <div className="pl-6 space-y-6">
+      <div className="px-2 sm:px-0 sm:pl-6 space-y-6 page-shell">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -756,7 +756,7 @@ export default function Vendors() {
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-4">
                 <Label htmlFor="name" className="text-right">
                   Name
                 </Label>

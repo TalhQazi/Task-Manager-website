@@ -58,7 +58,7 @@ export function VideoUploadField({ value, onChange }: VideoUploadFieldProps) {
       {hasValue ? (
         <div className="space-y-2">
           {isExternal ? (
-            <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-muted/30 p-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-lg border border-border bg-muted/30 p-3">
               <span className="text-sm text-muted-foreground truncate">Current video (external link)</span>
               <a
                 href={value}

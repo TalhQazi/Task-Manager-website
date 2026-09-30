@@ -132,7 +132,7 @@ export default function EmployeeMeetings() {
   };
 
   return (
-    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6 page-shell">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
         <div>
@@ -229,7 +229,7 @@ export default function EmployeeMeetings() {
                     </div>
                   </div>
 
-                  <div className="pt-4 mt-3 border-t border-border/60 flex items-center justify-between gap-2">
+                  <div className="pt-4 mt-3 border-t border-border/60 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-1.5">
                       <Button
                         type="button"

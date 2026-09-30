@@ -130,12 +130,12 @@ export default function CRMCommunication() {
   }, [logs]);
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-black page-shell">
       <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
         <div className="bg-gradient-to-r from-neutral-900 to-neutral-950 rounded-2xl border border-neutral-800 shadow-xl p-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-white tracking-tight">Communication Log</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Communication Log</h1>
               <p className="text-neutral-400 mt-1 text-sm">Track all customer interactions: emails, messages, calls, and internal notes.</p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -192,12 +192,12 @@ export default function CRMCommunication() {
                 className="w-full pl-10 pr-4 py-2.5 bg-neutral-800 border border-neutral-700 rounded-lg focus:ring-2 focus:ring-neutral-600 focus:border-neutral-600 outline-none transition-all duration-200 text-white placeholder-neutral-500"
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 overflow-x-auto no-scrollbar max-w-full">
               {['Emails', 'SMS', 'Calls', 'Notes'].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`px-4 py-2 rounded-lg transition-all duration-200 ${activeTab === tab ? 'bg-neutral-700 text-white' : 'bg-neutral-800 text-neutral-400 hover:text-white'}`}
+                  className={`px-4 py-2 rounded-lg transition-all duration-200 whitespace-nowrap shrink-0 ${activeTab === tab ? 'bg-neutral-700 text-white' : 'bg-neutral-800 text-neutral-400 hover:text-white'}`}
                 >
                   {tab}
                 </button>

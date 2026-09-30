@@ -1148,7 +1148,7 @@ export default function Messages() {
       {view === "list" && activeTab === "groups" && (
         <Card className="border-0 sm:border shadow-none sm:shadow">
           <CardContent className="p-3 sm:p-4">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
               <h3 className="text-sm sm:text-base font-bold text-slate-800 flex items-center gap-2">
                 <Users className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600" />
                 Your Enterprise Groups & Channels

@@ -225,7 +225,7 @@ export default function AsanaImport() {
 
   return (
     <>
-      <div className="pl-6 space-y-4 sm:space-y-5 md:space-y-6 px-2 sm:px-0">
+      <div className="pl-2 sm:pl-6 space-y-4 sm:space-y-5 md:space-y-6 px-2 sm:px-0 page-shell">
         <div className="space-y-1.5 sm:space-y-2">
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Import from Asana</h1>
           <p className="text-xs sm:text-sm md:text-base text-muted-foreground max-w-3xl">
@@ -629,7 +629,7 @@ export default function AsanaImport() {
                   {/* Animated Data Stats Grid */}
                   {job.result?.imported && (
                     <motion.div 
-                      className="grid grid-cols-4 gap-2"
+                      className="grid grid-cols-2 sm:grid-cols-4 gap-2"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: 0.3 }}

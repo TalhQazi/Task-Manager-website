@@ -345,7 +345,7 @@ export default function EmployeeClocked() {
           <h1 className="text-2xl font-bold">Attendance</h1>
         </div>
         <Card>
-          <CardContent className="p-8 text-center">
+          <CardContent className="p-3 sm:p-8 text-center">
             <Clock className="h-12 w-12 mx-auto mb-3 text-gray-300 animate-pulse" />
             <p className="text-muted-foreground">Loading...</p>
           </CardContent>
@@ -357,7 +357,7 @@ export default function EmployeeClocked() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold">Attendance</h1>
         <div className="text-right">
           <p className="text-xl sm:text-3xl font-bold text-[#133767]">{formatTime(currentTime)}</p>

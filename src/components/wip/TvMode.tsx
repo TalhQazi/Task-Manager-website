@@ -70,16 +70,16 @@ export function TvMode({ onExit }: { onExit: () => void }) {
         </div>
       )}
 
-      <header className="flex items-center justify-between px-8 py-5">
+      <header className="flex items-center justify-between px-4 sm:px-8 py-5">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Work In Progress</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Work In Progress</h1>
           <p className="text-sm text-white/40">
             {sessions.length} active {sessions.length === 1 ? "session" : "sessions"}
             {pageCount > 1 && ` · page ${page + 1} of ${pageCount}`}
           </p>
         </div>
         <div className="flex items-center gap-6">
-          <span className="text-3xl font-bold tabular-nums text-white/80">
+          <span className="text-2xl sm:text-3xl font-bold tabular-nums text-white/80">
             {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
           </span>
           <button type="button" onClick={onExit} aria-label="Exit TV mode" className="rounded-lg p-2 text-white/40 transition-colors hover:bg-white/10 hover:text-white">
@@ -89,7 +89,7 @@ export function TvMode({ onExit }: { onExit: () => void }) {
       </header>
 
       {/* Large, high-contrast stats */}
-      <div className="grid grid-cols-3 gap-4 px-8 pb-6 lg:grid-cols-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 px-4 sm:px-8 pb-6 lg:grid-cols-6">
         {stats.map((s) => (
           <div key={s.label} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-center">
             <div className={cn("text-4xl font-bold tabular-nums", s.tone)}>{s.value}</div>
@@ -99,7 +99,7 @@ export function TvMode({ onExit }: { onExit: () => void }) {
       </div>
 
       {/* Rows — large type, legible from across a room */}
-      <div className="px-8">
+      <div className="px-4 sm:px-8">
         {rows.length === 0 ? (
           <div className="py-24 text-center text-2xl text-white/25">No active work</div>
         ) : (

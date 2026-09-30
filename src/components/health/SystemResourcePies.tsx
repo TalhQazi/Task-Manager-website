@@ -158,7 +158,7 @@ export function SystemResourcePies() {
 
   return (
     <div className="bg-[#121A2F] border border-white/10 rounded-2xl shadow-xl p-6">
-      <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6 flex-wrap gap-2">
         <h2 className="text-lg font-bold text-white flex items-center gap-2">
           <Server className="h-5 w-5 text-blue-400" />
           Host Resources

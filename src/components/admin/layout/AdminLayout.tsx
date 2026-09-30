@@ -30,10 +30,29 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const auth = getAuthState();
 
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [headerHeight, setHeaderHeight] = useState(300);
+  const [headerHeight, setHeaderHeight] = useState(() => {
+    if (typeof window === "undefined") return 300;
+    const w = window.innerWidth;
+    if (w < 640) return 160;
+    if (w < 768) return 220;
+    return 300;
+  });
   const [pageKey, setPageKey] = useState(0);
 
   const [headerKey, setHeaderKey] = useState(0);
+
+  // Keep layout padding in sync with responsive header heights (h-40 / 220 / 300)
+  useEffect(() => {
+    const updateHeaderHeight = () => {
+      const w = window.innerWidth;
+      if (w < 640) setHeaderHeight(160);
+      else if (w < 768) setHeaderHeight(220);
+      else setHeaderHeight(300);
+    };
+    updateHeaderHeight();
+    window.addEventListener("resize", updateHeaderHeight);
+    return () => window.removeEventListener("resize", updateHeaderHeight);
+  }, []);
 
   // Trigger page transition animation on route change
   useEffect(() => {
@@ -124,15 +143,15 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             <Sidebar />
           </div>
 
-          <main className={cn("flex-1 px-4 sm:px-6 lg:px-8 py-6 transition-all duration-300 min-w-0 w-full min-h-[calc(100vh-var(--header-height,300px))] flex flex-col", "md:ml-56")}>
-            <div key={pageKey} className="w-full max-w-[1600px] mx-auto animate-page-enter flex-1 flex flex-col">
+          <main className={cn("flex-1 px-3 sm:px-6 lg:px-8 py-4 sm:py-6 transition-all duration-300 min-w-0 w-full min-h-[calc(100vh-var(--header-height,300px))] flex flex-col overflow-x-hidden", "md:ml-56")}>
+            <div key={pageKey} className="w-full max-w-[1600px] mx-auto animate-page-enter flex-1 flex flex-col min-w-0 page-shell">
               {children}
             </div>
           </main>
         </div>
 
         <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
-          <SheetContent side="left" className="p-0 w-64">
+          <SheetContent side="left" className="p-0 w-[min(18rem,85vw)] max-w-[85vw]">
             <Sidebar mode="mobile" onNavigate={() => setMobileSidebarOpen(false)} />
           </SheetContent>
         </Sheet>

@@ -1424,7 +1424,7 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
 
             </div>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-6">
+            <div className="flex-1 flex flex-col items-center justify-center text-center p-4 sm:p-8 space-y-6">
               <div className="w-24 h-24 rounded-full bg-[#4F7CFF]/5 border border-[#4F7CFF]/10 flex items-center justify-center relative">
                  <BookOpen className="w-10 h-10 text-[#4F7CFF] opacity-40" />
                  <div className="absolute inset-0 bg-[#4F7CFF]/20 blur-2xl rounded-full opacity-20" />
@@ -1435,7 +1435,7 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
                   Organize your corporate collections, project highlights, folders, and secure checklists.
                 </p>
               </div>
-              <Button onClick={handleCreateNote} className="rounded-2xl h-11 px-8 shadow-xl shadow-[#4F7CFF]/15 bg-[#4F7CFF] hover:bg-[#3d65df] text-white font-bold gap-2">
+              <Button onClick={handleCreateNote} className="rounded-2xl h-11 px-4 sm:px-8 shadow-xl shadow-[#4F7CFF]/15 bg-[#4F7CFF] hover:bg-[#3d65df] text-white font-bold gap-2">
                 <Plus className="w-5 h-5" /> Initialize Note
               </Button>
             </div>

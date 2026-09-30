@@ -209,7 +209,7 @@ export default function ManagerEODReports() {
     return (
       <div className="px-3 sm:px-4 lg:px-6 py-4 space-y-6 max-w-[2000px] mx-auto">
         <Card>
-          <CardContent className="p-8 text-center">
+          <CardContent className="p-4 sm:p-8 text-center">
             <ClipboardList className="h-12 w-12 mx-auto mb-3 text-gray-300 animate-pulse" />
             <p className="text-muted-foreground">Loading EOD data...</p>
           </CardContent>

@@ -154,12 +154,12 @@ export function HRNotesTab({ employeeId, employeeName }: HRNotesTabProps) {
       {/* Notes Journal */}
       <div className="space-y-3">
         {loading ? (
-          <div className="p-8 text-center text-slate-500 flex items-center justify-center gap-2">
+          <div className="p-4 sm:p-8 text-center text-slate-500 flex items-center justify-center gap-2">
             <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
             <span>Loading HR notes...</span>
           </div>
         ) : notes.length === 0 ? (
-          <div className="p-8 text-center text-xs text-slate-500 bg-slate-900/40 rounded-xl border border-slate-800">
+          <div className="p-4 sm:p-8 text-center text-xs text-slate-500 bg-slate-900/40 rounded-xl border border-slate-800">
             No internal HR notes logged for {employeeName}.
           </div>
         ) : (
