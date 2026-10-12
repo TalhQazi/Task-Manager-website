@@ -353,6 +353,7 @@ interface Task {
   location?: string;
   createdAt: string;
   projectId?: string;
+  projectName?: string;
   attachmentFileName?: string;
   attachmentNote?: string;
   dropboxAttachmentCount?: number;
@@ -483,6 +484,8 @@ interface Project {
   logo?: ProjectLogo;
   taskCount?: number;
   status?: string;
+  priority?: string;
+  tasks?: Task[];
   introVideoUrl?: string;
   attachments?: Array<{
     fileName: string;
@@ -666,6 +669,7 @@ const createTaskSchema = z.object({
   dueTime: z.string().optional(),
   location: z.string().optional(),
   assignees: z.array(z.string()).optional().default([]),
+  introVideoUrl: z.string().optional(),
 });
 
 type CreateTaskValues = z.infer<typeof createTaskSchema>;
@@ -973,7 +977,7 @@ export default function Tasks() {
     }
 
     if (!viewId) return;
-    if (isViewOpen || isEditOpen || isDeleteOpen || isCreateOpen) return;
+    if (isViewOpen || isAsanaDrawerOpen || isEditOpen || isDeleteOpen || isCreateOpen) return;
 
     const match = tasks.find((t) => String(t.id) === viewId);
     if (match) {
@@ -994,7 +998,7 @@ export default function Tasks() {
         })
         .catch(err => console.error("Failed to fetch task for view:", err));
     }
-  }, [tasks, searchParams, setSearchParams, isViewOpen, isEditOpen, isDeleteOpen, isCreateOpen]);
+  }, [tasks, searchParams, setSearchParams, isViewOpen, isAsanaDrawerOpen, isEditOpen, isDeleteOpen, isCreateOpen]);
 
   // Fetch employees for mentions and assignees
   useEffect(() => {
@@ -1840,7 +1844,7 @@ export default function Tasks() {
     setTaskViewTitle(task.title);
     setTaskViewDesc(task.description);
     setTaskViewEdited(false);
-    setIsViewOpen(true);
+    setIsViewOpen(false);
     setIsAsanaDrawerOpen(true);
     void loadComments(task.id);
     void loadDropboxAttachments(task.id);
@@ -2852,7 +2856,10 @@ export default function Tasks() {
             if (selectedProject) void loadProject(selectedProject.id);
           }}
           onOpenFullModal={() => {
-            setIsDirectTask(true);
+            setIsDirectTask(!selectedProject);
+            if (selectedProject?.teamLead) {
+              setTaskTeamLead(selectedProject.teamLead);
+            }
             setIsCreateTaskOpen(true);
           }}
         />
@@ -3861,7 +3868,7 @@ export default function Tasks() {
                 <div className="space-y-2">
                   <div className="flex gap-2">
                     <button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted flex-1" onClick={() => { const el = document.getElementById("project-attachments-input") as HTMLInputElement | null; el?.click(); }}>+ Add Files/Images</button>
-                    {ROLE_GROUPS.DROPBOX_ALLOWED.includes(currentRole) && (
+                    {Boolean(currentRole) && (ROLE_GROUPS.DROPBOX_ALLOWED as readonly string[]).includes(currentRole) && (
                       <button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted flex-1 flex items-center justify-center gap-2" onClick={() => { setDropboxPickerTarget("project"); setIsDropboxPickerOpen(true); }}>
                         <DropboxIcon size={14} />Dropbox
                       </button>
@@ -3874,7 +3881,7 @@ export default function Tasks() {
     if (f.type.startsWith("image/")) return await resizeImageIfNeeded(f, 1200, 1200, 0.8);
     return f;
   }));
-  const previews = await Promise.all(processedFiles.map(file => new Promise((resolve) => {
+  const previews = await Promise.all(processedFiles.map(file => new Promise<string>((resolve) => {
     if (file.type.startsWith("image/")) {
       const reader = new FileReader();
       reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
@@ -4177,14 +4184,14 @@ export default function Tasks() {
               <label className="text-sm font-medium">Task Video</label>
               <VideoUploadField value={formData.introVideoUrl || ""} onChange={(val) => setFormData((prev) => ({ ...prev, introVideoUrl: val }))} />
             </div>
-            <div className="space-y-1.5"><label className="text-sm font-medium">Task Attachments</label><div className="space-y-2"><div className="flex gap-2"><button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted flex-1" onClick={() => { const el = document.getElementById("task-attachments-input") as HTMLInputElement | null; el?.click(); }}>+ Add Files/Images</button>{ROLE_GROUPS.DROPBOX_ALLOWED.includes(currentRole) && (<button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted flex-1 flex items-center justify-center gap-2" onClick={() => { setDropboxPickerTarget("task"); setIsDropboxPickerOpen(true); }}><DropboxIcon size={14} />Dropbox</button>)}</div><input id="task-attachments-input" type="file" accept="*" multiple className="hidden" onChange={async (e) => {
+            <div className="space-y-1.5"><label className="text-sm font-medium">Task Attachments</label><div className="space-y-2"><div className="flex gap-2"><button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted flex-1" onClick={() => { const el = document.getElementById("task-attachments-input") as HTMLInputElement | null; el?.click(); }}>+ Add Files/Images</button>{Boolean(currentRole) && (ROLE_GROUPS.DROPBOX_ALLOWED as readonly string[]).includes(currentRole) && (<button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted flex-1 flex items-center justify-center gap-2" onClick={() => { setDropboxPickerTarget("task"); setIsDropboxPickerOpen(true); }}><DropboxIcon size={14} />Dropbox</button>)}</div><input id="task-attachments-input" type="file" accept="*" multiple className="hidden" onChange={async (e) => {
   const files = Array.from(e.target.files ?? []);
   if (!files.length) return;
   const processedFiles = await Promise.all(files.map(async (f) => {
     if (f.type.startsWith("image/")) return await resizeImageIfNeeded(f, 1200, 1200, 0.8);
     return f;
   }));
-  const previews = await Promise.all(processedFiles.map(file => new Promise((resolve) => {
+  const previews = await Promise.all(processedFiles.map(file => new Promise<string>((resolve) => {
     if (file.type.startsWith("image/")) {
       const reader = new FileReader();
       reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
@@ -4226,7 +4233,7 @@ export default function Tasks() {
               {/* Asana-style Header: Status Badge and Actions */}
               <div className="flex items-center justify-between p-3 border-b bg-background z-10 shrink-0">
                 <div className="flex items-center gap-3 ml-2">
-                  <Badge variant="outline" className={cn("capitalize px-3 py-1 font-semibold rounded-full border-2 cursor-pointer transition-colors hover:opacity-80", selectedTask.status === "completed" ? "border-green-500 text-green-700 bg-green-50" : selectedTask.status === "in-progress" ? "border-blue-500 text-blue-700 bg-blue-50" : selectedTask.status === "overdue" ? "border-red-500 text-red-700 bg-red-50" : "border-amber-500 text-amber-700 bg-amber-50")} onClick={() => {
+                  <Badge variant="outline" className={cn("capitalize px-3 py-1 font-semibold rounded-full border-2 cursor-pointer transition-colors hover:opacity-80", selectedTask.status === "completed" ? "border-green-500 text-green-700 bg-green-50" : selectedTask.status === "in-progress" ? "border-blue-500 text-blue-700 bg-blue-50" : selectedTask.status === "overdue" ? "border-red-500 text-red-700 bg-red-50" : "border-amber-500 text-amber-700 bg-amber-50")} onClick={(e) => {
                     const next: Record<string, Task["status"]> = {
                       "pending": "in-progress",
                       "in-progress": "completed",
@@ -4814,7 +4821,7 @@ export default function Tasks() {
                           <button type="button" onClick={() => setIsVideoRecorderOpen(true)} className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors flex items-center gap-1.5 border border-transparent hover:border-red-500/20" title="Record Video">
                             <Video className="w-4 h-4" /> <span className="text-xs font-semibold hidden sm:inline">Record</span>
                           </button>
-                          {ROLE_GROUPS.DROPBOX_ALLOWED.includes(currentRole) && (
+                          {Boolean(currentRole) && (ROLE_GROUPS.DROPBOX_ALLOWED as readonly string[]).includes(currentRole) && (
                             <button type="button" onClick={() => { setDropboxPickerTarget("task-comment"); setIsDropboxPickerOpen(true); }} className="p-2 text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors flex items-center gap-1.5 border border-transparent hover:border-blue-500/20" title="Attach from Dropbox">
                               <DropboxIcon size={14} /> <span className="text-xs font-semibold hidden sm:inline">Dropbox</span>
                             </button>
@@ -6153,9 +6160,10 @@ export default function Tasks() {
           if (selectedProject) void loadProject(selectedProject.id);
         }}
         onTaskDeleted={() => {
-          if (selectedTask) void deleteTask(selectedTask.id);
+          if (selectedTask) void deleteTaskMutation.mutate(selectedTask.id);
           setIsAsanaDrawerOpen(false);
         }}
+        onOpenFullModal={() => setIsViewOpen(true)}
         employees={employees}
       />
     </div>

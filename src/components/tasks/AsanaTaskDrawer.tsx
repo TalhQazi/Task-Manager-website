@@ -10,6 +10,17 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/admin/ui/p
 import { toast } from "@/components/admin/ui/use-toast";
 import { apiFetch } from "@/lib/admin/apiClient";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/admin/ui/alert-dialog";
+import {
   CheckCircle2,
   Clock,
   User,
@@ -25,6 +36,7 @@ import {
   Sparkles,
   Check,
   Building,
+  Maximize2,
 } from "lucide-react";
 
 interface AsanaTaskDrawerProps {
@@ -33,6 +45,7 @@ interface AsanaTaskDrawerProps {
   onOpenChange: (open: boolean) => void;
   onTaskUpdated?: () => void;
   onTaskDeleted?: () => void;
+  onOpenFullModal?: () => void;
   employees?: any[];
 }
 
@@ -42,6 +55,7 @@ export function AsanaTaskDrawer({
   onOpenChange,
   onTaskUpdated,
   onTaskDeleted,
+  onOpenFullModal,
   employees = [],
 }: AsanaTaskDrawerProps) {
   const [title, setTitle] = useState("");
@@ -134,30 +148,31 @@ export function AsanaTaskDrawer({
         <SheetHeader className="p-4 sm:p-6 border-b border-border bg-muted/20">
           {/* Top Action Bar */}
           <div className="flex items-center justify-between gap-3">
-            <Button
-              onClick={handleToggleComplete}
-              disabled={saving}
-              variant={isCompleted ? "default" : "outline"}
-              className={`h-9 px-4 text-xs font-bold gap-2 transition-all ${
-                isCompleted
-                  ? "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-md"
-                  : "border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
-              }`}
-            >
-              <CheckCircle2 className={`h-4 w-4 ${isCompleted ? "text-white" : "text-emerald-500"}`} />
-              <span>{isCompleted ? "✓ Completed" : "Mark Complete"}</span>
-            </Button>
-
             <div className="flex items-center gap-2">
-              {onTaskDeleted && (
+              <Button
+                onClick={handleToggleComplete}
+                disabled={saving}
+                variant={isCompleted ? "default" : "outline"}
+                className={`h-9 px-4 text-xs font-bold gap-2 transition-all ${
+                  isCompleted
+                    ? "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-md"
+                    : "border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
+                }`}
+              >
+                <CheckCircle2 className={`h-4 w-4 ${isCompleted ? "text-white" : "text-emerald-500"}`} />
+                <span>{isCompleted ? "✓ Completed" : "Mark Complete"}</span>
+              </Button>
+
+              {onOpenFullModal && (
                 <Button
                   size="sm"
-                  variant="ghost"
-                  onClick={onTaskDeleted}
-                  className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                  title="Delete Task"
+                  variant="outline"
+                  onClick={onOpenFullModal}
+                  className="h-9 px-2.5 text-xs text-muted-foreground hover:text-foreground gap-1.5 border-dashed"
+                  title="Open full dialog view"
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <Maximize2 className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Full View</span>
                 </Button>
               )}
             </div>
@@ -328,6 +343,42 @@ export function AsanaTaskDrawer({
             </form>
           </div>
         </div>
+
+        {/* Dedicated Bottom Actions Bar - safely distanced from close button */}
+        {onTaskDeleted && (
+          <div className="p-3 px-6 border-t border-border bg-muted/20 flex items-center justify-between shrink-0">
+            <span className="text-[11px] text-muted-foreground">Task options</span>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 px-3 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive gap-1.5 transition-colors font-medium"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>Delete Task</span>
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you sure you want to delete this task?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone. This will permanently remove &quot;{task?.title || "this task"}&quot;.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={onTaskDeleted}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        )}
       </SheetContent>
     </Sheet>
   );

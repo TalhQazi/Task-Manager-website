@@ -35,7 +35,7 @@ export function AsanaQuickAddBar({
           description: `Task created via Quick-Add in ${projectName || "General"}`,
           priority: "medium",
           status: "pending",
-          projectId: projectId || null,
+          projectId: projectId || undefined,
         }),
       });
 

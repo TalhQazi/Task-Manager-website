@@ -48,7 +48,7 @@ export default function Bugs() {
   const [items, setItems] = useState<BugItem[]>([]);
 
   const [q, setQ] = useState("");
-  const [statusFilter, setStatusFilter] = useState("open");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [severityFilter, setSeverityFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
 

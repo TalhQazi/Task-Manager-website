@@ -48,7 +48,7 @@ export default function ManagerBugs() {
   const [items, setItems] = useState<BugItem[]>([]);
 
   const [q, setQ] = useState("");
-  const [statusFilter, setStatusFilter] = useState("open");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);

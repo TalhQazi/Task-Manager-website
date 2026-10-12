@@ -36,7 +36,8 @@ import {
   RefreshCw,
   TrendingUp,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  MapPin,
 } from "lucide-react";
 
 interface Website {
@@ -96,7 +97,7 @@ interface ChecklistItem {
   title: string;
   description: string;
   requiresEvidence: boolean;
-  status: "pending" | "in-progress" | "blocked" | "completed";
+  status: "pending" | "in-progress" | "blocked" | "completed" | "na";
   notes?: string;
   evidenceUrl?: string;
   evidenceFile?: string; // base64 representation
@@ -601,6 +602,8 @@ export default function ComplianceCenter() {
         owner: "",
         notes: "",
         launchDate: "",
+        originalPurchaseDate: "",
+        expirationDate: "",
         businessUnit: "Marketing",
         environment: "Production",
         leadDeveloper: "",
@@ -1355,11 +1358,15 @@ export default function ComplianceCenter() {
                             {/* Current Status Indicator */}
                             <div className="mr-1">
                               {val === "green" ? (
-                                <CheckCircle2 className="h-4 w-4 text-green-500" title="Compliant (Green)" />
+                                <span title="Compliant (Green)"><CheckCircle2 className="h-4 w-4 text-green-500" /></span>
                               ) : val === "red" ? (
-                                <XCircle className="h-4 w-4 text-red-500" title="Non-Compliant / Missing (Red)" />
+                                <span title="Non-Compliant / Missing (Red)"><XCircle className="h-4 w-4 text-red-500" /></span>
+                              ) : val === "na" ? (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" title="N/A (Counts to Compliance)">
+                                  N/A
+                                </span>
                               ) : (
-                                <AlertCircle className="h-4 w-4 text-muted-foreground" title="Not Checked" />
+                                <span title="Not Checked"><AlertCircle className="h-4 w-4 text-muted-foreground" /></span>
                               )}
                             </div>
                             
@@ -1383,6 +1390,16 @@ export default function ComplianceCenter() {
                               title="Set Non-Compliant"
                             >
                               <XCircle className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleToggleCoreReq(reqItem.key, "na")}
+                              disabled={actionLoading}
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors ${
+                                val === "na" ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40" : "hover:bg-cyan-500/10 text-muted-foreground"
+                              }`}
+                              title="Mark N/A (Counts toward Compliance %)"
+                            >
+                              N/A
                             </button>
                             <button
                               onClick={() => handleToggleCoreReq(reqItem.key, "none")}
@@ -1437,11 +1454,15 @@ export default function ComplianceCenter() {
                           <div className="flex items-center gap-1.5 shrink-0">
                             <div className="mr-1">
                               {val === "green" ? (
-                                <CheckCircle2 className="h-4 w-4 text-green-500" title="Compliant (Green)" />
+                                <span title="Compliant (Green)"><CheckCircle2 className="h-4 w-4 text-green-500" /></span>
                               ) : val === "red" ? (
-                                <XCircle className="h-4 w-4 text-red-500" title="Non-Compliant / Missing (Red)" />
+                                <span title="Non-Compliant / Missing (Red)"><XCircle className="h-4 w-4 text-red-500" /></span>
+                              ) : val === "na" ? (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" title="N/A (Counts to Compliance)">
+                                  N/A
+                                </span>
                               ) : (
-                                <AlertCircle className="h-4 w-4 text-muted-foreground" title="Not Checked" />
+                                <span title="Not Checked"><AlertCircle className="h-4 w-4 text-muted-foreground" /></span>
                               )}
                             </div>
                             
@@ -1464,6 +1485,16 @@ export default function ComplianceCenter() {
                               title="Set Non-Compliant"
                             >
                               <XCircle className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleToggleCoreReq(socialItem.key, "na")}
+                              disabled={actionLoading}
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors ${
+                                val === "na" ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40" : "hover:bg-cyan-500/10 text-muted-foreground"
+                              }`}
+                              title="Mark N/A (Counts toward Compliance %)"
+                            >
+                              N/A
                             </button>
                             <button
                               onClick={() => handleToggleCoreReq(socialItem.key, "none")}
@@ -1533,7 +1564,7 @@ export default function ComplianceCenter() {
                           <div className="flex items-center gap-2">
                             <span>{category}</span>
                             <Badge variant="secondary" className="text-[10px] px-1.5">
-                              {items.filter((i) => i.status === "completed").length}/{items.length} Done
+                              {items.filter((i) => i.status === "completed" || i.status === "na").length}/{items.length} Done
                             </Badge>
                           </div>
                         </AccordionTrigger>
@@ -1557,6 +1588,8 @@ export default function ComplianceCenter() {
                                         <XCircle className="h-4 w-4 text-red-500 shrink-0" />
                                       ) : item.status === "in-progress" ? (
                                         <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+                                      ) : item.status === "na" ? (
+                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 shrink-0">N/A</span>
                                       ) : (
                                         <div className="h-4 w-4 rounded-full border border-muted-foreground shrink-0" />
                                       )}
@@ -1572,17 +1605,23 @@ export default function ComplianceCenter() {
                                     )}
                                     <Badge
                                       variant={
-                                        item.status === "completed"
-                                          ? "success"
-                                          : item.status === "blocked"
+                                        item.status === "blocked"
                                           ? "destructive"
                                           : item.status === "in-progress"
-                                          ? "warning"
+                                          ? "secondary"
+                                          : item.status === "completed" || item.status === "na"
+                                          ? "default"
                                           : "outline"
                                       }
-                                      className="capitalize text-[10px]"
+                                      className={`capitalize text-[10px] ${
+                                        item.status === "completed"
+                                          ? "bg-green-600 hover:bg-green-700 text-white"
+                                          : item.status === "na"
+                                          ? "bg-cyan-600 hover:bg-cyan-700 text-white"
+                                          : ""
+                                      }`}
                                     >
-                                      {item.status}
+                                      {item.status === "na" ? "N/A (Compliant)" : item.status}
                                     </Badge>
                                   </div>
                                 </div>
@@ -1653,6 +1692,7 @@ export default function ComplianceCenter() {
                                             <SelectItem value="in-progress">In Progress</SelectItem>
                                             <SelectItem value="blocked">Blocked</SelectItem>
                                             <SelectItem value="completed">Completed / Compliant</SelectItem>
+                                            <SelectItem value="na">N/A (Counts to Compliance %)</SelectItem>
                                           </SelectContent>
                                         </Select>
                                       </div>
