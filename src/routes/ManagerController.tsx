@@ -8,6 +8,8 @@ import { getAuthState } from "@/lib/auth";
 const Dashboard = lazy(() => import("@/pages/manger/Dashboard"));
 const Tasks = lazy(() => import("@/pages/manger/Tasks"));
 const Employees = lazy(() => import("@/pages/manger/Employees"));
+const EmployeeLiveOverviewPage = lazy(() => import("@/pages/admin/EmployeeLiveOverviewPage"));
+const ExpandedEmployeeLiveViewPage = lazy(() => import("@/pages/admin/ExpandedEmployeeLiveViewPage"));
 const Scheduling = lazy(() => import("@/pages/manger/Scheduling"));
 const TimeTracking = lazy(() => import("@/pages/manger/TimeTracking"));
 const BreakTracking = lazy(() => import("@/pages/admin/BreakTracking"));
@@ -81,6 +83,8 @@ export default function ManagerController() {
       { index: true, element: <Dashboard /> },
       { path: "tasks", element: <Tasks /> },
       { path: "employees", element: <Employees /> },
+      { path: "employees/live", element: <EmployeeLiveOverviewPage baseRoutePrefix="/manager/employees" /> },
+      { path: "employees/:employeeId/live", element: <ExpandedEmployeeLiveViewPage baseRoutePrefix="/manager/employees" /> },
       { path: "scheduling", element: <Scheduling /> },
       { path: "time-tracking", element: <TimeTracking /> },
       { path: "break-history", element: <BreakTracking /> },

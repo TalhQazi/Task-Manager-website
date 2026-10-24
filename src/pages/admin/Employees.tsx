@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
@@ -62,7 +62,9 @@ import {
   Key,
   Archive,
   RefreshCw,
+  Activity,
 } from "lucide-react";
+import EmployeeLiveOverviewPage from "@/pages/admin/EmployeeLiveOverviewPage";
 import { createResource, deleteResource, listResource, updateResource, apiFetch, toProxiedUrl } from "@/lib/admin/apiClient";
 import { getAuthState } from "@/lib/auth";
 import { Pagination } from "@/components/Pagination";
@@ -96,6 +98,14 @@ interface Company {
   name: string;
   code: string;
   status: "active" | "inactive" | "suspended";
+}
+
+interface Shift {
+  id?: string;
+  name?: string;
+  startTime?: string;
+  endTime?: string;
+  [key: string]: any;
 }
 
 const CATEGORY_OPTIONS = ["assistant", "coders", "mechanics", "carpenters", "accountant", "marketing"];
@@ -169,6 +179,10 @@ const Employees = () => {
 
   const [searchParams, setSearchParams] = useSearchParams();
 
+  const navigate = useNavigate();
+  const [viewTab, setViewTab] = useState<"directory" | "live">(() => {
+    return searchParams.get("tab") === "live" ? "live" : "directory";
+  });
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"active" | "archived">("active");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -760,6 +774,22 @@ const Employees = () => {
     }
   };
 
+  if (viewTab === "live" || searchParams.get("tab") === "live") {
+    return (
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto page-shell">
+        <EmployeeLiveOverviewPage
+          baseRoutePrefix="/admin/employees"
+          onNavigateToDirectory={() => {
+            setViewTab("directory");
+            const next = new URLSearchParams(searchParams);
+            next.delete("tab");
+            setSearchParams(next, { replace: true });
+          }}
+        />
+      </div>
+    );
+  }
+
   if (workspaceEmployeeId) {
     return (
       <div className="p-4 sm:p-6 max-w-7xl mx-auto page-shell">
@@ -811,26 +841,65 @@ const Employees = () => {
               </p>
             </div>
 
-            {/* Add Employee Dialog */}
-            <Dialog
-              open={addEmployeeOpen}
-              onOpenChange={(next) => {
-                setAddEmployeeOpen(next);
-                if (!next) addForm.reset();
-              }}
-            >
-              <DialogTrigger asChild>
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+            <div className="flex flex-wrap items-center gap-2 mt-2 sm:mt-0">
+              {/* Directory vs Live View Switcher */}
+              <div className="flex items-center rounded-xl border border-border/80 bg-background/80 p-1 shadow-xs">
+                <Button
+                  type="button"
+                  variant="default"
+                  size="sm"
+                  onClick={() => {
+                    setViewTab("directory");
+                    const next = new URLSearchParams(searchParams);
+                    next.delete("tab");
+                    setSearchParams(next, { replace: true });
+                  }}
+                  className="h-8 px-3 text-xs gap-1.5 font-medium"
                 >
-                  <Button className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary text-white w-full sm:w-auto mt-2 sm:mt-0 shadow-lg hover:shadow-xl transition-all duration-300">
-                    <Plus className="h-4 w-4 mr-2 flex-shrink-0" />
-                    <span className="sm:hidden">Add</span>
-                    <span className="hidden sm:inline">Add Employee</span>
-                  </Button>
-                </motion.div>
-              </DialogTrigger>
+                  <Users className="h-3.5 w-3.5" />
+                  <span>Directory</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setViewTab("live");
+                    const next = new URLSearchParams(searchParams);
+                    next.set("tab", "live");
+                    setSearchParams(next, { replace: true });
+                  }}
+                  className="h-8 px-3 text-xs gap-1.5 font-medium relative"
+                >
+                  <Activity className="h-3.5 w-3.5 text-emerald-500" />
+                  <span>Live View</span>
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                  </span>
+                </Button>
+              </div>
+
+              {/* Add Employee Dialog */}
+              <Dialog
+                open={addEmployeeOpen}
+                onOpenChange={(next) => {
+                  setAddEmployeeOpen(next);
+                  if (!next) addForm.reset();
+                }}
+              >
+                <DialogTrigger asChild>
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <Button className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary text-white w-full sm:w-auto shadow-lg hover:shadow-xl transition-all duration-300 h-9">
+                      <Plus className="h-4 w-4 mr-1.5 flex-shrink-0" />
+                      <span className="sm:hidden">Add</span>
+                      <span className="hidden sm:inline">Add Employee</span>
+                    </Button>
+                  </motion.div>
+                </DialogTrigger>
               
               <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
                 <DialogHeader className="space-y-1.5 sm:space-y-2">
@@ -1208,7 +1277,8 @@ const Employees = () => {
             </Dialog>
 
           </div>
-        </motion.div>
+        </div>
+      </motion.div>
 
         {/* API Error Message */}
         <AnimatePresence>
@@ -1481,6 +1551,10 @@ const Employees = () => {
                                 <DropdownMenuItem onClick={() => handleViewProfile(employee)}>
                                   <Eye className="mr-2 h-4 w-4" />
                                   View Profile
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => navigate(`/admin/employees/${employee.id}/live`)}>
+                                  <Activity className="mr-2 h-4 w-4 text-emerald-500" />
+                                  Live View
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleEditEmployee(employee)}>
                                   <Edit className="mr-2 h-4 w-4" />
@@ -1809,6 +1883,10 @@ const Employees = () => {
                                     <DropdownMenuItem onClick={() => handleViewProfile(employee)}>
                                       <Eye className="mr-2 h-4 w-4" />
                                       View Profile
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => navigate(`/admin/employees/${employee.id}/live`)}>
+                                      <Activity className="mr-2 h-4 w-4 text-emerald-500" />
+                                      Live View
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => handleEditEmployee(employee)}>
                                       <Edit className="mr-2 h-4 w-4" />

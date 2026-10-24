@@ -3,7 +3,7 @@ import { Toaster } from "@/components/manger/ui/toaster";
 import { Toaster as Sonner } from "@/components/manger/ui/sonner";
 import { TooltipProvider } from "@/components/manger/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 import Login from "./pages/admin/Login";
 import MeetingJoinRedirect from "./pages/shared/MeetingJoinRedirect";
 import { getAuthState } from "./lib/auth";
@@ -46,6 +46,23 @@ function IndexRedirect() {
   return <Navigate to="/manager" replace />;
 }
 
+function EmployeeLiveRedirect() {
+  const auth = getAuthState();
+  if (auth.role === "admin" || auth.role === "super-admin") {
+    return <Navigate to="/admin/employees/live" replace />;
+  }
+  return <Navigate to="/manager/employees/live" replace />;
+}
+
+function EmployeeExpandedLiveRedirect() {
+  const { employeeId } = useParams<{ employeeId: string }>();
+  const auth = getAuthState();
+  if (auth.role === "admin" || auth.role === "super-admin") {
+    return <Navigate to={`/admin/employees/${employeeId || ""}/live`} replace />;
+  }
+  return <Navigate to={`/manager/employees/${employeeId || ""}/live`} replace />;
+}
+
 const App = () => (
   <SocketProvider>
     <TaskBlasterProvider>
@@ -70,6 +87,8 @@ const App = () => (
                     <Route path="/login/employee" element={<Navigate to="/login" replace />} />
                     <Route path="/join/meeting/:code" element={<MeetingJoinRedirect />} />
                     <Route path="/meetings/join/:code" element={<MeetingJoinRedirect />} />
+                    <Route path="/employees/live" element={<EmployeeLiveRedirect />} />
+                    <Route path="/employees/:employeeId/live" element={<EmployeeExpandedLiveRedirect />} />
                     <Route path="/admin/*" element={<AdminRoutes />} />
                     <Route path="/manager/*" element={<ManagerController />} />
                     <Route path="/developer/*" element={<DeveloperController />} />

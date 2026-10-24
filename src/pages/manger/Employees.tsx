@@ -1,10 +1,11 @@
 import { useMemo, useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { Button } from "@/components/manger/ui/button";
 import { Input } from "@/components/manger/ui/input";
 import { Badge } from "@/components/manger/ui/badge";
 import { EmployeeFileWorkspace } from "@/components/admin/employees/EmployeeFileWorkspace";
+import EmployeeLiveOverviewPage from "@/pages/admin/EmployeeLiveOverviewPage";
 import {
   Select,
   SelectContent,
@@ -60,7 +61,8 @@ import {
   Users,
   UserPlus,
   Briefcase,
-  Calendar
+  Calendar,
+  Activity
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
 import { apiFetch, listResource, toProxiedUrl } from "@/lib/manger/api";
@@ -303,6 +305,10 @@ function formatStatusTime(timeStr?: string | null) {
 
 export default function Employees() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const [viewTab, setViewTab] = useState<"directory" | "live">(() => {
+    return searchParams.get("tab") === "live" ? "live" : "directory";
+  });
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -592,6 +598,22 @@ export default function Employees() {
     });
   }, [employees, searchQuery, statusFilter]);
 
+  if (viewTab === "live" || searchParams.get("tab") === "live") {
+    return (
+      <div className="px-2 sm:px-4 lg:px-6 py-4 max-w-7xl mx-auto page-shell">
+        <EmployeeLiveOverviewPage
+          baseRoutePrefix="/manager/employees"
+          onNavigateToDirectory={() => {
+            setViewTab("directory");
+            const next = new URLSearchParams(searchParams);
+            next.delete("tab");
+            setSearchParams(next, { replace: true });
+          }}
+        />
+      </div>
+    );
+  }
+
   if (workspaceEmployeeId) {
     return (
       <div className="px-2 sm:px-4 lg:px-6 py-4 max-w-7xl mx-auto page-shell">
@@ -637,6 +659,39 @@ export default function Employees() {
           >
             View and manage your team members
           </motion.p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="inline-flex items-center rounded-lg border border-border p-1 bg-muted/40">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => {
+                setViewTab("directory");
+                const next = new URLSearchParams(searchParams);
+                next.delete("tab");
+                setSearchParams(next, { replace: true });
+              }}
+              className="h-8 text-xs font-medium"
+            >
+              <Users className="w-3.5 h-3.5 mr-1.5" />
+              Directory
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setViewTab("live");
+                const next = new URLSearchParams(searchParams);
+                next.set("tab", "live");
+                setSearchParams(next, { replace: true });
+              }}
+              className="h-8 text-xs font-medium"
+            >
+              <Activity className="w-3.5 h-3.5 mr-1.5 text-emerald-500" />
+              Live View
+            </Button>
+          </div>
         </div>
         {/* <motion.div
           variants={buttonVariants}
@@ -906,6 +961,10 @@ export default function Employees() {
                       </motion.button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => navigate(`/manager/employees/${employee.id}/live`)}>
+                        <Activity className="mr-2 h-4 w-4 text-emerald-500" />
+                        Live View
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => openView(employee)}>
                         View Details
                       </DropdownMenuItem>

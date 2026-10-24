@@ -9,6 +9,8 @@ const WipDashboard = lazy(() => import("@/pages/admin/WipDashboard"));
 const Users = lazy(() => import("@/pages/admin/Users"));
 const Tasks = lazy(() => import("@/pages/admin/Tasks"));
 const Employees = lazy(() => import("@/pages/admin/Employees"));
+const EmployeeLiveOverviewPage = lazy(() => import("@/pages/admin/EmployeeLiveOverviewPage"));
+const ExpandedEmployeeLiveViewPage = lazy(() => import("@/pages/admin/ExpandedEmployeeLiveViewPage"));
 const Payroll = lazy(() => import("@/pages/admin/Payroll"));
 const TaskHistory = lazy(() => import("@/pages/admin/TaskHistory"));
 const ItineraryHistory = lazy(() => import("@/pages/admin/ItineraryHistory"));
@@ -128,6 +130,8 @@ export default function AdminRoutes() {
       { path: "tasks", element: <Tasks /> },
       { path: "task-workspace", element: <TaskWorkspace /> },
       { path: "employees", element: <Employees /> },
+      { path: "employees/live", element: <EmployeeLiveOverviewPage baseRoutePrefix="/admin/employees" /> },
+      { path: "employees/:employeeId/live", element: <ExpandedEmployeeLiveViewPage baseRoutePrefix="/admin/employees" /> },
       { path: "itineraries", element: <ItineraryHistory /> },
       { path: "payroll", element: <Payroll /> },
       { path: "task-history", element: <TaskHistory /> },
