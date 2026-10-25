@@ -76,6 +76,7 @@ export function GlobalSearch({ open, onOpenChange, isEmployee = false, basePath 
       { id: "a-settings", type: "page", title: "System Settings", subtitle: "Configure email, templates, and preferences", url: "/admin/settings", keywords: ["settings", "system", "email", "preferences"] },
       { id: "a-profile", type: "page", title: "My Profile", subtitle: "Your account details and preferences", url: "/admin/profile", keywords: ["profile", "me", "account", "settings"] },
       { id: "a-notes", type: "page", title: "Personal Notes", subtitle: "Your personal notes and scratchpad", url: "/admin/personal-notes", keywords: ["notes", "scratchpad", "draft", "personal"] },
+      { id: "a-phone-dir", type: "page", title: "Phone Directory", subtitle: "Emergency services, Police, Fire, and location contacts", url: "/admin/phone-directory", keywords: ["phone", "directory", "fire", "police", "emergency", "ambulance", "hospital", "utility", "contact", "numbers"] },
       { id: "a-comp", type: "page", title: "Compliance Center", subtitle: "Compliance audits, logs, and monitoring", url: "/admin/compliance-center", keywords: ["compliance", "audit", "logs", "monitor"] }
     ];
   }, [isEmployee]);

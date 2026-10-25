@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
@@ -59,6 +59,8 @@ import {
   Archive,
   Download,
   ClipboardCheck,
+  ExternalLink,
+  Sparkles,
 } from "lucide-react";
 import { createResource, listResource, updateResource, apiFetch, getApiBaseUrl } from "@/lib/admin/apiClient";
 
@@ -138,7 +140,7 @@ function normalizeLocation(l: BackendLocation): Location {
   const createdAt =
     String(l.createdAt || l.date || "").trim() || undefined;
 
-  const cl = l.complianceChecklist || {};
+  const cl = (l.complianceChecklist || {}) as Partial<LocationComplianceChecklist>;
 
   return {
     id: String(l.id || l._id || "").trim(),
@@ -446,11 +448,14 @@ function ComplianceChecklistFormSection({
 }
 
 const Locations = () => {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [addLocationOpen, setAddLocationOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [viewDetailsOpen, setViewDetailsOpen] = useState(false);
+  const [locationContacts, setLocationContacts] = useState<any[]>([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
   const [editLocationOpen, setEditLocationOpen] = useState(false);
   const [deactivateConfirmOpen, setDeactivateConfirmOpen] = useState(false);
   const [locationsList, setLocationsList] = useState<Location[]>([]);
@@ -548,6 +553,28 @@ const Locations = () => {
       setSearchParams(newParams, { replace: true });
     }
   }, [locationsList, searchParams, setSearchParams, viewDetailsOpen]);
+
+  useEffect(() => {
+    if (viewDetailsOpen && selectedLocation?.id) {
+      let mounted = true;
+      setContactsLoading(true);
+      apiFetch<{ items: any[] }>(`/api/phone-directory/by-location/${selectedLocation.id}`)
+        .then((res) => {
+          if (mounted) setLocationContacts(res.items || []);
+        })
+        .catch(() => {
+          if (mounted) setLocationContacts([]);
+        })
+        .finally(() => {
+          if (mounted) setContactsLoading(false);
+        });
+      return () => {
+        mounted = false;
+      };
+    } else {
+      setLocationContacts([]);
+    }
+  }, [viewDetailsOpen, selectedLocation]);
 
   const countriesWithUsa = useMemo(() => {
     if (!countries.includes("USA")) return ["USA", ...countries];
@@ -757,7 +784,17 @@ const Locations = () => {
           </p>
         </div>
 
-        <Dialog open={addLocationOpen} onOpenChange={setAddLocationOpen}>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => navigate("/admin/phone-directory")}
+            className="border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300 shadow-sm"
+          >
+            <Phone className="h-4 w-4 mr-2 text-blue-600" />
+            Phone Directory
+          </Button>
+
+          <Dialog open={addLocationOpen} onOpenChange={setAddLocationOpen}>
           <DialogTrigger asChild>
             <Button className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20 transition-all duration-300 transform hover:scale-105 active:scale-95">
               <Plus className="h-4 w-4 mr-2" />
@@ -925,6 +962,7 @@ const Locations = () => {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -1078,9 +1116,12 @@ const Locations = () => {
                             <MoreHorizontal className="h-4 w-4 text-slate-500" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-40 rounded-xl border-slate-100 shadow-xl p-1">
+                        <DropdownMenuContent align="end" className="w-44 rounded-xl border-slate-100 shadow-xl p-1">
                           <DropdownMenuItem onClick={() => handleViewDetails(location)} className="rounded-lg gap-2 cursor-pointer focus:bg-blue-50 focus:text-blue-600">
                              <Eye className="h-4 w-4" /> View Info
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => navigate(`/admin/phone-directory?locationId=${location.id}`)} className="rounded-lg gap-2 cursor-pointer focus:bg-emerald-50 focus:text-emerald-600 text-emerald-600 font-medium">
+                             <Phone className="h-4 w-4" /> Phone Directory
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleEditLocation(location)} className="rounded-lg gap-2 cursor-pointer focus:bg-amber-50 focus:text-amber-600">
                              <Edit className="h-4 w-4" /> Edit Record
@@ -1197,6 +1238,91 @@ const Locations = () => {
                     </div>
                   </div>
                </div>
+
+                {/* Attached Phone Directory & Emergency Contacts */}
+                <div className="col-span-2 space-y-3 pt-4 border-t border-slate-100">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-1.5">
+                      <Phone className="h-4 w-4 text-emerald-600" />
+                      Attached Phone Directory ({locationContacts.length})
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setViewDetailsOpen(false);
+                        navigate(`/admin/phone-directory?locationId=${selectedLocation?.id}`);
+                      }}
+                      className="h-7 text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
+                    >
+                      <ExternalLink className="h-3 w-3 mr-1" />
+                      Open Full Directory
+                    </Button>
+                  </div>
+
+                  {contactsLoading ? (
+                    <div className="flex items-center justify-center py-6 text-xs text-slate-400">
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Loading directory contacts...
+                    </div>
+                  ) : locationContacts.length === 0 ? (
+                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/60 text-center space-y-2">
+                      <p className="text-xs text-slate-500">
+                        No emergency services or phone contacts currently attached to this location.
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setViewDetailsOpen(false);
+                          navigate(`/admin/phone-directory?locationId=${selectedLocation?.id}`);
+                        }}
+                        className="h-7 text-xs bg-white text-blue-600 border-blue-200 hover:bg-blue-50"
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        Attach Phone Number to {selectedLocation?.name}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {locationContacts.map((contact) => (
+                        <div
+                          key={contact.id || contact._id}
+                          className="p-3 bg-slate-50 rounded-lg border border-slate-200/70 flex items-center justify-between hover:bg-slate-100/70 transition-colors"
+                        >
+                          <div className="min-w-0 pr-2">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
+                                {contact.category}
+                              </span>
+                              {contact.priority === "emergency" && (
+                                <span className="text-[9px] font-bold text-red-600 bg-red-100 px-1 rounded">
+                                  EMERGENCY
+                                </span>
+                              )}
+                            </div>
+                            <p className="font-semibold text-xs text-slate-800 truncate mt-1">
+                              {contact.name}
+                            </p>
+                            <p className="font-mono text-xs text-slate-600 font-bold">
+                              {contact.phoneNumber}
+                              {contact.extension ? ` (x${contact.extension})` : ""}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <a
+                              href={`tel:${contact.phoneNumber.replace(/[^\d+]/g, "")}`}
+                              className="h-7 px-2.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1 shadow-sm"
+                            >
+                              <Phone className="h-3 w-3" />
+                              Call
+                            </a>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                {selectedLocation?.notes && (
                  <div className="col-span-2 pt-4 border-t border-slate-100">

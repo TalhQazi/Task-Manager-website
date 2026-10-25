@@ -196,7 +196,8 @@ export type CrudResource =
   | "legal/contacts"
   | "legal/notes"
   | "legal/notifications"
-  | "legal/reports";
+  | "legal/reports"
+  | "phone-directory";
 
 type ListResponse<T> = { items?: T[] } | T[];
 
@@ -205,6 +206,7 @@ function resourcePath(resource: CrudResource) {
   if (resource === "do-not-hire") return "/api/do-not-hire";
   if (resource === "companies") return "/api/companies";
   if (resource === "company-registry") return "/api/company-registry";
+  if (resource === "phone-directory") return "/api/phone-directory";
   return `/api/${resource}`;
 }
 
