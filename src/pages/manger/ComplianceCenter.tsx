@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/manger/ui/card";
 import { Badge } from "@/components/manger/ui/badge";
 import { Button } from "@/components/manger/ui/button";
@@ -10,10 +11,12 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/manger/ui/sheet";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/manger/ui/accordion";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/manger/ui/table";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/manger/ui/avatar";
 import { apiFetch } from "@/lib/manger/api";
 import { getAuthState } from "@/lib/auth";
 import { useTheme } from "@/contexts/ThemeContext";
 import { toast } from "sonner";
+import { EmployeeFileWorkspace } from "@/components/admin/employees/EmployeeFileWorkspace";
 import {
   Shield,
   ShieldAlert,
@@ -25,6 +28,7 @@ import {
   User,
   Clock,
   ArrowRight,
+  ArrowLeft,
   Upload,
   Download,
   ExternalLink,
@@ -38,7 +42,63 @@ import {
   Calendar,
   AlertCircle,
   MapPin,
+  Users,
+  Smartphone,
+  CreditCard,
+  Fingerprint,
+  Mail,
+  Phone,
+  FileCheck2,
+  FileSignature,
+  Globe,
+  SlidersHorizontal,
+  CheckSquare,
 } from "lucide-react";
+
+export interface EmployeeComplianceItem {
+  status: "missing" | "pending" | "verified" | "na";
+  fileUrl?: string;
+  value?: string;
+  caseNumber?: string;
+  docCount?: number;
+  updatedBy?: string;
+  updatedAt?: string;
+  notes?: string;
+}
+
+export interface EmployeeComplianceChecklist {
+  drivLic: EmployeeComplianceItem;
+  ssCard: EmployeeComplianceItem;
+  email: EmployeeComplianceItem;
+  phoneNumber: EmployeeComplianceItem;
+  signedDocs: EmployeeComplianceItem;
+  eVerify: EmployeeComplianceItem;
+  downloadedApps: EmployeeComplianceItem;
+}
+
+export interface EmployeeComplianceRecord {
+  _id: string;
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  department: string;
+  role: string;
+  status: string;
+  avatarUrl?: string;
+  complianceChecklist: EmployeeComplianceChecklist;
+  verifiedCount: number;
+  totalRequired: number;
+  score: number;
+  isCompliant: boolean;
+}
+
+export interface EmployeeComplianceSummary {
+  total: number;
+  compliantCount: number;
+  actionRequiredCount: number;
+  avgScore: number;
+}
 
 interface Website {
   _id: string;
@@ -269,7 +329,64 @@ export default function ComplianceCenter() {
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null);
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
   const [siteHistory, setSiteHistory] = useState<ChecklistHistory[]>([]);
+  const [globalAuditLogs, setGlobalAuditLogs] = useState<(ChecklistHistory & { siteName?: string })[]>([]);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  // Router navigation
+  const navigate = useNavigate();
+
+  // Mode: "employees" | "websites" (Defaulting to employees as requested)
+  const [complianceCenterMode, setComplianceCenterMode] = useState<"employees" | "websites">("employees");
+
+  // Employee Compliance State
+  const [employeeRecords, setEmployeeRecords] = useState<EmployeeComplianceRecord[]>([]);
+  const [employeeSummary, setEmployeeSummary] = useState<EmployeeComplianceSummary | null>(null);
+  const [empLoading, setEmpLoading] = useState(false);
+  const [empSearch, setEmpSearch] = useState("");
+  const [empStatusFilter, setEmpStatusFilter] = useState<"all" | "compliant" | "action_required">("all");
+  const [empDeptFilter, setEmpDeptFilter] = useState("all");
+
+  // Linked Employee File Workspace state
+  const [activeFileEmployeeId, setActiveFileEmployeeId] = useState<string | null>(null);
+
+  // Edit employee compliance checklist dialog state
+  const [selectedEmpForEdit, setSelectedEmpForEdit] = useState<EmployeeComplianceRecord | null>(null);
+  const [empChecklistDraft, setEmpChecklistDraft] = useState<EmployeeComplianceChecklist | null>(null);
+  const [savingEmpCompliance, setSavingEmpCompliance] = useState(false);
+
+  const loadEmployeeCompliance = async () => {
+    setEmpLoading(true);
+    try {
+      const res = await apiFetch<{ items: EmployeeComplianceRecord[]; summary: EmployeeComplianceSummary }>("/api/employees/compliance");
+      if (res && res.items) {
+        setEmployeeRecords(res.items);
+        setEmployeeSummary(res.summary);
+      }
+    } catch (err) {
+      console.error("Failed to load employee compliance data:", err);
+    } finally {
+      setEmpLoading(false);
+    }
+  };
+
+  const saveEmployeeComplianceChecklist = async () => {
+    if (!selectedEmpForEdit || !empChecklistDraft) return;
+    setSavingEmpCompliance(true);
+    try {
+      await apiFetch(`/api/employees/${selectedEmpForEdit._id}/compliance`, {
+        method: "PUT",
+        body: JSON.stringify({ checklist: empChecklistDraft }),
+      });
+      toast.success(`Compliance checklist updated for ${selectedEmpForEdit.name}`);
+      setSelectedEmpForEdit(null);
+      setEmpChecklistDraft(null);
+      await loadEmployeeCompliance();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update compliance checklist");
+    } finally {
+      setSavingEmpCompliance(false);
+    }
+  };
 
   // Override dialog state
   const [isOverrideOpen, setIsOverrideOpen] = useState(false);
@@ -309,6 +426,9 @@ export default function ComplianceCenter() {
   const loadData = async () => {
     setLoading(true);
     try {
+      // Parallel fetch employee compliance
+      void loadEmployeeCompliance();
+
       // Fetch websites (active + future)
       const activeRes = await apiFetch<{ items: Website[] }>("/api/websites/active");
       const futureRes = await apiFetch<{ items: Website[] }>("/api/websites/future");
@@ -326,6 +446,10 @@ export default function ComplianceCenter() {
       // Fetch reports
       const reportsRes = await apiFetch<{ item: ComplianceReport }>("/api/websites/compliance/reports");
       setReport(reportsRes.item || null);
+
+      // Fetch global audit logs across all websites
+      const auditRes = await apiFetch<{ items: (ChecklistHistory & { siteName?: string })[] }>("/api/websites/compliance/audit-logs");
+      setGlobalAuditLogs(auditRes.items || []);
     } catch (err) {
       console.error(err);
       toast.error("Failed to load compliance data. Make sure backend is running.");
@@ -359,6 +483,32 @@ export default function ComplianceCenter() {
       return matchesSearch && matchesEnv && matchesBu && matchesScore;
     });
   }, [websites, search, envFilter, buFilter, scoreFilter]);
+
+  const filteredEmployees = useMemo(() => {
+    return employeeRecords.filter((emp) => {
+      const q = empSearch.trim().toLowerCase();
+      const matchesSearch =
+        !q ||
+        emp.name.toLowerCase().includes(q) ||
+        emp.email.toLowerCase().includes(q) ||
+        (emp.phone && emp.phone.toLowerCase().includes(q)) ||
+        (emp.department && emp.department.toLowerCase().includes(q)) ||
+        (emp.role && emp.role.toLowerCase().includes(q));
+
+      const matchesStatus =
+        empStatusFilter === "all" ||
+        (empStatusFilter === "compliant" && emp.isCompliant) ||
+        (empStatusFilter === "action_required" && !emp.isCompliant);
+
+      const matchesDept = empDeptFilter === "all" || emp.department === empDeptFilter;
+
+      return matchesSearch && matchesStatus && matchesDept;
+    });
+  }, [employeeRecords, empSearch, empStatusFilter, empDeptFilter]);
+
+  const uniqueDepartments = useMemo(() => {
+    return Array.from(new Set(employeeRecords.map((e) => e.department).filter(Boolean))).sort();
+  }, [employeeRecords]);
 
   // Open Drawer and fetch compliance items + history
   const openComplianceDrawer = async (site: Website) => {
@@ -500,6 +650,9 @@ export default function ComplianceCenter() {
 
       const complianceRes = await apiFetch<{ items: ChecklistItem[] }>("/api/websites/" + selectedWebsite._id + "/compliance");
       setChecklistItems(complianceRes.items || []);
+
+      const historyRes = await apiFetch<{ items: ChecklistHistory[] }>("/api/websites/" + selectedWebsite._id + "/history");
+      setSiteHistory(historyRes.items || []);
 
       void loadData();
     } catch (err: any) {
@@ -661,40 +814,583 @@ export default function ComplianceCenter() {
     return groups;
   }, [checklistItems]);
 
-  return (
-    <div className="space-y-6">
-      {/* Title Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="space-y-1">
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-foreground flex items-center gap-2">
-            <Shield className="h-6 w-6 md:h-8 md:w-8 text-primary animate-pulse" />
-            Website Compliance Center
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Track website deployment readiness, execute checklist templates, audit launch tasks, and view accountability logs.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+  // Helper for rendering 7 core compliance requirement status badges
+  const renderReqPill = (shortLabel: string, fullLabel: string, item?: EmployeeComplianceItem) => {
+    const status = item?.status || "missing";
+    if (status === "verified") {
+      return (
+        <span
+          title={`${fullLabel}: Verified`}
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 whitespace-nowrap shadow-xs"
+        >
+          <Check className="h-2.5 w-2.5 shrink-0" />
+          {shortLabel}
+        </span>
+      );
+    }
+    if (status === "pending") {
+      return (
+        <span
+          title={`${fullLabel}: Pending Verification`}
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 whitespace-nowrap shadow-xs"
+        >
+          <Clock className="h-2.5 w-2.5 shrink-0" />
+          {shortLabel}
+        </span>
+      );
+    }
+    if (status === "na") {
+      return (
+        <span
+          title={`${fullLabel}: Not Applicable`}
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-muted text-muted-foreground border border-border whitespace-nowrap"
+        >
+          {shortLabel} N/A
+        </span>
+      );
+    }
+    return (
+      <span
+        title={`${fullLabel}: Missing / Incomplete`}
+        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/30 whitespace-nowrap shadow-xs"
+      >
+        <XCircle className="h-2.5 w-2.5 shrink-0" />
+        {shortLabel}
+      </span>
+    );
+  };
+
+  if (activeFileEmployeeId) {
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
           <Button
             variant="outline"
             size="sm"
-            onClick={() => void loadData()}
-            disabled={loading}
-            className={isMetallic ? "bg-zinc-800 border-[#ffd27a]/30 text-white hover:bg-zinc-700" : ""}
+            onClick={() => setActiveFileEmployeeId(null)}
+            className="flex items-center gap-2 font-semibold w-fit"
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-            Refresh
+            <ArrowLeft className="h-4 w-4" />
+            Back to Compliance Center
           </Button>
-          <Button
-            size="sm"
-            onClick={() => setIsCreateOpen(true)}
-            className={isMetallic ? "bg-gradient-to-r from-[#ffd27a] to-[#d8a537] text-black font-bold border border-[#ffd27a] hover:from-[#ffe09e]" : ""}
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">
+              Employee File Workspace Mode
+            </Badge>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate(isAdmin ? `/admin/employees?id=${activeFileEmployeeId}` : `/manager/employees?id=${activeFileEmployeeId}`)}
+              className="text-xs text-primary flex items-center gap-1"
+            >
+              Open in Employee Directory
+              <ExternalLink className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+        <EmployeeFileWorkspace
+          employeeId={activeFileEmployeeId}
+          onBack={() => setActiveFileEmployeeId(null)}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Top Mode Navigation Switcher */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-1.5 rounded-2xl bg-muted/40 border border-border/80 shadow-sm">
+        <div className="grid grid-cols-2 gap-1.5 w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={() => setComplianceCenterMode("employees")}
+            className={`flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 ${
+              complianceCenterMode === "employees"
+                ? "bg-primary text-primary-foreground shadow-md shadow-primary/25 scale-[1.01]"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/70"
+            }`}
           >
-            <Plus className="h-4 w-4 mr-2" />
-            Register Site Launch
-          </Button>
+            <Users className="h-4 w-4" />
+            <span>Employee Compliance Center</span>
+            {employeeSummary && (
+              <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-extrabold ${
+                complianceCenterMode === "employees" ? "bg-white/20 text-white" : "bg-primary/15 text-primary"
+              }`}>
+                {employeeSummary.total}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setComplianceCenterMode("websites")}
+            className={`flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 ${
+              complianceCenterMode === "websites"
+                ? "bg-primary text-primary-foreground shadow-md shadow-primary/25 scale-[1.01]"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/70"
+            }`}
+          >
+            <Globe className="h-4 w-4" />
+            <span>Website Compliance Center</span>
+            <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-extrabold ${
+              complianceCenterMode === "websites" ? "bg-white/20 text-white" : "bg-muted-foreground/20 text-foreground"
+            }`}>
+              {websites.length}
+            </span>
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2 justify-end px-2">
+          {complianceCenterMode === "employees" ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void loadEmployeeCompliance()}
+              disabled={empLoading}
+              className="text-xs font-semibold"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${empLoading ? "animate-spin" : ""}`} />
+              Refresh Employee Compliance
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void loadData()}
+              disabled={loading}
+              className="text-xs font-semibold"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} />
+              Refresh Websites
+            </Button>
+          )}
         </div>
       </div>
+
+      {/* ================= EMPLOYEE COMPLIANCE CENTER ================= */}
+      {complianceCenterMode === "employees" && (
+        <div className="space-y-6">
+          {/* Header Card */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-card border border-border/80 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-2xl bg-primary/10 text-primary border border-primary/20">
+                <ShieldCheck className="h-6 w-6" />
+              </div>
+              <div className="space-y-1">
+                <h2 className="text-xl sm:text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
+                  Employee Compliance Center
+                </h2>
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  Track workforce compliance across all 7 essential criteria: Driver's License, SS Card, Email, Phone, Signed Docs, E-Verify, and Downloaded Apps. Directly linked to Employee File Workspace.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate(isAdmin ? "/admin/employees" : "/manager/employees")}
+                className="font-semibold text-xs flex items-center gap-1.5"
+              >
+                <Users className="h-3.5 w-3.5" />
+                Employee Directory
+                <ExternalLink className="h-3 w-3 opacity-70" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Summary KPIs */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="p-4 rounded-xl border border-border/80 bg-card/60 backdrop-blur-sm shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Monitored</p>
+                  <p className="text-2xl sm:text-3xl font-black mt-1 text-foreground">
+                    {employeeSummary?.total ?? employeeRecords.length}
+                  </p>
+                </div>
+                <div className="p-3 rounded-2xl bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                  <Users className="h-6 w-6" />
+                </div>
+              </div>
+              <div className="mt-3 text-xs text-muted-foreground flex items-center gap-1.5">
+                <span className="inline-block w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                <span>Active company workforce</span>
+              </div>
+            </Card>
+
+            <Card className="p-4 rounded-xl border border-border/80 bg-card/60 backdrop-blur-sm shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">100% Fully Compliant</p>
+                  <p className="text-2xl sm:text-3xl font-black mt-1 text-emerald-500">
+                    {employeeSummary?.compliantCount ?? 0}
+                  </p>
+                </div>
+                <div className="p-3 rounded-2xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                  <ShieldCheck className="h-6 w-6" />
+                </div>
+              </div>
+              <div className="mt-3 text-xs text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1.5">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                <span>All 7 criteria verified</span>
+              </div>
+            </Card>
+
+            <Card className="p-4 rounded-xl border border-border/80 bg-card/60 backdrop-blur-sm shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Action Required</p>
+                  <p className="text-2xl sm:text-3xl font-black mt-1 text-amber-500">
+                    {employeeSummary?.actionRequiredCount ?? 0}
+                  </p>
+                </div>
+                <div className="p-3 rounded-2xl bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                  <AlertTriangle className="h-6 w-6" />
+                </div>
+              </div>
+              <div className="mt-3 text-xs text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1.5">
+                <Clock className="h-3.5 w-3.5" />
+                <span>Missing or unverified documents</span>
+              </div>
+            </Card>
+
+            <Card className="p-4 rounded-xl border border-border/80 bg-card/60 backdrop-blur-sm shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Workforce Health</p>
+                  <p className="text-2xl sm:text-3xl font-black mt-1 text-primary">
+                    {employeeSummary?.avgScore ?? 0}%
+                  </p>
+                </div>
+                <div className="p-3 rounded-2xl bg-primary/10 text-primary border border-primary/20">
+                  <TrendingUp className="h-6 w-6" />
+                </div>
+              </div>
+              <div className="mt-3 space-y-1">
+                <Progress value={employeeSummary?.avgScore ?? 0} className="h-1.5" />
+                <p className="text-[11px] text-muted-foreground text-right">Average completion rate</p>
+              </div>
+            </Card>
+          </div>
+
+          {/* 7 Core Checklist Requirements Overview Banner */}
+          <Card className="p-4 rounded-2xl border border-border bg-card shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <CheckSquare className="h-4 w-4 text-primary" />
+                <h3 className="text-sm font-bold tracking-tight">The 7 Mandatory Employee Compliance Standards</h3>
+              </div>
+              <span className="text-xs text-muted-foreground hidden sm:inline">Linked to the Employee File Workspace</span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5">
+              <div className="p-2.5 rounded-xl border border-border/70 bg-muted/30 flex flex-col gap-1">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+                  <CreditCard className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                  <span>Driv Lic</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground">State driver's license or photo ID</p>
+              </div>
+
+              <div className="p-2.5 rounded-xl border border-border/70 bg-muted/30 flex flex-col gap-1">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+                  <Fingerprint className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                  <span>SS Card</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground">Social Security card document</p>
+              </div>
+
+              <div className="p-2.5 rounded-xl border border-border/70 bg-muted/30 flex flex-col gap-1">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+                  <Mail className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                  <span>Email</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground">Confirmed working email</p>
+              </div>
+
+              <div className="p-2.5 rounded-xl border border-border/70 bg-muted/30 flex flex-col gap-1">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+                  <Phone className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                  <span>Phone Number</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground">Direct contact phone on file</p>
+              </div>
+
+              <div className="p-2.5 rounded-xl border border-border/70 bg-muted/30 flex flex-col gap-1">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+                  <FileSignature className="h-3.5 w-3.5 text-purple-500 shrink-0" />
+                  <span>Signed Docs</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground">W-4, I-9, Handbook, Policy forms</p>
+              </div>
+
+              <div className="p-2.5 rounded-xl border border-border/70 bg-muted/30 flex flex-col gap-1">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+                  <FileCheck2 className="h-3.5 w-3.5 text-teal-500 shrink-0" />
+                  <span>E-Verify</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground">DHS Employment eligibility confirmed</p>
+              </div>
+
+              <div className="p-2.5 rounded-xl border border-border/70 bg-muted/30 flex flex-col gap-1">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
+                  <Smartphone className="h-3.5 w-3.5 text-rose-500 shrink-0" />
+                  <span>Req Apps</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground">Downloaded required mobile apps</p>
+              </div>
+            </div>
+          </Card>
+
+          {/* Search & Filter Toolbar */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-2xl bg-card border border-border shadow-sm">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search employee by name, email, phone, role, department..."
+                value={empSearch}
+                onChange={(e) => setEmpSearch(e.target.value)}
+                className="pl-9 text-xs sm:text-sm h-9"
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Select value={empStatusFilter} onValueChange={(val: any) => setEmpStatusFilter(val)}>
+                <SelectTrigger className="w-[160px] h-9 text-xs">
+                  <SelectValue placeholder="Status Filter" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="compliant">100% Compliant</SelectItem>
+                  <SelectItem value="action_required">Action Required</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={empDeptFilter} onValueChange={(val: any) => setEmpDeptFilter(val)}>
+                <SelectTrigger className="w-[160px] h-9 text-xs">
+                  <SelectValue placeholder="Department" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Departments</SelectItem>
+                  {uniqueDepartments.map((dept) => (
+                    <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Employee Compliance Table */}
+          <Card className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/40 hover:bg-muted/40">
+                    <TableHead className="font-bold text-xs">Employee</TableHead>
+                    <TableHead className="font-bold text-xs text-center">Compliance Status</TableHead>
+                    <TableHead className="font-bold text-xs text-center">Driver's License</TableHead>
+                    <TableHead className="font-bold text-xs text-center">SS Card</TableHead>
+                    <TableHead className="font-bold text-xs text-center">Email</TableHead>
+                    <TableHead className="font-bold text-xs text-center">Phone</TableHead>
+                    <TableHead className="font-bold text-xs text-center">Signed Docs</TableHead>
+                    <TableHead className="font-bold text-xs text-center">E-Verify</TableHead>
+                    <TableHead className="font-bold text-xs text-center">Req Apps</TableHead>
+                    <TableHead className="font-bold text-xs text-right pr-4">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {empLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={10} className="py-12 text-center text-muted-foreground">
+                        <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2 text-primary" />
+                        Loading employee compliance records...
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredEmployees.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={10} className="py-12 text-center text-muted-foreground">
+                        <ShieldAlert className="h-8 w-8 mx-auto mb-2 text-muted-foreground/60" />
+                        <p className="font-semibold text-foreground">No employee compliance records match your filters</p>
+                        <p className="text-xs mt-1">Try adjusting your search query or department filter</p>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredEmployees.map((emp) => {
+                      const chk = emp.complianceChecklist;
+                      return (
+                        <TableRow key={emp._id} className="hover:bg-muted/30 transition-colors">
+                          {/* Employee Info */}
+                          <TableCell className="py-3">
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-9 w-9 border border-border shrink-0">
+                                <AvatarImage src={emp.avatarUrl} alt={emp.name} />
+                                <AvatarFallback className="text-xs font-bold bg-primary/10 text-primary">
+                                  {emp.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="min-w-0">
+                                <p className="font-bold text-sm text-foreground truncate">{emp.name}</p>
+                                <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
+                                  <span className="truncate">{emp.role || "Employee"}</span>
+                                  {emp.department && (
+                                    <>
+                                      <span>•</span>
+                                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                        {emp.department}
+                                      </Badge>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </TableCell>
+
+                          {/* Compliance Score */}
+                          <TableCell className="text-center py-3">
+                            <div className="inline-flex flex-col items-center gap-1">
+                              {emp.isCompliant ? (
+                                <Badge className="bg-emerald-600 border border-emerald-500/30 text-white font-bold text-[11px] shadow-xs">
+                                  100% Compliant
+                                </Badge>
+                              ) : emp.score >= 70 ? (
+                                <Badge className="bg-amber-600 border border-amber-500/30 text-white font-bold text-[11px] shadow-xs">
+                                  {emp.score}% In Progress
+                                </Badge>
+                              ) : (
+                                <Badge variant="destructive" className="font-bold text-[11px] shadow-xs">
+                                  {emp.score}% Incomplete
+                                </Badge>
+                              )}
+                              <span className="text-[10px] text-muted-foreground font-medium">
+                                {emp.verifiedCount} of {emp.totalRequired} verified
+                              </span>
+                            </div>
+                          </TableCell>
+
+                          {/* 1. Driver's License */}
+                          <TableCell className="text-center py-3">
+                            {renderReqPill("DL", "Driver's License", chk?.drivLic)}
+                          </TableCell>
+
+                          {/* 2. SS Card */}
+                          <TableCell className="text-center py-3">
+                            {renderReqPill("SSN", "SS Card", chk?.ssCard)}
+                          </TableCell>
+
+                          {/* 3. Email */}
+                          <TableCell className="text-center py-3">
+                            {renderReqPill("Email", "Email", chk?.email)}
+                          </TableCell>
+
+                          {/* 4. Phone Number */}
+                          <TableCell className="text-center py-3">
+                            {renderReqPill("Phone", "Phone Number", chk?.phoneNumber)}
+                          </TableCell>
+
+                          {/* 5. Signed Docs */}
+                          <TableCell className="text-center py-3">
+                            {renderReqPill(
+                              chk?.signedDocs?.docCount ? `${chk.signedDocs.docCount} Docs` : "Docs",
+                              "Signed Documents",
+                              chk?.signedDocs
+                            )}
+                          </TableCell>
+
+                          {/* 6. E-Verify */}
+                          <TableCell className="text-center py-3">
+                            {renderReqPill("E-Verify", "E-Verify", chk?.eVerify)}
+                          </TableCell>
+
+                          {/* 7. Downloaded Required Apps */}
+                          <TableCell className="text-center py-3">
+                            {renderReqPill("Apps", "Downloaded Required Apps", chk?.downloadedApps)}
+                          </TableCell>
+
+                          {/* Actions */}
+                          <TableCell className="text-right py-3 pr-4">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {/* Primary: View Employee File (Workspace module) */}
+                              <Button
+                                size="sm"
+                                onClick={() => setActiveFileEmployeeId(emp._id)}
+                                className="h-8 px-2.5 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1 shadow-xs"
+                                title="Open Employee File Workspace module directly"
+                              >
+                                <FileText className="h-3.5 w-3.5" />
+                                <span>Employee File</span>
+                              </Button>
+
+                              {/* Secondary: Audit checklist */}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedEmpForEdit(emp);
+                                  setEmpChecklistDraft(JSON.parse(JSON.stringify(emp.complianceChecklist)));
+                                }}
+                                className="h-8 px-2 text-xs font-semibold"
+                                title="Audit & update compliance checklist items"
+                              >
+                                <SlidersHorizontal className="h-3.5 w-3.5" />
+                              </Button>
+
+                              {/* Quick jump to Directory */}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => navigate(isAdmin ? `/admin/employees?id=${emp._id}` : `/manager/employees?id=${emp._id}`)}
+                                className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                                title="Open in Directory"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* ================= WEBSITE COMPLIANCE CENTER ================= */}
+      {complianceCenterMode === "websites" && (
+        <div className="space-y-6">
+          {/* Title Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-1">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-foreground flex items-center gap-2">
+                <Shield className="h-6 w-6 md:h-8 md:w-8 text-primary animate-pulse" />
+                Website Compliance Center
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                Track website deployment readiness, execute checklist templates, audit launch tasks, and view accountability logs.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void loadData()}
+                disabled={loading}
+                className={isMetallic ? "bg-zinc-800 border-[#ffd27a]/30 text-white hover:bg-zinc-700" : ""}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setIsCreateOpen(true)}
+                className={isMetallic ? "bg-gradient-to-r from-[#ffd27a] to-[#d8a537] text-black font-bold border border-[#ffd27a] hover:from-[#ffe09e]" : ""}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Register Site Launch
+              </Button>
+            </div>
+          </div>
 
       {/* Summary Analytics Cards */}
       {report && (
@@ -1056,11 +1752,11 @@ export default function ComplianceCenter() {
         </CardHeader>
         <CardContent className="max-h-[300px] overflow-y-auto no-scrollbar">
           <div className="space-y-4">
-            {siteHistory.length === 0 && !selectedWebsite ? (
-              <p className="text-sm text-muted-foreground text-center py-6">Select a website checklist to view detailed audit feeds.</p>
+            {((selectedWebsite && siteHistory.length > 0) ? siteHistory : globalAuditLogs).length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">No compliance actions or checklist modifications recorded yet.</p>
             ) : (
               <div className="space-y-3">
-                {siteHistory.map((log) => (
+                {((selectedWebsite && siteHistory.length > 0) ? siteHistory : globalAuditLogs).map((log) => (
                   <div
                     key={log._id}
                     className={`p-3 rounded-lg border text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
@@ -1068,7 +1764,12 @@ export default function ComplianceCenter() {
                     }`}
                   >
                     <div className="space-y-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {log.siteName && (
+                          <Badge variant="secondary" className="text-[10px] font-bold bg-primary/10 text-primary border-primary/20">
+                            {log.siteName}
+                          </Badge>
+                        )}
                         <Badge variant="outline" className="capitalize text-[10px]">
                           {log.action.replace(/_/g, " ")}
                         </Badge>
@@ -1103,6 +1804,8 @@ export default function ComplianceCenter() {
           </div>
         </CardContent>
       </Card>
+    </div>
+  )}
 
       {/* Website Registration Dialog */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
@@ -1956,6 +2659,438 @@ export default function ComplianceCenter() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Employee Compliance Checklist Dialog */}
+      <Dialog open={!!selectedEmpForEdit} onOpenChange={(open) => !open && setSelectedEmpForEdit(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto no-scrollbar">
+          <DialogHeader>
+            <div className="flex items-center justify-between pr-6">
+              <div>
+                <DialogTitle className="text-lg font-black flex items-center gap-2">
+                  <ShieldCheck className="h-5 w-5 text-primary" />
+                  Audit Employee Compliance: {selectedEmpForEdit?.name}
+                </DialogTitle>
+                <DialogDescription>
+                  Review and certify the 7 core requirements. Changes update the live Employee File module.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {empChecklistDraft && (
+            <div className="space-y-4 py-2">
+              {/* 1. Driver's License */}
+              <div className="p-3.5 rounded-xl border border-border bg-muted/20 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-blue-500" />
+                    <span className="font-bold text-sm">1. Driver's License (Photo ID)</span>
+                  </div>
+                  <Select
+                    value={empChecklistDraft.drivLic.status}
+                    onValueChange={(val: any) =>
+                      setEmpChecklistDraft({
+                        ...empChecklistDraft,
+                        drivLic: { ...empChecklistDraft.drivLic, status: val },
+                      })
+                    }
+                  >
+                    <SelectTrigger className="w-[140px] h-8 text-xs font-semibold">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="verified">Verified</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="missing">Missing</SelectItem>
+                      <SelectItem value="na">N/A</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <Input
+                    placeholder="Document URL / File reference..."
+                    value={empChecklistDraft.drivLic.fileUrl || ""}
+                    onChange={(e) =>
+                      setEmpChecklistDraft({
+                        ...empChecklistDraft,
+                        drivLic: { ...empChecklistDraft.drivLic, fileUrl: e.target.value },
+                      })
+                    }
+                    className="h-8 text-xs"
+                  />
+                  <Input
+                    placeholder="Auditor notes / expiration..."
+                    value={empChecklistDraft.drivLic.notes || ""}
+                    onChange={(e) =>
+                      setEmpChecklistDraft({
+                        ...empChecklistDraft,
+                        drivLic: { ...empChecklistDraft.drivLic, notes: e.target.value },
+                      })
+                    }
+                    className="h-8 text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* 2. SS Card */}
+              <div className="p-3.5 rounded-xl border border-border bg-muted/20 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Fingerprint className="h-4 w-4 text-indigo-500" />
+                    <span className="font-bold text-sm">2. Social Security Card</span>
+                  </div>
+                  <Select
+                    value={empChecklistDraft.ssCard.status}
+                    onValueChange={(val: any) =>
+                      setEmpChecklistDraft({
+                        ...empChecklistDraft,
+                        ssCard: { ...empChecklistDraft.ssCard, status: val },
+                      })
+                    }
+                  >
+                    <SelectTrigger className="w-[140px] h-8 text-xs font-semibold">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="verified">Verified</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="missing">Missing</SelectItem>
+                      <SelectItem value="na">N/A</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <Input
+                    placeholder="Document URL / Vault reference..."
+                    value={empChecklistDraft.ssCard.fileUrl || ""}
+                    onChange={(e) =>
+                      setEmpChecklistDraft({
+                        ...empChecklistDraft,
+                        ssCard: { ...empChecklistDraft.ssCard, fileUrl: e.target.value },
+                      })
+                    }
+                    className="h-8 text-xs"
+                  />
+                  <Input
+                    placeholder="Auditor notes (e.g. verified on file)..."
+                    value={empChecklistDraft.ssCard.notes || ""}
+                    onChange={(e) =>
+                      setEmpChecklistDraft({
+                        ...empChecklistDraft,
+                        ssCard: { ...empChecklistDraft.ssCard, notes: e.target.value },
+                      })
+                    }
+                    className="h-8 text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* 3. Email */}
+              <div className="p-3.5 rounded-xl border border-border bg-muted/20 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-emerald-500" />
+                    <span className="font-bold text-sm">3. Email Address</span>
+                  </div>
+                  <Select
+                    value={empChecklistDraft.email.status}
+                    onValueChange={(val: any) =>
+                      setEmpChecklistDraft({
+                        ...empChecklistDraft,
+                        email: { ...empChecklistDraft.email, status: val },
+                      })
+                    }
+                  >
+                    <SelectTrigger className="w-[140px] h-8 text-xs font-semibold">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="verified">Verified</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="missing">Missing</SelectItem>
+                      <SelectItem value="na">N/A</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <Input
+                    placeholder="Confirmed email address..."
+                    value={empChecklistDraft.email.value || ""}
+                    onChange={(e) =>
+                      setEmpChecklistDraft({
+                        ...empChecklistDraft,
+                        email: { ...empChecklistDraft.email, value: e.target.value },
+                      })
+                    }
+                    className="h-8 text-xs"
+                  />
+                  <Input
+                    placeholder="Notes..."
+                    value={empChecklistDraft.email.notes || ""}
+                    onChange={(e) =>
+                      setEmpChecklistDraft({
+                        ...empChecklistDraft,
+                        email: { ...empChecklistDraft.email, notes: e.target.value },
+                      })
+                    }
+                    className="h-8 text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* 4. Phone Number */}
+              <div className="p-3.5 rounded-xl border border-border bg-muted/20 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-amber-500" />
+                    <span className="font-bold text-sm">4. Phone Number</span>
+                  </div>
+                  <Select
+                    value={empChecklistDraft.phoneNumber.status}
+                    onValueChange={(val: any) =>
+                      setEmpChecklistDraft({
+                        ...empChecklistDraft,
+                        phoneNumber: { ...empChecklistDraft.phoneNumber, status: val },
+                      })
+                    }
+                  >
+                    <SelectTrigger className="w-[140px] h-8 text-xs font-semibold">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="verified">Verified</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="missing">Missing</SelectItem>
+                      <SelectItem value="na">N/A</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <Input
+                    placeholder="Confirmed phone number..."
+                    value={empChecklistDraft.phoneNumber.value || ""}
+                    onChange={(e) =>
+                      setEmpChecklistDraft({
+                        ...empChecklistDraft,
+                        phoneNumber: { ...empChecklistDraft.phoneNumber, value: e.target.value },
+                      })
+                    }
+                    className="h-8 text-xs"
+                  />
+                  <Input
+                    placeholder="Notes..."
+                    value={empChecklistDraft.phoneNumber.notes || ""}
+                    onChange={(e) =>
+                      setEmpChecklistDraft({
+                        ...empChecklistDraft,
+                        phoneNumber: { ...empChecklistDraft.phoneNumber, notes: e.target.value },
+                      })
+                    }
+                    className="h-8 text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* 5. Signed Docs */}
+              <div className="p-3.5 rounded-xl border border-border bg-muted/20 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileSignature className="h-4 w-4 text-purple-500" />
+                    <span className="font-bold text-sm">5. Signed Documents (W-4, I-9, Handbook)</span>
+                  </div>
+                  <Select
+                    value={empChecklistDraft.signedDocs.status}
+                    onValueChange={(val: any) =>
+                      setEmpChecklistDraft({
+                        ...empChecklistDraft,
+                        signedDocs: { ...empChecklistDraft.signedDocs, status: val },
+                      })
+                    }
+                  >
+                    <SelectTrigger className="w-[140px] h-8 text-xs font-semibold">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="verified">Verified</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="missing">Missing</SelectItem>
+                      <SelectItem value="na">N/A</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <Input
+                    type="number"
+                    min="0"
+                    placeholder="Signed documents count (e.g. 4)..."
+                    value={empChecklistDraft.signedDocs.docCount ?? 0}
+                    onChange={(e) =>
+                      setEmpChecklistDraft({
+                        ...empChecklistDraft,
+                        signedDocs: { ...empChecklistDraft.signedDocs, docCount: parseInt(e.target.value, 10) || 0 },
+                      })
+                    }
+                    className="h-8 text-xs"
+                  />
+                  <Input
+                    placeholder="Document names / notes..."
+                    value={empChecklistDraft.signedDocs.notes || ""}
+                    onChange={(e) =>
+                      setEmpChecklistDraft({
+                        ...empChecklistDraft,
+                        signedDocs: { ...empChecklistDraft.signedDocs, notes: e.target.value },
+                      })
+                    }
+                    className="h-8 text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* 6. E-Verify */}
+              <div className="p-3.5 rounded-xl border border-border bg-muted/20 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileCheck2 className="h-4 w-4 text-teal-500" />
+                    <span className="font-bold text-sm">6. E-Verify Case Confirmation</span>
+                  </div>
+                  <Select
+                    value={empChecklistDraft.eVerify.status}
+                    onValueChange={(val: any) =>
+                      setEmpChecklistDraft({
+                        ...empChecklistDraft,
+                        eVerify: { ...empChecklistDraft.eVerify, status: val },
+                      })
+                    }
+                  >
+                    <SelectTrigger className="w-[140px] h-8 text-xs font-semibold">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="verified">Verified</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="missing">Missing</SelectItem>
+                      <SelectItem value="na">N/A</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <Input
+                    placeholder="E-Verify case number..."
+                    value={empChecklistDraft.eVerify.caseNumber || ""}
+                    onChange={(e) =>
+                      setEmpChecklistDraft({
+                        ...empChecklistDraft,
+                        eVerify: { ...empChecklistDraft.eVerify, caseNumber: e.target.value },
+                      })
+                    }
+                    className="h-8 text-xs"
+                  />
+                  <Input
+                    placeholder="Confirmation notes..."
+                    value={empChecklistDraft.eVerify.notes || ""}
+                    onChange={(e) =>
+                      setEmpChecklistDraft({
+                        ...empChecklistDraft,
+                        eVerify: { ...empChecklistDraft.eVerify, notes: e.target.value },
+                      })
+                    }
+                    className="h-8 text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* 7. Downloaded Required Apps */}
+              <div className="p-3.5 rounded-xl border border-border bg-muted/20 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Smartphone className="h-4 w-4 text-rose-500" />
+                    <span className="font-bold text-sm">7. Downloaded Required Apps</span>
+                  </div>
+                  <Select
+                    value={empChecklistDraft.downloadedApps.status}
+                    onValueChange={(val: any) =>
+                      setEmpChecklistDraft({
+                        ...empChecklistDraft,
+                        downloadedApps: { ...empChecklistDraft.downloadedApps, status: val },
+                      })
+                    }
+                  >
+                    <SelectTrigger className="w-[140px] h-8 text-xs font-semibold">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="verified">Verified</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="missing">Missing</SelectItem>
+                      <SelectItem value="na">N/A</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Input
+                  placeholder="Notes on verified apps (e.g. Task Manager Mobile, Slack, Authenticator)..."
+                  value={empChecklistDraft.downloadedApps.notes || ""}
+                  onChange={(e) =>
+                    setEmpChecklistDraft({
+                      ...empChecklistDraft,
+                      downloadedApps: { ...empChecklistDraft.downloadedApps, notes: e.target.value },
+                    })
+                  }
+                  className="h-8 text-xs"
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-2">
+            {selectedEmpForEdit && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  const empId = selectedEmpForEdit._id;
+                  setSelectedEmpForEdit(null);
+                  setActiveFileEmployeeId(empId);
+                }}
+                className="text-xs text-primary flex items-center gap-1.5"
+              >
+                <FileText className="h-3.5 w-3.5" />
+                Open Full Employee File Workspace
+              </Button>
+            )}
+            <div className="flex items-center gap-2 justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedEmpForEdit(null)}
+                disabled={savingEmpCompliance}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={saveEmployeeComplianceChecklist}
+                disabled={savingEmpCompliance}
+                className="font-bold flex items-center gap-1.5"
+              >
+                {savingEmpCompliance ? (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-3.5 w-3.5" />
+                    Save Compliance Audit
+                  </>
+                )}
+              </Button>
+            </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
-import { Camera, User, Loader2, CheckCircle, XCircle, AlertCircle, Upload, FileImage, Image as ImageIcon, Quote, ToggleLeft, ToggleRight, Plus, Bell } from "lucide-react";
+import { Camera, User, Loader2, CheckCircle, XCircle, AlertCircle, Upload, FileImage, Image as ImageIcon, Quote, ToggleLeft, ToggleRight, Plus, Bell, Palette, Settings as SettingsIcon, Sparkles } from "lucide-react";
 import { apiFetch, toProxiedUrl } from "@/lib/admin/apiClient";
 import NotificationSettingsTable from "@/components/shared/NotificationSettingsTable";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -19,9 +19,10 @@ import {
 import { Label } from "@/components/admin/ui/label";
 import { Switch } from "@/components/admin/ui/switch";
 import { cn } from "@/lib/utils";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import AssetLibraryPicker from "@/components/admin/AssetLibraryPicker";
+import ThemeEngine from "@/pages/admin/ThemeEngine";
 
 type UploadStatus = "idle" | "uploading" | "success" | "error";
 
@@ -91,6 +92,18 @@ function loadSettings(): SettingsState {
 export default function Settings() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const currentTab = searchParams.get("tab") === "theme-engine" ? "theme-engine" : "general";
+
+  const handleTabChange = (tab: "general" | "theme-engine") => {
+    if (tab === "general") {
+      searchParams.delete("tab");
+      setSearchParams(searchParams, { replace: true });
+    } else {
+      setSearchParams({ tab: "theme-engine" }, { replace: true });
+    }
+  };
+
   const [settings, setSettings] = useState<SettingsState>(() => loadSettings());
 
   const [isSaving, setIsSaving] = useState(false);
@@ -320,6 +333,14 @@ export default function Settings() {
           email?: string;
           avatarUrl?: string;
           avatarDataUrl?: string;
+          rewardSettings?: {
+            animationsEnabled: boolean;
+            hapticsEnabled: boolean;
+            soundEnabled: boolean;
+          };
+          emailPreferences?: Record<string, boolean>;
+          webPreferences?: Record<string, boolean>;
+          role?: string;
         };
       }>("/api/settings");
     },
@@ -1066,8 +1087,80 @@ export default function Settings() {
           </p>
         </div>
 
-        {/* Settings Grid - Responsive */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 md:gap-6 items-start">
+        {/* Settings Navigation Tabs */}
+        <div className="flex items-center gap-2 border-b border-border/60 pb-3 overflow-x-auto">
+          <button
+            type="button"
+            onClick={() => handleTabChange("general")}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all shrink-0 cursor-pointer",
+              currentTab === "general"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            <SettingsIcon className="h-4 w-4" />
+            General Settings
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabChange("theme-engine")}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all shrink-0 cursor-pointer",
+              currentTab === "theme-engine"
+                ? "bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 text-white shadow-md shadow-indigo-500/20"
+                : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            <Palette className="h-4 w-4" />
+            Theme Engine
+            <span className="ml-1 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-white/20 text-white">
+              Studio
+            </span>
+          </button>
+        </div>
+
+        {currentTab === "theme-engine" ? (
+          <div className="pt-2 animate-in fade-in duration-200">
+            <ThemeEngine />
+          </div>
+        ) : (
+          <>
+            {/* Settings Grid - Responsive */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 md:gap-6 items-start">
+              {/* Theme Engine & Appearance Card */}
+              <Card className="shadow-soft border-0 sm:border bg-gradient-to-br from-card via-card to-primary/[0.03]">
+                <CardHeader className="px-4 sm:px-6 py-4 sm:py-5">
+                  <CardTitle className="text-base sm:text-lg md:text-xl font-semibold flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <Palette className="w-5 h-5 text-indigo-500" />
+                      Theme Engine & Appearance
+                    </span>
+                    <Badge variant="outline" className="text-xs bg-indigo-500/10 text-indigo-600 border-indigo-500/30">
+                      Live Engine
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 px-4 sm:px-6 pb-5 sm:pb-6 pt-0">
+                  <p className="text-sm text-muted-foreground">
+                    Customize seasonal holiday themes, visual styles, ambient particle effects, and audio soundscapes.
+                  </p>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-muted/40 border border-border/50">
+                    <div className="space-y-0.5">
+                      <p className="text-xs font-semibold text-foreground">Theme Studio & Skinning Engine</p>
+                      <p className="text-xs text-muted-foreground">Skins, holiday schedules, real-time device preview & live tokens</p>
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={() => handleTabChange("theme-engine")}
+                      className="h-9 text-xs sm:text-sm font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-sm gap-2 shrink-0"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      Open Theme Studio
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
 
           {/* Profile Card */}
           <Card className="shadow-soft border-0 sm:border">
@@ -1461,7 +1554,9 @@ export default function Settings() {
             Settings are saved automatically in your browser
           </p>
         </div>
-      </div>
-    </>
+      </>
+    )}
+  </div>
+</>
   );
 }

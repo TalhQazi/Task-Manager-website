@@ -14,11 +14,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/admin/ui/table";
-import { Bug, Plus, Search } from "lucide-react";
+import { Bug, Plus, Search, Globe } from "lucide-react";
 
 import BugDashboardAnalytics from "@/components/bugs/BugDashboardAnalytics";
 import ReportBugModal from "@/components/bugs/ReportBugModal";
 import BugCollaborationModal from "@/components/bugs/BugCollaborationModal";
+import ExternalWebsiteIntegrationModal from "@/components/bugs/ExternalWebsiteIntegrationModal";
 
 type BugItem = {
   id: string;
@@ -29,6 +30,12 @@ type BugItem = {
   priority?: string;
   module?: string;
   taskTitle?: string;
+  websiteName?: string;
+  websiteUrl?: string;
+  pageUrl?: string;
+  reporterName?: string;
+  reporterEmail?: string;
+  originType?: string;
   createdByUsername?: string;
   createdByRole?: string;
   assignedDeveloperName?: string;
@@ -46,9 +53,11 @@ export default function ManagerBugs() {
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
   const [items, setItems] = useState<BugItem[]>([]);
+  const [websitesList, setWebsitesList] = useState<string[]>([]);
 
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [siteFilter, setSiteFilter] = useState("all");
 
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -59,6 +68,7 @@ export default function ManagerBugs() {
   const [selectedBugId, setSelectedBugId] = useState<string | null>(null);
 
   const [reportOpen, setReportOpen] = useState(false);
+  const [integrationOpen, setIntegrationOpen] = useState(false);
 
   const load = async (targetPage = page) => {
     try {
@@ -69,6 +79,7 @@ export default function ManagerBugs() {
       params.set("page", String(targetPage));
       params.set("limit", String(limit));
       if (statusFilter !== "all") params.set("status", statusFilter);
+      if (siteFilter !== "all") params.set("website", siteFilter);
       if (q.trim()) params.set("q", q.trim());
 
       const res = await apiFetch<{ items?: any[]; pagination?: { totalItems: number; totalPages: number; currentPage: number } }>(
@@ -86,6 +97,12 @@ export default function ManagerBugs() {
           priority: toText(x.priority || "medium"),
           module: toText(x.module),
           taskTitle: toText(x.taskTitle),
+          websiteName: toText(x.websiteName || (x.originType === "EXTERNAL" ? "External Website" : "Task Manager")),
+          websiteUrl: toText(x.websiteUrl),
+          pageUrl: toText(x.pageUrl),
+          reporterName: toText(x.reporterName),
+          reporterEmail: toText(x.reporterEmail),
+          originType: toText(x.originType || "INTERNAL"),
           createdByUsername: toText(x.createdByUsername),
           createdByRole: toText(x.createdByRole),
           assignedDeveloperName: toText(x.assignedDeveloperName),
@@ -111,8 +128,20 @@ export default function ManagerBugs() {
   };
 
   useEffect(() => {
+    const fetchSites = async () => {
+      try {
+        const res = await apiFetch<{ items?: { siteName: string }[] }>("/api/bugs/websites/list");
+        if (Array.isArray(res?.items)) {
+          setWebsitesList(res.items.map((w) => w.siteName).filter(Boolean));
+        }
+      } catch {}
+    };
+    void fetchSites();
+  }, []);
+
+  useEffect(() => {
     void load(1);
-  }, [statusFilter, q]);
+  }, [statusFilter, siteFilter, q]);
 
   useEffect(() => {
     const viewId = String(searchParams.get("view") || "").trim();
@@ -149,6 +178,14 @@ export default function ManagerBugs() {
           <Button variant="outline" onClick={() => void load()} disabled={loading} size="sm">
             Refresh
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIntegrationOpen(true)}
+            className="gap-1.5 border-primary/40 text-primary hover:bg-primary/5 font-medium"
+          >
+            <Globe className="h-4 w-4" /> External Integration
+          </Button>
           <Button onClick={() => setReportOpen(true)} size="sm" className="gap-1.5">
             <Plus className="h-4 w-4" /> Report Bug
           </Button>
@@ -166,14 +203,38 @@ export default function ManagerBugs() {
 
       {/* Filters */}
       <Card className="shadow-sm border">
-        <CardContent className="p-3 sm:p-4 flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
-          <div className="relative flex-1 max-w-md">
-            <Input
-              placeholder="Search bugs..."
-              className="h-9 text-xs sm:text-sm"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
+        <CardContent className="p-3 sm:p-4 flex flex-col md:flex-row gap-3 md:items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1 max-w-xl">
+            <div className="relative flex-1">
+              <Input
+                placeholder="Search bugs by title, desc, website, reporter..."
+                className="h-9 text-xs sm:text-sm"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+              />
+            </div>
+
+            {/* Website Filter Dropdown */}
+            <Select value={siteFilter} onValueChange={setSiteFilter}>
+              <SelectTrigger className="h-9 text-xs w-full sm:w-44 bg-background">
+                <SelectValue placeholder="All Websites" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="text-xs">
+                  🌐 All Websites
+                </SelectItem>
+                <SelectItem value="Task Manager" className="text-xs">
+                  Task Manager (Internal)
+                </SelectItem>
+                {websitesList
+                  .filter((w) => w !== "Task Manager")
+                  .map((w, idx) => (
+                    <SelectItem key={idx} value={w} className="text-xs">
+                      {w}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Quick Filter Chips (Replaces Mobile-Buggy Dropdown) */}
@@ -232,6 +293,7 @@ export default function ManagerBugs() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="text-xs">Title</TableHead>
+                    <TableHead className="text-xs">Website</TableHead>
                     <TableHead className="text-xs">Status</TableHead>
                     <TableHead className="text-xs">Assigned Dev</TableHead>
                     <TableHead className="text-xs">Posted By</TableHead>
@@ -246,6 +308,18 @@ export default function ManagerBugs() {
                         {b.taskTitle && <p className="text-xs text-muted-foreground">Task: {b.taskTitle}</p>}
                       </TableCell>
                       <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={`text-[11px] font-semibold gap-1 py-0.5 whitespace-nowrap ${
+                            b.originType === "EXTERNAL"
+                              ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                              : "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30"
+                          }`}
+                        >
+                          <Globe className="h-3 w-3" /> {b.websiteName || "Task Manager"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
                         <Badge variant="outline" className="text-xs uppercase font-medium">
                           {b.status}
                         </Badge>
@@ -254,7 +328,7 @@ export default function ManagerBugs() {
                         {b.assignedDeveloperName || <span className="text-muted-foreground italic">Unassigned</span>}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
-                        {b.createdByUsername || "-"}
+                        {b.reporterName || b.createdByUsername || "-"}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {b.createdAt ? new Date(b.createdAt).toLocaleDateString() : "-"}
@@ -263,7 +337,7 @@ export default function ManagerBugs() {
                   ))}
                   {filtered.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-12 text-muted-foreground text-xs italic">
+                      <TableCell colSpan={6} className="text-center py-12 text-muted-foreground text-xs italic">
                         No bugs found.
                       </TableCell>
                     </TableRow>
@@ -323,6 +397,12 @@ export default function ManagerBugs() {
         onOpenChange={setReportOpen}
         onSuccess={() => void load()}
         defaultSourcePanel="manager"
+      />
+
+      <ExternalWebsiteIntegrationModal
+        open={integrationOpen}
+        onOpenChange={setIntegrationOpen}
+        onBugSubmitted={() => void load()}
       />
     </div>
   );

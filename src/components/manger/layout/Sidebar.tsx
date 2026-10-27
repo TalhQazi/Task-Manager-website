@@ -36,6 +36,7 @@ import {
   Bell,
   Video,
   BarChart2,
+  Palette,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -57,12 +58,21 @@ const navItemsBase: NavItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/manager", end: true },
   { icon: ClipboardCheck, label: "Compliance Center", path: "/manager/compliance-center" },
   { icon: ClipboardList, label: "Tasks", path: "/manager/tasks" },
-  { icon: Users, label: "Employees", path: "/manager/employees" },
+  {
+    icon: Users,
+    label: "Employees",
+    children: [
+      { icon: Users, label: "Employees", path: "/manager/employees" },
+      { icon: ClipboardCheck, label: "Onboarding", path: "/manager/onboarding" },
+      { icon: DollarSign, label: "Payroll", path: "/manager/payroll" },
+      { icon: Calendar, label: "Leave Requests", path: "/manager/leave-requests" },
+      { icon: Coffee, label: "Breaks", path: "/manager/break-history" },
+    ],
+  },
   { icon: Megaphone, label: "Announcements", path: "/manager/announcements" },
   { icon: BarChart2, label: "Ideas & Polls", path: "/manager/polls" },
   { icon: Calendar, label: "Scheduling", path: "/manager/scheduling" },
   { icon: Clock, label: "Time Tracking", path: "/manager/time-tracking" },
-  { icon: Coffee, label: "Break History", path: "/manager/break-history" },
   { icon: Clock, label: "Attendance", path: "/manager/attendance" },
    {
       icon: FileText,
@@ -76,10 +86,8 @@ const navItemsBase: NavItem[] = [
         { icon: FolderOpen, label: "Files", path: "/manager/crm/files" },
       ],
     },
-  { icon: DollarSign, label: "Payroll", path: "/manager/payroll" },
   { icon: User, label: "Profile", path: "/manager/profile" },
   { icon: ClipboardCheck, label: "EOD Reports", path: "/manager/eod-reports" },
-  { icon: Calendar, label: "Leave Requests", path: "/manager/leave-requests" },
   { icon: Calendar, label: "Travel Calendar", path: "/manager/travel-calendar" },
   { icon: Car, label: "Vehicles", path: "/manager/vehicles" },
   { icon: Wrench, label: "Inventory/Appliances", path: "/manager/appliances" },
@@ -88,7 +96,6 @@ const navItemsBase: NavItem[] = [
   { icon: MapPin, label: "Daily Itinerary", path: "/manager/itinerary" },
   { icon: Building2, label: "Vendors", path: "/manager/vendors" },
   { icon: UserX, label: "Do Not Hire", path: "/manager/do-not-hire" },
-  { icon: ClipboardCheck, label: "Onboarding", path: "/manager/onboarding" },
   { icon: BarChart3, label: "Reports", path: "/manager/reports" },
   { icon: Video, label: "Meetings", path: "/manager/meetings" },
   { icon: MessageSquare, label: "Messages", path: "/manager/messages" },
@@ -126,12 +133,18 @@ const navItemsBase: NavItem[] = [
       />
     ),
   },
-  { icon: Settings, label: "UI Customization", path: "/manager/ui-customization" },
   { icon: ShoppingCart, label: "Shopping Lists", path: "/manager/shopping-lists" },
-  { icon: Building, label: "Company Information", path: "/manager/company-information" },
-  { icon: Settings, label: "Settings", path: "/manager/settings" },
+  { icon: Building, label: "Docs", path: "/manager/company-information" },
   { icon: Bug, label: "Bugs", path: "/manager/bugs" },
-].sort((a, b) => a.label.localeCompare(b.label));
+  {
+    icon: Settings,
+    label: "Settings",
+    children: [
+      { icon: Settings, label: "General Settings", path: "/manager/settings" },
+      { icon: Palette, label: "Theme Engine", path: "/manager/theme-engine" },
+    ],
+  },
+];
 
 type SidebarMode = "desktop" | "mobile";
 
@@ -174,6 +187,19 @@ export function Sidebar({ mode = "desktop", onNavigate, isCollapsed = false, onT
       [menuLabel]: !prev[menuLabel]
     }));
   };
+
+  // Auto-expand group if a child route is active
+  useEffect(() => {
+    const currentPath = location.pathname;
+    navItemsBase.forEach((item) => {
+      if (item.children) {
+        const hasActiveChild = item.children.some(child => child.path && currentPath.startsWith(child.path));
+        if (hasActiveChild) {
+          setExpandedMenus(prev => ({ ...prev, [item.label]: true }));
+        }
+      }
+    });
+  }, [location.pathname]);
 
   const renderNavItem = (item: NavItem, isChild = false) => {
     if (item.children) {
@@ -341,7 +367,19 @@ export function Sidebar({ mode = "desktop", onNavigate, isCollapsed = false, onT
   };
 
   const navItems = useMemo(() => {
-    return navItemsBase;
+    let items = [...navItemsBase];
+    const dashboardItem = items.find((i) => i.label === "Dashboard");
+    const settingsItem = items.find((i) => i.label === "Settings");
+    const otherItems = items.filter((i) => i.label !== "Settings" && i.label !== "Dashboard");
+
+    const sortedItems = [...otherItems].sort((a, b) => a.label.localeCompare(b.label));
+
+    const finalItems: NavItem[] = [];
+    if (dashboardItem) finalItems.push(dashboardItem);
+    finalItems.push(...sortedItems);
+    if (settingsItem) finalItems.push(settingsItem);
+
+    return finalItems;
   }, []);
 
   return (

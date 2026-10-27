@@ -102,6 +102,7 @@ import {
   Image as ImageIcon,
   Video,
   Wallet,
+  Folder,
 } from "lucide-react";
 import { cn } from "@/lib/admin/utils";
 import { apiFetch, downloadTaskAttachment, toProxiedUrl, downloadViaUrl } from "@/lib/admin/apiClient";
@@ -407,6 +408,7 @@ type CreateProjectTaskDraft = {
 type CreateProjectPayload = {
   name: string;
   description: string;
+  category?: string;
   assignees?: string[];
   logo?: ProjectLogo;
   introVideoUrl?: string;
@@ -477,6 +479,7 @@ interface Project {
   id: string;
   name: string;
   description?: string;
+  category?: string;
   createdByUsername?: string;
   createdAt?: string;
   assignees?: string[];
@@ -686,6 +689,7 @@ export default function Tasks() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [assignmentFilter, setAssignmentFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [showArchivedTasks, setShowArchivedTasks] = useState(false);
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [projectPage, setProjectPage] = useState(1);
@@ -695,6 +699,7 @@ export default function Tasks() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
+  const [projectCategory, setProjectCategory] = useState<string>("general");
   const [projectIntroVideoUrl, setProjectIntroVideoUrl] = useState("");
   const [projectLogoFile, setProjectLogoFile] = useState<File | null>(null);
   const [projectLogoPreview, setProjectLogoPreview] = useState<string>("");
@@ -763,6 +768,7 @@ export default function Tasks() {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [editProjectName, setEditProjectName] = useState("");
   const [editProjectDescription, setEditProjectDescription] = useState("");
+  const [editProjectCategory, setEditProjectCategory] = useState<string>("general");
   const [editProjectIntroVideoUrl, setEditProjectIntroVideoUrl] = useState("");
   const [editProjectLogoFile, setEditProjectLogoFile] = useState<File | null>(null);
   const [editProjectLogoPreview, setEditProjectLogoPreview] = useState<string>("");
@@ -895,7 +901,7 @@ export default function Tasks() {
 
   // Fetch projects with server-side pagination
   const projectsQuery = useQuery({
-    queryKey: ["projects", projectPage, projectSearchQuery, statusFilter, assignmentFilter],
+    queryKey: ["projects", projectPage, projectSearchQuery, statusFilter, assignmentFilter, categoryFilter],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: projectPage.toString(),
@@ -904,6 +910,9 @@ export default function Tasks() {
         status: statusFilter,
         assignment: assignmentFilter,
       });
+      if (categoryFilter && categoryFilter !== "all") {
+        params.set("category", categoryFilter);
+      }
       const res = await apiFetch<{ items: Project[], totalPages: number, total: number }>(`/api/projects?${params.toString()}`);
       return {
         items: res.items,
@@ -916,7 +925,7 @@ export default function Tasks() {
 
   useEffect(() => {
     setProjectPage(1);
-  }, [statusFilter, assignmentFilter]);
+  }, [statusFilter, assignmentFilter, categoryFilter]);
 
   useEffect(() => {
     if (tasksQuery.data) {
@@ -1505,6 +1514,7 @@ export default function Tasks() {
   const resetProjectFlow = () => {
     setProjectName("");
     setProjectDescription("");
+    setProjectCategory("general");
     setProjectTasks([]);
     setProjectLogoFile(null);
     setProjectLogoPreview("");
@@ -1704,6 +1714,7 @@ export default function Tasks() {
       const payload: CreateProjectPayload & { assignees?: string[]; logo?: ProjectLogo; teamLead?: string; dropboxAttachments?: DropboxSelectedFile[] } = {
         name: projectName.trim(),
         description,
+        category: projectCategory || "general",
         assignees: projectCreationAssignees,
         teamLead: projectTeamLead || undefined,
         logo: projectLogo,
@@ -2729,6 +2740,14 @@ export default function Tasks() {
         if (!isProjectMe && !isTaskMe) return false;
       }
 
+      // Category Filter
+      if (categoryFilter !== "all") {
+        const cat = (p.category || "").toLowerCase();
+        if (cat !== categoryFilter.toLowerCase()) {
+          return false;
+        }
+      }
+
       // Search Query
       if (qMain && !name.includes(qMain) && !desc.includes(qMain) && !assigneesText.includes(qMain) && !teamLeadText.includes(qMain)) {
         return false;
@@ -2736,7 +2755,7 @@ export default function Tasks() {
 
       return true;
     });
-  }, [projects, projectSearchQuery, statusFilter, priorityFilter, assignmentFilter, assigneeFilter, matchesSelectedAssignee]);
+  }, [projects, projectSearchQuery, statusFilter, priorityFilter, assignmentFilter, assigneeFilter, categoryFilter, matchesSelectedAssignee]);
 
   const filteredStandaloneTasks = useMemo(() => {
     let standalone = tasksQuery.data?.items || [];
@@ -3036,45 +3055,70 @@ export default function Tasks() {
           )}
         </div>
 
-      {/* Premium Tab Switcher */}
+      {/* Premium Tab Switcher & Category Filter */}
       {!selectedProject && (
-        <div className="flex gap-1 bg-muted/40 p-1 rounded-xl border border-border/60 w-fit">
-          <Button
-            variant={activeTab === "all" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => {
-              const next = new URLSearchParams(searchParams);
-              next.set("tab", "all");
-              setSearchParams(next);
-            }}
-            className="h-8 text-xs font-semibold px-4 rounded-lg"
-          >
-            All
-          </Button>
-          <Button
-            variant={activeTab === "projects" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => {
-              const next = new URLSearchParams(searchParams);
-              next.set("tab", "projects");
-              setSearchParams(next);
-            }}
-            className="h-8 text-xs font-semibold px-4 rounded-lg"
-          >
-            Projects Only
-          </Button>
-          <Button
-            variant={activeTab === "tasks" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => {
-              const next = new URLSearchParams(searchParams);
-              next.set("tab", "tasks");
-              setSearchParams(next);
-            }}
-            className="h-8 text-xs font-semibold px-4 rounded-lg"
-          >
-            Tasks Only
-          </Button>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div className="flex gap-1 bg-muted/40 p-1 rounded-xl border border-border/60 w-fit">
+            <Button
+              variant={activeTab === "all" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => {
+                const next = new URLSearchParams(searchParams);
+                next.set("tab", "all");
+                setSearchParams(next);
+              }}
+              className="h-8 text-xs font-semibold px-4 rounded-lg"
+            >
+              All
+            </Button>
+            <Button
+              variant={activeTab === "projects" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => {
+                const next = new URLSearchParams(searchParams);
+                next.set("tab", "projects");
+                setSearchParams(next);
+              }}
+              className="h-8 text-xs font-semibold px-4 rounded-lg"
+            >
+              Projects Only
+            </Button>
+            <Button
+              variant={activeTab === "tasks" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => {
+                const next = new URLSearchParams(searchParams);
+                next.set("tab", "tasks");
+                setSearchParams(next);
+              }}
+              className="h-8 text-xs font-semibold px-4 rounded-lg"
+            >
+              Tasks Only
+            </Button>
+          </div>
+
+          {(activeTab === "all" || activeTab === "projects") && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                <Folder className="w-3.5 h-3.5 text-primary" /> Category:
+              </span>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="h-8 w-[160px] text-xs bg-background">
+                  <SelectValue placeholder="All Categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-xs">All Categories</SelectItem>
+                  <SelectItem value="location" className="text-xs">Location</SelectItem>
+                  <SelectItem value="mechanical" className="text-xs">Mechanical</SelectItem>
+                  <SelectItem value="medical" className="text-xs">Medical</SelectItem>
+                  <SelectItem value="software" className="text-xs">Software</SelectItem>
+                  <SelectItem value="hardware" className="text-xs">Hardware</SelectItem>
+                  <SelectItem value="legal" className="text-xs">Legal</SelectItem>
+                  <SelectItem value="general" className="text-xs">General</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
       )}
 
@@ -3098,6 +3142,7 @@ export default function Tasks() {
                     setEditingProject(selectedProject);
                     setEditProjectName(selectedProject.name);
                     setEditProjectDescription(selectedProject.description || "");
+                    setEditProjectCategory(selectedProject.category || "general");
                     setEditProjectIntroVideoUrl(selectedProject.introVideoUrl || "");
                     setEditProjectLogoPreview(selectedProject.logo?.url || "");
                     setEditProjectLogoFile(null);
@@ -3134,7 +3179,14 @@ export default function Tasks() {
                   }}
                   placeholder="Project Name"
                 />
-                <Badge className="capitalize font-semibold text-xs w-fit mx-auto sm:mx-0" variant="secondary">{selectedProject.status || "No tasks"}</Badge>
+                <div className="flex items-center gap-2 justify-center sm:justify-start">
+                  <Badge className="capitalize font-semibold text-xs w-fit" variant="secondary">{selectedProject.status || "No tasks"}</Badge>
+                  {selectedProject.category && (
+                    <Badge variant="outline" className="capitalize font-bold text-xs bg-primary/10 text-primary border-primary/20">
+                      {selectedProject.category} Project
+                    </Badge>
+                  )}
+                </div>
               </div>
               <Textarea
                 className="text-sm text-muted-foreground border-transparent hover:border-border focus:border-primary px-1 -ml-1 !bg-transparent resize-none min-h-[40px] py-0 shadow-none focus-visible:ring-0 text-center sm:text-left"
@@ -3435,7 +3487,14 @@ export default function Tasks() {
                               })()}
                             </div>
                             <div className="flex items-center justify-between text-xs">
-                              <Badge className="capitalize" variant="outline">{project.status || "No tasks"}</Badge>
+                              <div className="flex items-center gap-1.5">
+                                <Badge className="capitalize" variant="outline">{project.status || "No tasks"}</Badge>
+                                {project.category && (
+                                  <Badge variant="secondary" className="capitalize text-[10px] bg-primary/10 text-primary border-primary/20">
+                                    {project.category}
+                                  </Badge>
+                                )}
+                              </div>
                               <span className="text-muted-foreground text-xs">{project.createdAt ? new Date(project.createdAt).toLocaleDateString() : ""}</span>
                             </div>
                           </button>
@@ -3459,6 +3518,7 @@ export default function Tasks() {
                                   setEditingProject(project);
                                   setEditProjectName(project.name);
                                   setEditProjectDescription(project.description || "");
+                                  setEditProjectCategory(project.category || "general");
                                   setEditProjectIntroVideoUrl(project.introVideoUrl || "");
                                   setEditProjectLogoPreview(project.logo?.url || "");
                                   setEditProjectLogoFile(null);
@@ -3794,7 +3854,7 @@ export default function Tasks() {
           <form onSubmit={(e) => { e.preventDefault(); void handleCreateProject(); }} className="space-y-4">
             {/* ... form fields remain same ... */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="sm:col-span-2 space-y-1.5">
+              <div className="space-y-1.5">
                 <label className="text-sm font-medium">Project Name *</label>
                 <div className="flex gap-2">
                   <Input placeholder="Project name" value={projectName} onChange={(e) => { setProjectName(e.target.value); if (validationErrors.projectName) { setValidationErrors({ ...validationErrors, projectName: undefined }); } }} className={cn("flex-1", validationErrors.projectName ? "border-destructive ring-1 ring-destructive" : "")} />
@@ -3823,6 +3883,23 @@ export default function Tasks() {
                   </Popover>
                 </div>
                 {validationErrors.projectName && <p className="text-xs text-destructive">{validationErrors.projectName}</p>}
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Category</label>
+                <Select value={projectCategory} onValueChange={setProjectCategory}>
+                  <SelectTrigger className="h-10 text-sm">
+                    <SelectValue placeholder="Select Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="location">Location</SelectItem>
+                    <SelectItem value="mechanical">Mechanical</SelectItem>
+                    <SelectItem value="medical">Medical</SelectItem>
+                    <SelectItem value="software">Software</SelectItem>
+                    <SelectItem value="hardware">Hardware</SelectItem>
+                    <SelectItem value="legal">Legal</SelectItem>
+                    <SelectItem value="general">General</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Project Description</label>
@@ -5340,6 +5417,7 @@ export default function Tasks() {
                   const payload: Partial<Project> = {
                     name: editProjectName,
                     description: editProjectDescription,
+                    category: editProjectCategory,
                     introVideoUrl: editProjectIntroVideoUrl,
                   };
                   if (logoPayload) {
@@ -5360,6 +5438,7 @@ export default function Tasks() {
                   setEditingProject(null);
                   setEditProjectName("");
                   setEditProjectDescription("");
+                  setEditProjectCategory("general");
                   setEditProjectLogoPreview("");
                   setEditProjectLogoFile(null);
                   toast({ title: "Project updated", description: "Project has been updated successfully." });
@@ -5379,7 +5458,7 @@ export default function Tasks() {
             className="space-y-4"
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="sm:col-span-2 space-y-1.5">
+              <div className="space-y-1.5">
                 <label className="text-sm font-medium">Project Name *</label>
                 <div className="flex gap-2">
                   <Input
@@ -5413,6 +5492,23 @@ export default function Tasks() {
                     </PopoverContent>
                   </Popover>
                 </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Category</label>
+                <Select value={editProjectCategory} onValueChange={setEditProjectCategory}>
+                  <SelectTrigger className="h-10 text-sm">
+                    <SelectValue placeholder="Select Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="location">Location</SelectItem>
+                    <SelectItem value="mechanical">Mechanical</SelectItem>
+                    <SelectItem value="medical">Medical</SelectItem>
+                    <SelectItem value="software">Software</SelectItem>
+                    <SelectItem value="hardware">Hardware</SelectItem>
+                    <SelectItem value="legal">Legal</SelectItem>
+                    <SelectItem value="general">General</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Project Description</label>
@@ -5482,6 +5578,7 @@ export default function Tasks() {
                   setEditingProject(null);
                   setEditProjectName("");
                   setEditProjectDescription("");
+                  setEditProjectCategory("general");
                   setEditProjectLogoPreview("");
                   setEditProjectLogoFile(null);
                 }}

@@ -32,6 +32,7 @@ export default function ReportBugModal({ open, onOpenChange, onSuccess, defaultS
   const [priority, setPriority] = useState("medium");
   const [module, setModule] = useState("");
   const [company, setCompany] = useState("");
+  const [websiteName, setWebsiteName] = useState("Task Manager");
   const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -158,6 +159,7 @@ export default function ReportBugModal({ open, onOpenChange, onSuccess, defaultS
     setPriority("medium");
     setModule("");
     setCompany("");
+    setWebsiteName("Task Manager");
     cancelRecording();
     attachments.forEach((a) => URL.revokeObjectURL(a.previewUrl));
     setAttachments([]);
@@ -281,6 +283,7 @@ export default function ReportBugModal({ open, onOpenChange, onSuccess, defaultS
           priority,
           module: module.trim(),
           company: company.trim(),
+          websiteName: websiteName.trim() || "Task Manager",
           attachments: uploadedAttachmentData,
           source: { panel: defaultSourcePanel, path: window.location.pathname },
         }),
@@ -360,23 +363,23 @@ export default function ReportBugModal({ open, onOpenChange, onSuccess, defaultS
             </div>
           </div>
 
-          {/* Module & Company */}
+          {/* Website / Application & Module */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold">Module (Optional)</label>
+              <label className="text-xs font-semibold">Website / Application</label>
               <Input
-                placeholder="e.g. Tasks, CRM, Vehicles"
-                value={module}
-                onChange={(e) => setModule(e.target.value)}
+                placeholder="e.g. Task Manager, Client Portal, Store"
+                value={websiteName}
+                onChange={(e) => setWebsiteName(e.target.value)}
                 className="h-9 text-xs"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold">Company (Optional)</label>
+              <label className="text-xs font-semibold">Module (Optional)</label>
               <Input
-                placeholder="e.g. Se7en Inc"
-                value={company}
-                onChange={(e) => setCompany(e.target.value)}
+                placeholder="e.g. Tasks, CRM, Vehicles, Checkout"
+                value={module}
+                onChange={(e) => setModule(e.target.value)}
                 className="h-9 text-xs"
               />
             </div>

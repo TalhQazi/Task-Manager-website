@@ -41,8 +41,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import { Wallet, Plus, Trash2, Link as LinkIcon, ArrowLeft, Loader2, Edit, AlertCircle, Sparkles, Check, ChevronsUpDown, X } from "lucide-react";
+import {
+  Wallet,
+  Plus,
+  Trash2,
+  Link as LinkIcon,
+  ArrowLeft,
+  Loader2,
+  Edit,
+  AlertCircle,
+  Sparkles,
+  Check,
+  ChevronsUpDown,
+  X,
+  Building2,
+  CheckCircle2,
+  Clock,
+  Filter
+} from "lucide-react";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/admin/ui/popover";
 import {
@@ -69,6 +85,12 @@ interface ExpenseSheetItem {
   availableBudgetCents: number;
   createdByUsername?: string;
   createdAt?: string;
+  isDone?: boolean;
+  isStarted?: boolean;
+  calculatedStatus?: "done" | "started" | "not-started";
+  itemCount?: number;
+  projectedCents?: number;
+  spentCents?: number;
 }
 
 interface ProjectOption {
@@ -87,6 +109,7 @@ export default function ExpenseSheets() {
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [tasks, setTasks] = useState<TaskOption[]>([]);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "started" | "done" | "not-started">("all");
 
   // Multi-quote comparison state
   const [selectedSheetIds, setSelectedSheetIds] = useState<string[]>([]);
@@ -307,11 +330,32 @@ export default function ExpenseSheets() {
     return tasks.find((t) => t.id === id)?.title || "Unknown Task";
   };
 
+  const counts = useMemo(() => {
+    let started = 0;
+    let done = 0;
+    let notStarted = 0;
+    sheets.forEach((s) => {
+      if (s.isDone) done++;
+      if (s.isStarted || s.isDone) started++;
+      if (!s.isStarted && !s.isDone) notStarted++;
+    });
+    return { all: sheets.length, started, done, notStarted };
+  }, [sheets]);
+
   // Filter sheets
   const filteredSheets = useMemo(() => {
+    let list = sheets;
+    if (statusFilter === "done") {
+      list = list.filter((s) => s.isDone);
+    } else if (statusFilter === "started") {
+      list = list.filter((s) => s.isStarted || s.isDone);
+    } else if (statusFilter === "not-started") {
+      list = list.filter((s) => !s.isStarted && !s.isDone);
+    }
+
     const query = search.trim().toLowerCase();
-    if (!query) return sheets;
-    return sheets.filter((s) => {
+    if (!query) return list;
+    return list.filter((s) => {
       const projName = s.projectId ? getProjectName(s.projectId).toLowerCase() : "";
       const taskName = s.taskId ? getTaskName(s.taskId).toLowerCase() : "";
       const creator = (s.createdByUsername || "").toLowerCase();
@@ -326,7 +370,7 @@ export default function ExpenseSheets() {
         creator.includes(query)
       );
     });
-  }, [sheets, search, projects, tasks]);
+  }, [sheets, statusFilter, search, projects, tasks]);
 
   const toggleSelectSheet = (id: string) => {
     setSelectedSheetIds((prev) =>
@@ -395,15 +439,74 @@ export default function ExpenseSheets() {
 
       <Card className="shadow-soft border-0 sm:border">
         <CardContent className="p-3 sm:p-6">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-            <div className="relative w-full sm:max-w-md">
-              <Input
-                placeholder="Search by name, vendor (e.g. Gaftek), quote #, project..."
-                className="h-9 sm:h-10 text-sm sm:text-base"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
+              <div className="relative w-full sm:max-w-xs">
+                <Input
+                  placeholder="Search by name, vendor, quote #, project..."
+                  className="h-9 sm:h-10 text-sm"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+
+              {/* Status Filter Chips */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={statusFilter === "all" ? "default" : "outline"}
+                  onClick={() => setStatusFilter("all")}
+                  className={`h-8 text-xs font-semibold rounded-lg ${
+                    statusFilter === "all" ? "bg-indigo-600 text-white shadow-sm" : "text-muted-foreground"
+                  }`}
+                >
+                  All Sheets ({counts.all})
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={statusFilter === "started" ? "default" : "outline"}
+                  onClick={() => setStatusFilter("started")}
+                  className={`h-8 text-xs font-semibold rounded-lg gap-1.5 ${
+                    statusFilter === "started"
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "text-blue-700 bg-blue-50 border-blue-200 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900"
+                  }`}
+                >
+                  <Clock className="h-3.5 w-3.5" />
+                  At Least Started ({counts.started})
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={statusFilter === "done" ? "default" : "outline"}
+                  onClick={() => setStatusFilter("done")}
+                  className={`h-8 text-xs font-semibold rounded-lg gap-1.5 ${
+                    statusFilter === "done"
+                      ? "bg-emerald-600 text-white shadow-sm"
+                      : "text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900"
+                  }`}
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Done ({counts.done})
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={statusFilter === "not-started" ? "default" : "outline"}
+                  onClick={() => setStatusFilter("not-started")}
+                  className={`h-8 text-xs font-semibold rounded-lg ${
+                    statusFilter === "not-started"
+                      ? "bg-slate-700 text-white shadow-sm"
+                      : "text-slate-600 bg-slate-50 border-slate-200 hover:bg-slate-100 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-800"
+                  }`}
+                >
+                  Not Started ({counts.notStarted})
+                </Button>
+              </div>
             </div>
+
             {selectedSheetIds.length > 0 && (
               <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
                 <span>{selectedSheetIds.length} sheet(s) selected</span>
@@ -441,7 +544,7 @@ export default function ExpenseSheets() {
             </div>
           ) : filteredSheets.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground text-sm italic">
-              No expense sheets found. Click "Create Expense Sheet" to get started.
+              No expense sheets found matching criteria.
             </div>
           ) : (
             <div className="w-full overflow-x-auto">
@@ -458,6 +561,7 @@ export default function ExpenseSheets() {
                       />
                     </TableHead>
                     <TableHead className="text-sm">Sheet Name</TableHead>
+                    <TableHead className="text-sm">Status / Progress</TableHead>
                     <TableHead className="text-sm">Vendor / Quote</TableHead>
                     <TableHead className="text-sm">Available Budget</TableHead>
                     <TableHead className="text-sm">Attached To</TableHead>
@@ -489,6 +593,23 @@ export default function ExpenseSheets() {
                           >
                             {s.name}
                           </button>
+                        </TableCell>
+                        <TableCell>
+                          {s.isDone ? (
+                            <Badge className="bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 font-semibold text-xs gap-1">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Done ({s.itemCount || 0} items)
+                            </Badge>
+                          ) : s.isStarted ? (
+                            <Badge className="bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800 font-semibold text-xs gap-1">
+                              <Clock className="h-3 w-3" />
+                              Started ({s.itemCount || 0} items)
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-slate-500 border-slate-300 font-medium text-xs">
+                              Not Started
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell>
                           {s.vendorName ? (

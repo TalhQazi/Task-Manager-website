@@ -122,19 +122,27 @@ const navItemsBase: NavItem[] = [
   { icon: ClipboardList, label: "Compliance Center", path: "/admin/compliance-center" },
   { icon: CheckSquare, label: "Task Management", path: "/admin/tasks" },
   { icon: LayoutGrid, label: "Task Workspace", path: "/admin/task-workspace" },
-  { icon: UserCircle, label: "Employee Directory", path: "/admin/employees" },
+  {
+    icon: UserCircle,
+    label: "Employees",
+    children: [
+      { icon: UserCircle, label: "Employee Directory", path: "/admin/employees" },
+      { icon: ClipboardList, label: "Onboarding", path: "/admin/onboarding" },
+      { icon: Wallet, label: "Payroll", path: "/admin/payroll" },
+      { icon: ClipboardList, label: "New Hire Reporting", path: "/admin/new-hire-reporting" },
+      { icon: CalendarCheck, label: "Leave Requests", path: "/admin/leave-requests" },
+      { icon: Coffee, label: "Breaks", path: "/admin/break-history" },
+    ],
+  },
   { icon: Compass, label: "Itinerary History", path: "/admin/itineraries" },
   { icon: Megaphone, label: "Announcements", path: "/admin/announcements" },
   { icon: BarChart2, label: "Ideas & Polls", path: "/admin/polls" },
   { icon: Video, label: "Video Messages", path: "/admin/video-messages" },
-  { icon: Wallet, label: "Payroll", path: "/admin/payroll" },
   { icon: ClipboardList, label: "EOD Reports", path: "/admin/eod-reports" },
   { icon: Building, label: "EIN list", path: "/admin/company-registry" },
-  { icon: CalendarCheck, label: "Leave Requests", path: "/admin/leave-requests" },
   { icon: Calendar, label: "Travel Calendar", path: "/admin/travel-calendar" },
   { icon: History, label: "Task History", path: "/admin/task-history" },
   { icon: Clock, label: "Time Tracking", path: "/admin/time-tracking" },
-  { icon: Coffee, label: "Break History", path: "/admin/break-history" },
   {
     icon: Layers,
     label: "Operations",
@@ -162,8 +170,6 @@ const navItemsBase: NavItem[] = [
   { icon: MessageSquare, label: "Messaging", path: "/admin/messaging" },
   { icon: Video, label: "Meetings", path: "/admin/meetings" },
   { icon: Bell, label: "Notifications", path: "/admin/notifications" },
-  { icon: ClipboardList, label: "Onboarding", path: "/admin/onboarding" },
-  { icon: ClipboardList, label: "New Hire Reporting", path: "/admin/new-hire-reporting" },
   {
     icon: FileText,
     label: "CRM",
@@ -178,7 +184,7 @@ const navItemsBase: NavItem[] = [
     ],
   },
   { icon: FolderOpen, label: "Images", path: "/admin/asset-library" },
-  { icon: FileText, label: "Company Information", path: "/admin/company-information" },
+  { icon: FileText, label: "Docs", path: "/admin/company-information" },
   { icon: BarChart3, label: "Reports", path: "/admin/reports" },
   {
     icon: Globe,
@@ -189,7 +195,6 @@ const navItemsBase: NavItem[] = [
     ],
   },
   { icon: Lightbulb, label: "Intellectual Property", path: "/admin/intellectual-property" },
-  { icon: Database, label: "Imported Asana Data", path: "/admin/asana-data" },
   { icon: Archive, label: "Archive Data", path: "/admin/archive-data" },
   { icon: Quote, label: "Founder Messages", path: "/admin/founder-messages" },
   { icon: ImageIcon, label: "Memes", path: "/admin/memes" },
@@ -234,8 +239,14 @@ const navItemsBase: NavItem[] = [
     ),
   },
   { icon: ShoppingCart, label: "Shopping Lists", path: "/admin/shopping-lists" },
-  { icon: Settings, label: "Settings", path: "/admin/settings" },
-  { icon: Palette, label: "Theme Engine", path: "/admin/theme-engine" },
+  {
+    icon: Settings,
+    label: "Settings",
+    children: [
+      { icon: Settings, label: "General Settings", path: "/admin/settings" },
+      { icon: Palette, label: "Theme Engine", path: "/admin/theme-engine" },
+    ],
+  },
 ];
 
 const bugNavItem = { icon: Bug, label: "Bug", path: "/admin/bug-reports" };

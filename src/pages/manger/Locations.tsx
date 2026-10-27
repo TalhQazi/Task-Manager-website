@@ -74,6 +74,7 @@ interface Location {
   type: "office" | "warehouse" | "facility" | "site";
   country: string;
   city: string;
+  state?: string;
   phone: string;
   manager: string;
   employeeCount: number;
@@ -94,6 +95,7 @@ function normalizeLocation(l: LocationApi): Location {
     type: l.type,
     country: l.country,
     city: l.city,
+    state: (l as unknown as { state?: string }).state || "",
     phone:
       l.phone ||
       (l as unknown as { contactPhone?: string; contact_number?: string }).contactPhone ||
@@ -131,6 +133,7 @@ const createLocationSchema = z.object({
   type: z.enum(["office", "warehouse", "facility", "site"]),
   country: z.string().min(1, "Country is required"),
   city: z.string().min(1, "City is required"),
+  state: z.string().optional().default(""),
   status: z.enum(["active", "inactive"]),
   contactName: z.string().optional().default(""),
   contactPhone: z.string().optional().default(""),
@@ -409,6 +412,7 @@ export default function Locations() {
       type: "office",
       country: "",
       city: "",
+      state: "",
       status: "active",
       contactName: "",
       contactPhone: "",
@@ -425,6 +429,7 @@ export default function Locations() {
       type: "office",
       country: "",
       city: "",
+      state: "",
       status: "active",
       contactName: "",
       contactPhone: "",
@@ -1083,6 +1088,20 @@ export default function Locations() {
                         <FormLabel>City</FormLabel>
                         <FormControl>
                           <Input placeholder="e.g. New York, NY 10001" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="state"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>State / Province</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. NY, TX, CA" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

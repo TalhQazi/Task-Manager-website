@@ -1,9 +1,13 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useActiveTheme } from "../ThemeEngineContext";
-import { Sparkles, Moon, Sun, ShieldAlert, ChevronUp, ChevronDown, Check, Gauge } from "lucide-react";
+import { getAuthState } from "@/lib/auth";
+import { Sparkles, Moon, Sun, ShieldAlert, ChevronUp, ChevronDown, Check, Gauge, Palette } from "lucide-react";
 
 export const ThemeControlWidget: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const navigate = useNavigate();
+  const auth = getAuthState();
   const {
     activeTheme,
     userOverrideKey,
@@ -31,13 +35,13 @@ export const ThemeControlWidget: React.FC = () => {
 
   return (
     <div
-      className="fixed bottom-4 right-4 z-30 flex flex-col items-end select-none"
+      className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-[80] flex flex-col items-end select-none pointer-events-auto"
       style={{ pointerEvents: "auto" }}
     >
       {/* Expanded Control Modal Card */}
       {isOpen && (
         <div
-          className="mb-2 w-80 rounded-2xl border p-4 shadow-2xl backdrop-blur-xl transition-all duration-300 animate-in fade-in slide-in-from-bottom-2"
+          className="mb-2 w-80 max-w-[calc(100vw-2rem)] rounded-2xl border p-4 shadow-2xl backdrop-blur-xl transition-all duration-300 animate-in fade-in slide-in-from-bottom-2"
           style={{
             backgroundColor: "rgba(15, 23, 42, 0.88)",
             borderColor: "var(--tm-card-border, rgba(255, 255, 255, 0.15))",
@@ -136,6 +140,22 @@ export const ThemeControlWidget: React.FC = () => {
           <div className="mt-3 pt-2 text-[10px] text-slate-400 flex items-center justify-between border-t border-white/5">
             <span>Active: {activeTheme.displayName}</span>
             <span className="capitalize">{activeTheme.category}</span>
+          </div>
+
+          {/* Direct Link to Full Theme Studio */}
+          <div className="mt-2.5 pt-2 border-t border-white/10">
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                const path = auth.role === "manager" || auth.role === "team-lead" ? "/manager/theme-engine" : "/admin/theme-engine";
+                navigate(path);
+              }}
+              className="w-full py-1.5 px-3 rounded-xl bg-blue-600/30 hover:bg-blue-600/50 text-blue-200 border border-blue-500/40 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-sm active:scale-95"
+            >
+              <Palette className="w-3.5 h-3.5" />
+              <span>Open Theme Studio</span>
+            </button>
           </div>
         </div>
       )}

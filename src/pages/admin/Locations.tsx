@@ -61,8 +61,10 @@ import {
   ClipboardCheck,
   ExternalLink,
   Sparkles,
+  FileText,
 } from "lucide-react";
 import { createResource, listResource, updateResource, apiFetch, getApiBaseUrl } from "@/lib/admin/apiClient";
+import { getAuthState } from "@/lib/auth";
 
 const LOCATION_TYPES = [
   "Property",
@@ -87,21 +89,21 @@ function normalizeLocationType(value: unknown): LocationType {
 }
 
 export interface LocationComplianceChecklist {
-  water: { status: string; notes: string };
-  power: { status: string; notes: string };
-  townPermitDemo: { status: string; notes: string };
-  townPermitRenovations: { status: string; notes: string };
-  sitePlanReview: { option: string; notes: string };
-  certificateOfOccupancy: { status: string; date: string; notes: string };
+  water: { status: string; notes: string; updatedBy?: string; updatedAt?: string };
+  power: { status: string; notes: string; updatedBy?: string; updatedAt?: string };
+  townPermitDemo: { status: string; notes: string; updatedBy?: string; updatedAt?: string };
+  townPermitRenovations: { status: string; notes: string; updatedBy?: string; updatedAt?: string };
+  sitePlanReview: { option: string; notes: string; updatedBy?: string; updatedAt?: string };
+  certificateOfOccupancy: { status: string; date: string; notes: string; updatedBy?: string; updatedAt?: string };
 }
 
 const DEFAULT_COMPLIANCE_CHECKLIST: LocationComplianceChecklist = {
-  water: { status: "Pending", notes: "" },
-  power: { status: "Pending", notes: "" },
-  townPermitDemo: { status: "Pending", notes: "" },
-  townPermitRenovations: { status: "Pending", notes: "" },
-  sitePlanReview: { option: "Needed", notes: "" },
-  certificateOfOccupancy: { status: "Pending", date: "", notes: "" },
+  water: { status: "Pending", notes: "", updatedBy: "", updatedAt: "" },
+  power: { status: "Pending", notes: "", updatedBy: "", updatedAt: "" },
+  townPermitDemo: { status: "Pending", notes: "", updatedBy: "", updatedAt: "" },
+  townPermitRenovations: { status: "Pending", notes: "", updatedBy: "", updatedAt: "" },
+  sitePlanReview: { option: "Needed", notes: "", updatedBy: "", updatedAt: "" },
+  certificateOfOccupancy: { status: "Pending", date: "", notes: "", updatedBy: "", updatedAt: "" },
 };
 
 interface Location {
@@ -109,6 +111,7 @@ interface Location {
   name: string;
   address: string;
   city: string;
+  state?: string;
   country: string;
   type: LocationType;
   businessUnits?: string[];
@@ -120,6 +123,7 @@ interface Location {
   photoDataUrl?: string;
   photoFileName?: string;
   attachments?: { fileName: string; url: string }[];
+  documents?: { fileName: string; url: string; fileType?: string; size?: number; uploadedAt?: string }[];
   complianceChecklist?: LocationComplianceChecklist;
 }
 
@@ -147,6 +151,7 @@ function normalizeLocation(l: BackendLocation): Location {
     name: String(l.name || "").trim(),
     address: String(l.address || "").trim(),
     city: String(l.city || "").trim(),
+    state: String(l.state || "").trim() || "",
     country: String(l.country || "").trim(),
     type: normalizeLocationType(l.type),
     businessUnits: Array.isArray(l.businessUnits) ? l.businessUnits : [],
@@ -158,6 +163,7 @@ function normalizeLocation(l: BackendLocation): Location {
     photoDataUrl: String(l.photoDataUrl || "").trim() || undefined,
     photoFileName: String(l.photoFileName || "").trim() || undefined,
     attachments: Array.isArray(l.attachments) ? l.attachments : [],
+    documents: Array.isArray(l.documents) ? l.documents : [],
     complianceChecklist: {
       water: { status: cl.water?.status || "Pending", notes: cl.water?.notes || "" },
       power: { status: cl.power?.status || "Pending", notes: cl.power?.notes || "" },
@@ -206,6 +212,14 @@ function ComplianceChecklistFormSection({
   const SITE_PLAN_OPTIONS = ["Needed", "Not Needed", "Under Review", "Approved"];
   const OCCUPANCY_OPTIONS = ["Pending", "In Progress", "Issued", "Approved", "Not Applicable"];
 
+  const auth = getAuthState();
+  const currentUserName = auth.name || auth.username || "Admin";
+
+  const stamp = () => ({
+    updatedBy: currentUserName,
+    updatedAt: new Date().toISOString(),
+  });
+
   return (
     <div className="space-y-3 pt-3 border-t border-slate-200">
       <div className="flex items-center gap-2">
@@ -215,12 +229,19 @@ function ComplianceChecklistFormSection({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-200">
         {/* Water */}
         <div className="space-y-1.5 p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200/80">
-          <Label className="text-xs font-semibold text-slate-700 dark:text-slate-200">Water</Label>
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-semibold text-slate-700 dark:text-slate-200">Water</Label>
+            {checklist.water?.updatedBy && (
+              <span className="text-[10px] text-slate-400">
+                by {checklist.water.updatedBy}
+              </span>
+            )}
+          </div>
           <div className="grid grid-cols-1 gap-1.5">
             <Select
               value={checklist.water?.status || "Pending"}
               onValueChange={(val) =>
-                onChange({ ...checklist, water: { ...(checklist.water || {}), status: val, notes: checklist.water?.notes || "" } })
+                onChange({ ...checklist, water: { ...(checklist.water || {}), ...stamp(), status: val, notes: checklist.water?.notes || "" } })
               }
             >
               <SelectTrigger className="h-8 text-xs border-slate-200">
@@ -238,7 +259,7 @@ function ComplianceChecklistFormSection({
               placeholder="Water notes (optional)"
               value={checklist.water?.notes || ""}
               onChange={(e) =>
-                onChange({ ...checklist, water: { ...(checklist.water || {}), status: checklist.water?.status || "Pending", notes: e.target.value } })
+                onChange({ ...checklist, water: { ...(checklist.water || {}), ...stamp(), status: checklist.water?.status || "Pending", notes: e.target.value } })
               }
               className="h-7 text-xs border-slate-200"
             />
@@ -247,12 +268,19 @@ function ComplianceChecklistFormSection({
 
         {/* Power */}
         <div className="space-y-1.5 p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200/80">
-          <Label className="text-xs font-semibold text-slate-700 dark:text-slate-200">Power</Label>
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-semibold text-slate-700 dark:text-slate-200">Power</Label>
+            {checklist.power?.updatedBy && (
+              <span className="text-[10px] text-slate-400">
+                by {checklist.power.updatedBy}
+              </span>
+            )}
+          </div>
           <div className="grid grid-cols-1 gap-1.5">
             <Select
               value={checklist.power?.status || "Pending"}
               onValueChange={(val) =>
-                onChange({ ...checklist, power: { ...(checklist.power || {}), status: val, notes: checklist.power?.notes || "" } })
+                onChange({ ...checklist, power: { ...(checklist.power || {}), ...stamp(), status: val, notes: checklist.power?.notes || "" } })
               }
             >
               <SelectTrigger className="h-8 text-xs border-slate-200">
@@ -270,7 +298,7 @@ function ComplianceChecklistFormSection({
               placeholder="Power notes (optional)"
               value={checklist.power?.notes || ""}
               onChange={(e) =>
-                onChange({ ...checklist, power: { ...(checklist.power || {}), status: checklist.power?.status || "Pending", notes: e.target.value } })
+                onChange({ ...checklist, power: { ...(checklist.power || {}), ...stamp(), status: checklist.power?.status || "Pending", notes: e.target.value } })
               }
               className="h-7 text-xs border-slate-200"
             />
@@ -279,14 +307,21 @@ function ComplianceChecklistFormSection({
 
         {/* Town permit for demo */}
         <div className="space-y-1.5 p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200/80">
-          <Label className="text-xs font-semibold text-slate-700 dark:text-slate-200">Town Permit for Demo</Label>
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-semibold text-slate-700 dark:text-slate-200">Town Permit for Demo</Label>
+            {checklist.townPermitDemo?.updatedBy && (
+              <span className="text-[10px] text-slate-400">
+                by {checklist.townPermitDemo.updatedBy}
+              </span>
+            )}
+          </div>
           <div className="grid grid-cols-1 gap-1.5">
             <Select
               value={checklist.townPermitDemo?.status || "Pending"}
               onValueChange={(val) =>
                 onChange({
                   ...checklist,
-                  townPermitDemo: { ...(checklist.townPermitDemo || {}), status: val, notes: checklist.townPermitDemo?.notes || "" },
+                  townPermitDemo: { ...(checklist.townPermitDemo || {}), ...stamp(), status: val, notes: checklist.townPermitDemo?.notes || "" },
                 })
               }
             >
@@ -307,7 +342,7 @@ function ComplianceChecklistFormSection({
               onChange={(e) =>
                 onChange({
                   ...checklist,
-                  townPermitDemo: { ...(checklist.townPermitDemo || {}), status: checklist.townPermitDemo?.status || "Pending", notes: e.target.value },
+                  townPermitDemo: { ...(checklist.townPermitDemo || {}), ...stamp(), status: checklist.townPermitDemo?.status || "Pending", notes: e.target.value },
                 })
               }
               className="h-7 text-xs border-slate-200"
@@ -317,14 +352,21 @@ function ComplianceChecklistFormSection({
 
         {/* Town permit for renovations */}
         <div className="space-y-1.5 p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200/80">
-          <Label className="text-xs font-semibold text-slate-700 dark:text-slate-200">Town Permit for Renovations</Label>
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-semibold text-slate-700 dark:text-slate-200">Town Permit for Renovations</Label>
+            {checklist.townPermitRenovations?.updatedBy && (
+              <span className="text-[10px] text-slate-400">
+                by {checklist.townPermitRenovations.updatedBy}
+              </span>
+            )}
+          </div>
           <div className="grid grid-cols-1 gap-1.5">
             <Select
               value={checklist.townPermitRenovations?.status || "Pending"}
               onValueChange={(val) =>
                 onChange({
                   ...checklist,
-                  townPermitRenovations: { ...(checklist.townPermitRenovations || {}), status: val, notes: checklist.townPermitRenovations?.notes || "" },
+                  townPermitRenovations: { ...(checklist.townPermitRenovations || {}), ...stamp(), status: val, notes: checklist.townPermitRenovations?.notes || "" },
                 })
               }
             >
@@ -345,7 +387,7 @@ function ComplianceChecklistFormSection({
               onChange={(e) =>
                 onChange({
                   ...checklist,
-                  townPermitRenovations: { ...(checklist.townPermitRenovations || {}), status: checklist.townPermitRenovations?.status || "Pending", notes: e.target.value },
+                  townPermitRenovations: { ...(checklist.townPermitRenovations || {}), ...stamp(), status: checklist.townPermitRenovations?.status || "Pending", notes: e.target.value },
                 })
               }
               className="h-7 text-xs border-slate-200"
@@ -355,14 +397,21 @@ function ComplianceChecklistFormSection({
 
         {/* Site plan review - needed or not needed */}
         <div className="space-y-1.5 p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200/80">
-          <Label className="text-xs font-semibold text-slate-700 dark:text-slate-200">Site Plan Review</Label>
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-semibold text-slate-700 dark:text-slate-200">Site Plan Review</Label>
+            {checklist.sitePlanReview?.updatedBy && (
+              <span className="text-[10px] text-slate-400">
+                by {checklist.sitePlanReview.updatedBy}
+              </span>
+            )}
+          </div>
           <div className="grid grid-cols-1 gap-1.5">
             <Select
               value={checklist.sitePlanReview?.option || "Needed"}
               onValueChange={(val) =>
                 onChange({
                   ...checklist,
-                  sitePlanReview: { ...(checklist.sitePlanReview || {}), option: val, notes: checklist.sitePlanReview?.notes || "" },
+                  sitePlanReview: { ...(checklist.sitePlanReview || {}), ...stamp(), option: val, notes: checklist.sitePlanReview?.notes || "" },
                 })
               }
             >
@@ -383,7 +432,7 @@ function ComplianceChecklistFormSection({
               onChange={(e) =>
                 onChange({
                   ...checklist,
-                  sitePlanReview: { ...(checklist.sitePlanReview || {}), option: checklist.sitePlanReview?.option || "Needed", notes: e.target.value },
+                  sitePlanReview: { ...(checklist.sitePlanReview || {}), ...stamp(), option: checklist.sitePlanReview?.option || "Needed", notes: e.target.value },
                 })
               }
               className="h-7 text-xs border-slate-200"
@@ -393,7 +442,14 @@ function ComplianceChecklistFormSection({
 
         {/* Certificate of occupancy */}
         <div className="space-y-1.5 p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200/80">
-          <Label className="text-xs font-semibold text-slate-700 dark:text-slate-200">Certificate of Occupancy</Label>
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-semibold text-slate-700 dark:text-slate-200">Certificate of Occupancy</Label>
+            {checklist.certificateOfOccupancy?.updatedBy && (
+              <span className="text-[10px] text-slate-400">
+                by {checklist.certificateOfOccupancy.updatedBy}
+              </span>
+            )}
+          </div>
           <div className="grid grid-cols-1 gap-1.5">
             <div className="grid grid-cols-2 gap-1">
               <Select
@@ -401,7 +457,7 @@ function ComplianceChecklistFormSection({
                 onValueChange={(val) =>
                   onChange({
                     ...checklist,
-                    certificateOfOccupancy: { ...(checklist.certificateOfOccupancy || {}), status: val, date: checklist.certificateOfOccupancy?.date || "", notes: checklist.certificateOfOccupancy?.notes || "" },
+                    certificateOfOccupancy: { ...(checklist.certificateOfOccupancy || {}), ...stamp(), status: val, date: checklist.certificateOfOccupancy?.date || "", notes: checklist.certificateOfOccupancy?.notes || "" },
                   })
                 }
               >
@@ -422,7 +478,7 @@ function ComplianceChecklistFormSection({
                 onChange={(e) =>
                   onChange({
                     ...checklist,
-                    certificateOfOccupancy: { ...(checklist.certificateOfOccupancy || {}), status: checklist.certificateOfOccupancy?.status || "Pending", date: e.target.value, notes: checklist.certificateOfOccupancy?.notes || "" },
+                    certificateOfOccupancy: { ...(checklist.certificateOfOccupancy || {}), ...stamp(), status: checklist.certificateOfOccupancy?.status || "Pending", date: e.target.value, notes: checklist.certificateOfOccupancy?.notes || "" },
                   })
                 }
                 className="h-8 text-xs px-1 border-slate-200"
@@ -435,7 +491,7 @@ function ComplianceChecklistFormSection({
               onChange={(e) =>
                 onChange({
                   ...checklist,
-                  certificateOfOccupancy: { ...(checklist.certificateOfOccupancy || {}), status: checklist.certificateOfOccupancy?.status || "Pending", date: checklist.certificateOfOccupancy?.date || "", notes: e.target.value },
+                  certificateOfOccupancy: { ...(checklist.certificateOfOccupancy || {}), ...stamp(), status: checklist.certificateOfOccupancy?.status || "Pending", date: checklist.certificateOfOccupancy?.date || "", notes: e.target.value },
                 })
               }
               className="h-7 text-xs border-slate-200"
@@ -473,6 +529,7 @@ const Locations = () => {
     name: "",
     address: "",
     city: "",
+    state: "",
     country: "USA",
     type: "Property" as Location["type"],
     businessUnits: [] as string[],
@@ -483,6 +540,7 @@ const Locations = () => {
     photoDataUrl: "",
     photoFileName: "",
     attachments: [] as { fileName: string; url: string }[],
+    documents: [] as { fileName: string; url: string; fileType?: string; size?: number; uploadedAt?: string }[],
     complianceChecklist: { ...DEFAULT_COMPLIANCE_CHECKLIST },
   });
 
@@ -490,6 +548,7 @@ const Locations = () => {
     name: "",
     address: "",
     city: "",
+    state: "",
     country: "",
     type: "Property" as Location["type"],
     businessUnits: [] as string[],
@@ -500,6 +559,7 @@ const Locations = () => {
     photoDataUrl: "",
     photoFileName: "",
     attachments: [] as { fileName: string; url: string }[],
+    documents: [] as { fileName: string; url: string; fileType?: string; size?: number; uploadedAt?: string }[],
     complianceChecklist: { ...DEFAULT_COMPLIANCE_CHECKLIST },
   });
 
@@ -604,6 +664,7 @@ const Locations = () => {
         name: formData.name,
         address: formData.address,
         city: formData.city,
+        state: formData.state,
         country: formData.country,
         type: formData.type,
         businessUnits: formData.businessUnits,
@@ -615,6 +676,7 @@ const Locations = () => {
         photoDataUrl: formData.photoDataUrl || undefined,
         photoFileName: formData.photoFileName || undefined,
         attachments: formData.attachments,
+        documents: formData.documents,
         complianceChecklist: formData.complianceChecklist,
       };
       await createResource<Location>("locations", newLocation);
@@ -628,6 +690,7 @@ const Locations = () => {
         name: "",
         address: "",
         city: "",
+        state: "",
         country: "USA",
         type: "Property",
         businessUnits: [],
@@ -638,6 +701,7 @@ const Locations = () => {
         photoDataUrl: "",
         photoFileName: "",
         attachments: [],
+        documents: [],
         complianceChecklist: { ...DEFAULT_COMPLIANCE_CHECKLIST },
       });
     } catch (e) {
@@ -670,6 +734,7 @@ const Locations = () => {
       name: location.name,
       address: location.address,
       city: location.city,
+      state: location.state || "",
       country: location.country,
       type: normalizeLocationType(location.type),
       businessUnits: location.businessUnits || [],
@@ -680,6 +745,7 @@ const Locations = () => {
       photoDataUrl: location.photoDataUrl || "",
       photoFileName: location.photoFileName || "",
       attachments: location.attachments || [],
+      documents: location.documents || [],
       complianceChecklist: location.complianceChecklist || { ...DEFAULT_COMPLIANCE_CHECKLIST },
     });
     setEditLocationOpen(true);
@@ -708,6 +774,7 @@ const Locations = () => {
         name: editFormData.name,
         address: editFormData.address,
         city: editFormData.city,
+        state: editFormData.state,
         country: editFormData.country,
         type: editFormData.type,
         businessUnits: editFormData.businessUnits,
@@ -718,6 +785,7 @@ const Locations = () => {
         photoDataUrl: editFormData.photoDataUrl || undefined,
         photoFileName: editFormData.photoFileName || undefined,
         attachments: editFormData.attachments,
+        documents: editFormData.documents,
         complianceChecklist: editFormData.complianceChecklist,
       });
       await refreshLocations();
@@ -834,10 +902,14 @@ const Locations = () => {
                   <Input id="address" value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} placeholder="123 Business Way" className="focus:ring-2 focus:ring-blue-500/20 border-slate-200" />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="city" className="text-sm font-semibold">City *</Label>
                     <Input id="city" value={formData.city} onChange={(e) => setFormData({...formData, city: e.target.value})} placeholder="New York" className="focus:ring-2 focus:ring-blue-500/20 border-slate-200" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="state" className="text-sm font-semibold">State / Province</Label>
+                    <Input id="state" value={formData.state} onChange={(e) => setFormData({...formData, state: e.target.value})} placeholder="e.g. NY, TX, CA" className="focus:ring-2 focus:ring-blue-500/20 border-slate-200" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="country" className="text-sm font-semibold">Country *</Label>
@@ -891,6 +963,78 @@ const Locations = () => {
                         reader.readAsDataURL(file);
                       });
                     }} />
+                  </div>
+                </div>
+
+                {/* Upload Documents & Permits */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-semibold flex items-center gap-1.5">
+                      <FileText className="h-4 w-4 text-indigo-600" />
+                      Location Documents & Permits
+                    </Label>
+                    <span className="text-xs text-muted-foreground">PDF, Word, Excel, Permits</span>
+                  </div>
+                  <div className="space-y-2">
+                    {formData.documents && formData.documents.length > 0 && (
+                      <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                        {formData.documents.map((doc, i) => (
+                          <div key={i} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-900/40 rounded-lg border border-slate-200 text-xs">
+                            <div className="flex items-center gap-2 overflow-hidden mr-2">
+                              <FileText className="h-4 w-4 text-indigo-600 shrink-0" />
+                              <span className="font-medium truncate max-w-[220px]">{doc.fileName}</span>
+                              {doc.size ? <span className="text-[10px] text-muted-foreground">({Math.round(doc.size / 1024)} KB)</span> : null}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setFormData({...formData, documents: formData.documents.filter((_, idx) => idx !== i)})}
+                              className="text-rose-500 hover:text-rose-700 p-1"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => document.getElementById('add-location-docs')?.click()}
+                      className="w-full border-dashed border-2 hover:border-indigo-400 hover:bg-indigo-50/50 py-3 flex items-center justify-center gap-2 text-xs font-semibold text-indigo-600 rounded-lg"
+                    >
+                      <Upload className="h-4 w-4" />
+                      Upload Documents / Permits
+                    </Button>
+                    <input
+                      id="add-location-docs"
+                      type="file"
+                      className="hidden"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,image/*"
+                      multiple
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files || []);
+                        files.forEach(file => {
+                          const reader = new FileReader();
+                          reader.onload = (re) => {
+                            setFormData(prev => ({
+                              ...prev,
+                              documents: [
+                                ...(prev.documents || []),
+                                {
+                                  fileName: file.name,
+                                  url: re.target?.result as string,
+                                  fileType: file.type,
+                                  size: file.size,
+                                  uploadedAt: new Date().toISOString()
+                                }
+                              ]
+                            }));
+                          };
+                          reader.readAsDataURL(file);
+                        });
+                      }}
+                    />
                   </div>
                 </div>
 
@@ -1173,7 +1317,7 @@ const Locations = () => {
                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Site Address</p>
                      <p className="text-slate-700 font-medium leading-relaxed">
                         {selectedLocation?.address},<br/>
-                        {selectedLocation?.city}, {selectedLocation?.country}
+                        {selectedLocation?.city}{selectedLocation?.state ? `, ${selectedLocation.state}` : ""}, {selectedLocation?.country}
                      </p>
                   </div>
                </div>
@@ -1206,35 +1350,83 @@ const Locations = () => {
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200/60 text-xs">
                     <div className="p-3 bg-white rounded-lg border flex flex-col justify-between">
-                      <span className="font-bold text-slate-700">Water Utility</span>
-                      <Badge className="w-fit mt-1 text-[10px] bg-blue-100 text-blue-700 border-0">{selectedLocation?.complianceChecklist?.water?.status || "Pending"}</Badge>
-                      {selectedLocation?.complianceChecklist?.water?.notes && <p className="text-[11px] text-slate-500 mt-1.5 italic">"{selectedLocation.complianceChecklist.water.notes}"</p>}
+                      <div>
+                        <span className="font-bold text-slate-700">Water Utility</span>
+                        <Badge className="w-fit mt-1 text-[10px] bg-blue-100 text-blue-700 border-0">{selectedLocation?.complianceChecklist?.water?.status || "Pending"}</Badge>
+                        {selectedLocation?.complianceChecklist?.water?.notes && <p className="text-[11px] text-slate-500 mt-1.5 italic">"{selectedLocation.complianceChecklist.water.notes}"</p>}
+                      </div>
+                      {selectedLocation?.complianceChecklist?.water?.updatedBy && (
+                        <p className="text-[10px] text-slate-400 mt-2 pt-1 border-t border-slate-100">
+                          Verified by <span className="font-semibold text-slate-600">{selectedLocation.complianceChecklist.water.updatedBy}</span>
+                          {selectedLocation.complianceChecklist.water.updatedAt && ` on ${new Date(selectedLocation.complianceChecklist.water.updatedAt).toLocaleDateString()}`}
+                        </p>
+                      )}
                     </div>
                     <div className="p-3 bg-white rounded-lg border flex flex-col justify-between">
-                      <span className="font-bold text-slate-700">Power Utility</span>
-                      <Badge className="w-fit mt-1 text-[10px] bg-amber-100 text-amber-700 border-0">{selectedLocation?.complianceChecklist?.power?.status || "Pending"}</Badge>
-                      {selectedLocation?.complianceChecklist?.power?.notes && <p className="text-[11px] text-slate-500 mt-1.5 italic">"{selectedLocation.complianceChecklist.power.notes}"</p>}
+                      <div>
+                        <span className="font-bold text-slate-700">Power Utility</span>
+                        <Badge className="w-fit mt-1 text-[10px] bg-amber-100 text-amber-700 border-0">{selectedLocation?.complianceChecklist?.power?.status || "Pending"}</Badge>
+                        {selectedLocation?.complianceChecklist?.power?.notes && <p className="text-[11px] text-slate-500 mt-1.5 italic">"{selectedLocation.complianceChecklist.power.notes}"</p>}
+                      </div>
+                      {selectedLocation?.complianceChecklist?.power?.updatedBy && (
+                        <p className="text-[10px] text-slate-400 mt-2 pt-1 border-t border-slate-100">
+                          Verified by <span className="font-semibold text-slate-600">{selectedLocation.complianceChecklist.power.updatedBy}</span>
+                          {selectedLocation.complianceChecklist.power.updatedAt && ` on ${new Date(selectedLocation.complianceChecklist.power.updatedAt).toLocaleDateString()}`}
+                        </p>
+                      )}
                     </div>
                     <div className="p-3 bg-white rounded-lg border flex flex-col justify-between">
-                      <span className="font-bold text-slate-700">Town Permit for Demo</span>
-                      <Badge className="w-fit mt-1 text-[10px] bg-purple-100 text-purple-700 border-0">{selectedLocation?.complianceChecklist?.townPermitDemo?.status || "Pending"}</Badge>
-                      {selectedLocation?.complianceChecklist?.townPermitDemo?.notes && <p className="text-[11px] text-slate-500 mt-1.5 italic">"{selectedLocation.complianceChecklist.townPermitDemo.notes}"</p>}
+                      <div>
+                        <span className="font-bold text-slate-700">Town Permit for Demo</span>
+                        <Badge className="w-fit mt-1 text-[10px] bg-purple-100 text-purple-700 border-0">{selectedLocation?.complianceChecklist?.townPermitDemo?.status || "Pending"}</Badge>
+                        {selectedLocation?.complianceChecklist?.townPermitDemo?.notes && <p className="text-[11px] text-slate-500 mt-1.5 italic">"{selectedLocation.complianceChecklist.townPermitDemo.notes}"</p>}
+                      </div>
+                      {selectedLocation?.complianceChecklist?.townPermitDemo?.updatedBy && (
+                        <p className="text-[10px] text-slate-400 mt-2 pt-1 border-t border-slate-100">
+                          Verified by <span className="font-semibold text-slate-600">{selectedLocation.complianceChecklist.townPermitDemo.updatedBy}</span>
+                          {selectedLocation.complianceChecklist.townPermitDemo.updatedAt && ` on ${new Date(selectedLocation.complianceChecklist.townPermitDemo.updatedAt).toLocaleDateString()}`}
+                        </p>
+                      )}
                     </div>
                     <div className="p-3 bg-white rounded-lg border flex flex-col justify-between">
-                      <span className="font-bold text-slate-700">Town Permit for Renovations</span>
-                      <Badge className="w-fit mt-1 text-[10px] bg-indigo-100 text-indigo-700 border-0">{selectedLocation?.complianceChecklist?.townPermitRenovations?.status || "Pending"}</Badge>
-                      {selectedLocation?.complianceChecklist?.townPermitRenovations?.notes && <p className="text-[11px] text-slate-500 mt-1.5 italic">"{selectedLocation.complianceChecklist.townPermitRenovations.notes}"</p>}
+                      <div>
+                        <span className="font-bold text-slate-700">Town Permit for Renovations</span>
+                        <Badge className="w-fit mt-1 text-[10px] bg-indigo-100 text-indigo-700 border-0">{selectedLocation?.complianceChecklist?.townPermitRenovations?.status || "Pending"}</Badge>
+                        {selectedLocation?.complianceChecklist?.townPermitRenovations?.notes && <p className="text-[11px] text-slate-500 mt-1.5 italic">"{selectedLocation.complianceChecklist.townPermitRenovations.notes}"</p>}
+                      </div>
+                      {selectedLocation?.complianceChecklist?.townPermitRenovations?.updatedBy && (
+                        <p className="text-[10px] text-slate-400 mt-2 pt-1 border-t border-slate-100">
+                          Verified by <span className="font-semibold text-slate-600">{selectedLocation.complianceChecklist.townPermitRenovations.updatedBy}</span>
+                          {selectedLocation.complianceChecklist.townPermitRenovations.updatedAt && ` on ${new Date(selectedLocation.complianceChecklist.townPermitRenovations.updatedAt).toLocaleDateString()}`}
+                        </p>
+                      )}
                     </div>
                     <div className="p-3 bg-white rounded-lg border flex flex-col justify-between">
-                      <span className="font-bold text-slate-700">Site Plan Review</span>
-                      <Badge className="w-fit mt-1 text-[10px] bg-emerald-100 text-emerald-700 border-0">{selectedLocation?.complianceChecklist?.sitePlanReview?.option || "Needed"}</Badge>
-                      {selectedLocation?.complianceChecklist?.sitePlanReview?.notes && <p className="text-[11px] text-slate-500 mt-1.5 italic">"{selectedLocation.complianceChecklist.sitePlanReview.notes}"</p>}
+                      <div>
+                        <span className="font-bold text-slate-700">Site Plan Review</span>
+                        <Badge className="w-fit mt-1 text-[10px] bg-emerald-100 text-emerald-700 border-0">{selectedLocation?.complianceChecklist?.sitePlanReview?.option || "Needed"}</Badge>
+                        {selectedLocation?.complianceChecklist?.sitePlanReview?.notes && <p className="text-[11px] text-slate-500 mt-1.5 italic">"{selectedLocation.complianceChecklist.sitePlanReview.notes}"</p>}
+                      </div>
+                      {selectedLocation?.complianceChecklist?.sitePlanReview?.updatedBy && (
+                        <p className="text-[10px] text-slate-400 mt-2 pt-1 border-t border-slate-100">
+                          Verified by <span className="font-semibold text-slate-600">{selectedLocation.complianceChecklist.sitePlanReview.updatedBy}</span>
+                          {selectedLocation.complianceChecklist.sitePlanReview.updatedAt && ` on ${new Date(selectedLocation.complianceChecklist.sitePlanReview.updatedAt).toLocaleDateString()}`}
+                        </p>
+                      )}
                     </div>
                     <div className="p-3 bg-white rounded-lg border flex flex-col justify-between">
-                      <span className="font-bold text-slate-700">Certificate of Occupancy</span>
-                      <Badge className="w-fit mt-1 text-[10px] bg-green-100 text-green-700 border-0">{selectedLocation?.complianceChecklist?.certificateOfOccupancy?.status || "Pending"}</Badge>
-                      {selectedLocation?.complianceChecklist?.certificateOfOccupancy?.date && <p className="text-[10px] text-slate-400 mt-1 font-mono">Date: {selectedLocation.complianceChecklist.certificateOfOccupancy.date}</p>}
-                      {selectedLocation?.complianceChecklist?.certificateOfOccupancy?.notes && <p className="text-[11px] text-slate-500 mt-1.5 italic">"{selectedLocation.complianceChecklist.certificateOfOccupancy.notes}"</p>}
+                      <div>
+                        <span className="font-bold text-slate-700">Certificate of Occupancy</span>
+                        <Badge className="w-fit mt-1 text-[10px] bg-green-100 text-green-700 border-0">{selectedLocation?.complianceChecklist?.certificateOfOccupancy?.status || "Pending"}</Badge>
+                        {selectedLocation?.complianceChecklist?.certificateOfOccupancy?.date && <p className="text-[10px] text-slate-400 mt-1 font-mono">Date: {selectedLocation.complianceChecklist.certificateOfOccupancy.date}</p>}
+                        {selectedLocation?.complianceChecklist?.certificateOfOccupancy?.notes && <p className="text-[11px] text-slate-500 mt-1.5 italic">"{selectedLocation.complianceChecklist.certificateOfOccupancy.notes}"</p>}
+                      </div>
+                      {selectedLocation?.complianceChecklist?.certificateOfOccupancy?.updatedBy && (
+                        <p className="text-[10px] text-slate-400 mt-2 pt-1 border-t border-slate-100">
+                          Verified by <span className="font-semibold text-slate-600">{selectedLocation.complianceChecklist.certificateOfOccupancy.updatedBy}</span>
+                          {selectedLocation.complianceChecklist.certificateOfOccupancy.updatedAt && ` on ${new Date(selectedLocation.complianceChecklist.certificateOfOccupancy.updatedAt).toLocaleDateString()}`}
+                        </p>
+                      )}
                     </div>
                   </div>
                </div>
@@ -1349,6 +1541,33 @@ const Locations = () => {
                    </div>
                  </div>
                )}
+
+               {selectedLocation?.documents && selectedLocation.documents.length > 0 && (
+                 <div className="col-span-2 pt-4 border-t border-slate-100">
+                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                     <FileText className="h-4 w-4 text-indigo-600" />
+                     Uploaded Documents & Permits ({selectedLocation.documents.length})
+                   </p>
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                     {selectedLocation.documents.map((doc, i) => (
+                       <a
+                         key={i}
+                         href={doc.url}
+                         download={doc.fileName}
+                         target="_blank"
+                         rel="noreferrer"
+                         className="flex items-center justify-between p-2.5 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors text-xs font-medium text-slate-800 group"
+                       >
+                         <div className="flex items-center gap-2 overflow-hidden mr-2">
+                           <FileText className="h-4 w-4 text-indigo-600 shrink-0" />
+                           <span className="truncate">{doc.fileName}</span>
+                         </div>
+                         <Download className="h-4 w-4 text-indigo-600 group-hover:text-indigo-800 shrink-0" />
+                       </a>
+                     ))}
+                   </div>
+                 </div>
+               )}
             </div>
           </div>
 
@@ -1393,10 +1612,14 @@ const Locations = () => {
                 <Input value={editFormData.address} onChange={(e) => setEditFormData({...editFormData, address: e.target.value})} className="border-slate-200" />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold">City *</Label>
                   <Input value={editFormData.city} onChange={(e) => setEditFormData({...editFormData, city: e.target.value})} className="border-slate-200" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold">State / Province</Label>
+                  <Input value={editFormData.state} onChange={(e) => setEditFormData({...editFormData, state: e.target.value})} placeholder="e.g. NY, TX, CA" className="border-slate-200" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold">Country *</Label>
@@ -1450,6 +1673,78 @@ const Locations = () => {
                       reader.readAsDataURL(file);
                     });
                   }} />
+                </div>
+              </div>
+
+              {/* Upload Documents & Permits */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-semibold flex items-center gap-1.5">
+                    <FileText className="h-4 w-4 text-indigo-600" />
+                    Location Documents & Permits
+                  </Label>
+                  <span className="text-xs text-muted-foreground">PDF, Word, Excel, Permits</span>
+                </div>
+                <div className="space-y-2">
+                  {editFormData.documents && editFormData.documents.length > 0 && (
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                      {editFormData.documents.map((doc, i) => (
+                        <div key={i} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-900/40 rounded-lg border border-slate-200 text-xs">
+                          <div className="flex items-center gap-2 overflow-hidden mr-2">
+                            <FileText className="h-4 w-4 text-indigo-600 shrink-0" />
+                            <span className="font-medium truncate max-w-[220px]">{doc.fileName}</span>
+                            {doc.size ? <span className="text-[10px] text-muted-foreground">({Math.round(doc.size / 1024)} KB)</span> : null}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setEditFormData({...editFormData, documents: editFormData.documents.filter((_, idx) => idx !== i)})}
+                            className="text-rose-500 hover:text-rose-700 p-1"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => document.getElementById('edit-location-docs')?.click()}
+                    className="w-full border-dashed border-2 hover:border-indigo-400 hover:bg-indigo-50/50 py-3 flex items-center justify-center gap-2 text-xs font-semibold text-indigo-600 rounded-lg"
+                  >
+                    <Upload className="h-4 w-4" />
+                    Upload Documents / Permits
+                  </Button>
+                  <input
+                    id="edit-location-docs"
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,image/*"
+                    multiple
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      files.forEach(file => {
+                        const reader = new FileReader();
+                        reader.onload = (re) => {
+                          setEditFormData(prev => ({
+                            ...prev,
+                            documents: [
+                              ...(prev.documents || []),
+                              {
+                                fileName: file.name,
+                                url: re.target?.result as string,
+                                fileType: file.type,
+                                size: file.size,
+                                uploadedAt: new Date().toISOString()
+                              }
+                            ]
+                          }));
+                        };
+                        reader.readAsDataURL(file);
+                      });
+                    }}
+                  />
                 </div>
               </div>
 

@@ -5,7 +5,14 @@ import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/admin/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/admin/ui/dialog";
-import { Users, Plus, Search, RefreshCw, Mail, Phone, Trash2, AlertTriangle } from "lucide-react";
+import { Users, Plus, Search, RefreshCw, Mail, Phone, Trash2, AlertTriangle, Edit, CheckCircle2 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { apiFetch } from "@/lib/admin/apiClient";
 import { toast } from "@/components/admin/ui/use-toast";
 
@@ -19,9 +26,11 @@ export default function TenantManagement() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [selectedTenant, setSelectedTenant] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("profile");
   
@@ -35,6 +44,20 @@ export default function TenantManagement() {
     assignedUnit: "",
     locationName: "",
     address: ""
+  });
+
+  const [editForm, setEditForm] = useState({ 
+    id: "",
+    name: "", 
+    email: "", 
+    phone: "", 
+    type: "Individual", 
+    status: "Active",
+    assignedProperty: "",
+    assignedUnit: "",
+    locationName: "",
+    address: "",
+    notes: ""
   });
 
   const load = async () => {
@@ -86,6 +109,93 @@ export default function TenantManagement() {
       }
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleStatusChange = async (item: any, newStatus: string) => {
+    const tenantId = item._id || item.id;
+    if (!tenantId) return;
+
+    try {
+      setUpdatingStatus(tenantId);
+      const res = await apiFetch<{ success: boolean; message?: string }>(`/api/atlasbook/tenants/${tenantId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res?.success) {
+        toast({
+          title: "Status updated",
+          description: `${item.name} is now ${newStatus}.`,
+        });
+        setItems((prev) =>
+          prev.map((t) => (t._id === tenantId ? { ...t, status: newStatus } : t))
+        );
+        if (selectedTenant && (selectedTenant._id === tenantId || selectedTenant.id === tenantId)) {
+          setSelectedTenant((prev: any) => ({ ...prev, status: newStatus }));
+        }
+      } else {
+        toast({
+          title: "Update failed",
+          description: res?.message || "Could not update status",
+          variant: "destructive",
+        });
+      }
+    } catch (e: any) {
+      toast({
+        title: "Update failed",
+        description: e?.message || "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingStatus(null);
+    }
+  };
+
+  const openEdit = (item: any) => {
+    const tenantId = item._id || item.id;
+    setEditForm({
+      id: tenantId,
+      name: item.name || "",
+      email: item.email || "",
+      phone: item.phone || "",
+      type: item.type || "Individual",
+      status: item.status || "Active",
+      assignedProperty: item.assignedProperty || "",
+      assignedUnit: item.assignedUnit || "",
+      locationName: item.locationName || "",
+      address: item.address || "",
+      notes: item.notes || "",
+    });
+    setEditOpen(true);
+  };
+
+  const handleUpdateTenant = async () => {
+    if (!editForm.id) return;
+    try {
+      const res = await apiFetch<{ success: boolean; message?: string }>(`/api/atlasbook/tenants/${editForm.id}`, {
+        method: "PUT",
+        body: JSON.stringify(editForm),
+      });
+      if (res?.success) {
+        toast({
+          title: "Tenant updated",
+          description: `${editForm.name} details saved successfully.`,
+        });
+        setEditOpen(false);
+        load();
+      } else {
+        toast({
+          title: "Update failed",
+          description: res?.message || "Failed to update tenant",
+          variant: "destructive",
+        });
+      }
+    } catch (e: any) {
+      toast({
+        title: "Update failed",
+        description: e?.message || "Something went wrong",
+        variant: "destructive",
+      });
     }
   };
 
@@ -205,13 +315,40 @@ export default function TenantManagement() {
                     <TableCell className="text-sm">{item.address || "None"}</TableCell>
                     <TableCell className="text-sm">{item.locationName || "None"}</TableCell>
                     <TableCell>
-                      <Badge variant={item.status === "Active" ? "default" : "secondary"}>
-                        {item.status}
-                      </Badge>
+                      <Select
+                        value={item.status || "Active"}
+                        onValueChange={(val) => handleStatusChange(item, val)}
+                        disabled={updatingStatus === item._id}
+                      >
+                        <SelectTrigger className={`h-8 w-28 text-xs font-semibold rounded-full border transition-all ${
+                          item.status === "Active"
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+                            : item.status === "Inactive"
+                            ? "bg-rose-50 text-rose-700 border-rose-300 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800"
+                            : "bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800"
+                        }`}>
+                          <SelectValue placeholder="Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Active" className="text-emerald-600 font-medium">● Active</SelectItem>
+                          <SelectItem value="Inactive" className="text-rose-600 font-medium">● Inactive</SelectItem>
+                          <SelectItem value="Prospect" className="text-amber-600 font-medium">● Prospect</SelectItem>
+                          <SelectItem value="Former" className="text-slate-600 font-medium">● Former</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground italic">No lease history</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                          onClick={() => openEdit(item)}
+                        >
+                          <Edit className="h-4 w-4 mr-1" />
+                          Edit
+                        </Button>
                         <Button variant="ghost" size="sm" onClick={() => {
                           setSelectedTenant(item);
                           setActiveTab("profile");
@@ -311,6 +448,129 @@ export default function TenantManagement() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             <Button onClick={handleCreate}>Save Tenant</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Tenant Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="h-5 w-5 text-indigo-600" />
+              Edit Tenant
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto px-1 custom-scrollbar">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Full Name / Entity Name</label>
+              <Input
+                placeholder="e.g., Jane Smith"
+                value={editForm.name}
+                onChange={e => setEditForm({...editForm, name: e.target.value})}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Type</label>
+                <select
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={editForm.type}
+                  onChange={e => setEditForm({...editForm, type: e.target.value})}
+                >
+                  <option value="Individual">Individual</option>
+                  <option value="Company">Company</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Status</label>
+                <select
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium"
+                  value={editForm.status}
+                  onChange={e => setEditForm({...editForm, status: e.target.value})}
+                >
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                  <option value="Prospect">Prospect</option>
+                  <option value="Former">Former</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Property</label>
+                <select 
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-ring text-foreground"
+                  value={editForm.assignedProperty}
+                  onChange={e => setEditForm({...editForm, assignedProperty: e.target.value})}
+                >
+                  <option value="">None</option>
+                  {locations.map(p => <option key={p.id || p._id} value={p.name}>{p.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Location</label>
+                <select 
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-ring text-foreground"
+                  value={editForm.locationName}
+                  onChange={e => setEditForm({...editForm, locationName: e.target.value})}
+                >
+                  <option value="">None</option>
+                  {locations.map(loc => <option key={loc.id} value={loc.name}>{loc.name}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Unit</label>
+              <Input
+                placeholder="e.g. Apt 4B, Suite 100"
+                value={editForm.assignedUnit}
+                onChange={e => setEditForm({...editForm, assignedUnit: e.target.value})}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Address</label>
+              <Input
+                placeholder="Street Address, City, State, ZIP"
+                value={editForm.address}
+                onChange={e => setEditForm({...editForm, address: e.target.value})}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Email</label>
+              <Input
+                type="email"
+                placeholder="email@example.com"
+                value={editForm.email}
+                onChange={e => setEditForm({...editForm, email: e.target.value})}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Phone</label>
+              <Input
+                placeholder="+1 (555) 000-0000"
+                value={editForm.phone}
+                onChange={e => setEditForm({...editForm, phone: e.target.value})}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Notes</label>
+              <Input
+                placeholder="Additional notes..."
+                value={editForm.notes}
+                onChange={e => setEditForm({...editForm, notes: e.target.value})}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
+            <Button onClick={handleUpdateTenant} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+              Save Changes
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -507,7 +767,20 @@ export default function TenantManagement() {
               </div>
             </div>
           )}
-          <DialogFooter>
+          <DialogFooter className="flex justify-between items-center sm:justify-between w-full">
+            <Button
+              variant="outline"
+              className="text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+              onClick={() => {
+                if (selectedTenant) {
+                  setDetailsOpen(false);
+                  openEdit(selectedTenant);
+                }
+              }}
+            >
+              <Edit className="h-4 w-4 mr-1.5" />
+              Edit Tenant
+            </Button>
             <Button onClick={() => setDetailsOpen(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>

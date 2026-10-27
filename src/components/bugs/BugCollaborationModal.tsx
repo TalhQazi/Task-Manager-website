@@ -30,6 +30,9 @@ import {
   X,
   ZoomIn,
   ShieldAlert,
+  Globe,
+  Mail,
+  Monitor,
 } from "lucide-react";
 import { apiFetch, toProxiedUrl } from "@/lib/manger/api";
 import { getAuthState } from "@/lib/auth";
@@ -43,6 +46,18 @@ type BugItem = {
   priority?: string;
   company?: string;
   module?: string;
+  websiteName?: string;
+  websiteUrl?: string;
+  pageUrl?: string;
+  reporterName?: string;
+  reporterEmail?: string;
+  originType?: string;
+  browserInfo?: {
+    userAgent?: string;
+    screenResolution?: string;
+    language?: string;
+    platform?: string;
+  };
   taskTitle?: string;
   assignedDeveloperId?: string;
   assignedDeveloperName?: string;
@@ -464,9 +479,38 @@ export default function BugCollaborationModal({ bugId, open, onOpenChange, onBug
             <div className="space-y-1">
               <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">{bug?.title || "Bug Details"}</h2>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                {bug?.websiteName && (
+                  <Badge variant="outline" className="bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30 gap-1 text-[11px] font-semibold py-0.5">
+                    <Globe className="h-3 w-3" /> {bug.websiteName}
+                  </Badge>
+                )}
+                {bug?.originType === "EXTERNAL" && (
+                  <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 text-[10px] font-semibold py-0">
+                    EXTERNAL
+                  </Badge>
+                )}
                 <span className="flex items-center gap-1">
-                  <User className="h-3.5 w-3.5" /> Reporter: <strong className="text-foreground">{bug?.createdByUsername || "System"}</strong>
+                  <User className="h-3.5 w-3.5" /> Reporter: <strong className="text-foreground">{bug?.reporterName || bug?.createdByUsername || "System"}</strong>
                 </span>
+                {bug?.reporterEmail && (
+                  <a
+                    href={`mailto:${bug.reporterEmail}`}
+                    className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground font-medium"
+                  >
+                    <Mail className="h-3 w-3" /> {bug.reporterEmail}
+                  </a>
+                )}
+                {(bug?.pageUrl || bug?.websiteUrl) && (
+                  <a
+                    href={bug.pageUrl || bug.websiteUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1 text-[11px] text-primary hover:underline font-semibold"
+                    title={bug.pageUrl || bug.websiteUrl}
+                  >
+                    <ExternalLink className="h-3 w-3" /> Open Origin Page
+                  </a>
+                )}
                 {bug?.assignedDeveloperName ? (
                   <span className="flex items-center gap-1">
                     <User className="h-3.5 w-3.5 text-primary" /> Dev: <strong className="text-foreground">{bug.assignedDeveloperName}</strong>
@@ -562,6 +606,65 @@ export default function BugCollaborationModal({ bugId, open, onOpenChange, onBug
 
               {/* TAB 1: ORIGINAL REPORT & RESOLUTION SUMMARY */}
               <TabsContent value="report" className="flex-1 overflow-y-auto pr-1 space-y-4">
+                {/* External Website & Environment Details Card */}
+                {(bug?.websiteName || bug?.pageUrl || bug?.reporterEmail || bug?.browserInfo?.userAgent) && (
+                  <div className="p-3.5 rounded-xl border bg-muted/20 space-y-2 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold flex items-center gap-1.5 text-foreground">
+                        <Globe className="h-4 w-4 text-primary" /> Source Website & Environment
+                      </span>
+                      {bug?.originType && (
+                        <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-wider">
+                          {bug.originType}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-muted-foreground">
+                      {bug?.websiteName && (
+                        <div>
+                          <strong className="text-foreground">Website:</strong> {bug.websiteName}
+                        </div>
+                      )}
+                      {bug?.pageUrl && (
+                        <div className="truncate">
+                          <strong className="text-foreground">Page URL:</strong>{" "}
+                          <a href={bug.pageUrl} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                            {bug.pageUrl}
+                          </a>
+                        </div>
+                      )}
+                      {bug?.reporterName && (
+                        <div>
+                          <strong className="text-foreground">Reporter:</strong> {bug.reporterName}
+                        </div>
+                      )}
+                      {bug?.reporterEmail && (
+                        <div>
+                          <strong className="text-foreground">Email:</strong>{" "}
+                          <a href={`mailto:${bug.reporterEmail}`} className="text-primary hover:underline">
+                            {bug.reporterEmail}
+                          </a>
+                        </div>
+                      )}
+                      {bug?.browserInfo?.screenResolution && (
+                        <div>
+                          <strong className="text-foreground">Screen:</strong> {bug.browserInfo.screenResolution}
+                        </div>
+                      )}
+                      {bug?.browserInfo?.platform && (
+                        <div>
+                          <strong className="text-foreground">Platform:</strong> {bug.browserInfo.platform}
+                        </div>
+                      )}
+                    </div>
+                    {bug?.browserInfo?.userAgent && (
+                      <div className="text-[11px] text-muted-foreground/80 font-mono bg-background/60 p-1.5 rounded border truncate" title={bug.browserInfo.userAgent}>
+                        User-Agent: {bug.browserInfo.userAgent}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Original Problem Description</h3>
                   <div className="p-4 rounded-xl border bg-muted/20 text-sm whitespace-pre-wrap leading-relaxed">

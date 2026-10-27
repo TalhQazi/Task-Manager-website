@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/admin/ui/table";
-import { Bug, Plus } from "lucide-react";
+import { Bug, Plus, Globe } from "lucide-react";
 
 import BugDashboardAnalytics from "@/components/bugs/BugDashboardAnalytics";
 import ReportBugModal from "@/components/bugs/ReportBugModal";
@@ -28,6 +28,11 @@ type BugItem = {
   priority?: string;
   module?: string;
   taskTitle?: string;
+  websiteName?: string;
+  websiteUrl?: string;
+  pageUrl?: string;
+  reporterName?: string;
+  originType?: string;
   createdByUsername?: string;
   createdByRole?: string;
   assignedDeveloperName?: string;
@@ -69,6 +74,11 @@ export default function EmployeeBugs() {
           priority: toText(x.priority || "medium"),
           module: toText(x.module),
           taskTitle: toText(x.taskTitle),
+          websiteName: toText(x.websiteName || (x.originType === "EXTERNAL" ? "External Website" : "Task Manager")),
+          websiteUrl: toText(x.websiteUrl),
+          pageUrl: toText(x.pageUrl),
+          reporterName: toText(x.reporterName),
+          originType: toText(x.originType || "INTERNAL"),
           createdByUsername: toText(x.createdByUsername),
           createdByRole: toText(x.createdByRole),
           assignedDeveloperName: toText(x.assignedDeveloperName),
@@ -183,6 +193,7 @@ export default function EmployeeBugs() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="text-xs">Title</TableHead>
+                    <TableHead className="text-xs">Website</TableHead>
                     <TableHead className="text-xs">Status</TableHead>
                     <TableHead className="text-xs">Posted By</TableHead>
                     <TableHead className="text-xs">Date</TableHead>
@@ -196,12 +207,24 @@ export default function EmployeeBugs() {
                         {b.taskTitle && <p className="text-xs text-muted-foreground">Task: {b.taskTitle}</p>}
                       </TableCell>
                       <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={`text-[11px] font-semibold gap-1 py-0.5 whitespace-nowrap ${
+                            b.originType === "EXTERNAL"
+                              ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                              : "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30"
+                          }`}
+                        >
+                          <Globe className="h-3 w-3" /> {b.websiteName || "Task Manager"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
                         <Badge variant="outline" className="text-xs uppercase font-medium">
                           {b.status}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
-                        {b.createdByUsername || "-"}
+                        {b.reporterName || b.createdByUsername || "-"}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {b.createdAt ? new Date(b.createdAt).toLocaleDateString() : "-"}
@@ -210,7 +233,7 @@ export default function EmployeeBugs() {
                   ))}
                   {filtered.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-12 text-muted-foreground text-xs italic">
+                      <TableCell colSpan={5} className="text-center py-12 text-muted-foreground text-xs italic">
                         No bugs found.
                       </TableCell>
                     </TableRow>

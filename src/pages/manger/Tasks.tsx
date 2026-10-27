@@ -97,6 +97,7 @@ import {
   Flame,
   Video,
   Wallet,
+  Folder,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
 import { apiFetch, downloadTaskAttachment, toProxiedUrl, getTopContributors, downloadViaUrl, updateComment, deleteComment } from "@/lib/manger/api";
@@ -158,6 +159,8 @@ interface Task {
     mimeType: string;
     size: number;
   }>;
+  totalTimeSpent?: number;
+  timer_enabled?: boolean;
 }
 
 type CreateProjectTaskDraft = {
@@ -185,6 +188,7 @@ type CreateProjectTaskDraft = {
 type CreateProjectPayload = {
   name: string;
   description: string;
+  category?: string;
   assignees?: string[];
   logo?: ProjectLogo;
   attachments?: Array<{ fileName: string; url: string; mimeType: string; size: number }>;
@@ -201,6 +205,8 @@ interface Employee {
   milestoneLabel?: string;
   avatarUrl?: string;
   avatarDataUrl?: string;
+  role?: string;
+  department?: string;
 }
 
 type TaskComment = {
@@ -250,9 +256,14 @@ interface Project {
   id: string;
   name: string;
   description?: string;
+  category?: string;
   createdByUsername?: string;
   createdAt?: string;
   assignees?: string[];
+  teamLead?: string;
+  priority?: "low" | "medium" | "high";
+  tasks?: Task[];
+  introVideoUrl?: string;
   logo?: ProjectLogo;
   taskCount?: number;
   status?: string;
@@ -268,6 +279,7 @@ interface ProjectWithTasks extends Project {
   tasks: Task[];
   taskCount?: number;
   status?: string;
+  introVideoUrl?: string;
 }
 
 function normalizeTask(t: TaskApi): Task {
@@ -594,6 +606,7 @@ const createTaskSchema = z.object({
   dueTime: z.string().optional(),
   location: z.string().optional(),
   assignees: z.array(z.string()).optional().default([]),
+  introVideoUrl: z.string().optional(),
 });
 
 type CreateTaskValues = z.infer<typeof createTaskSchema>;
@@ -605,10 +618,11 @@ function TaskContributorsList({ taskId }: { taskId: string }) {
     name: string;
     email: string;
     role: string;
-    contributionType: string;
-    actions: string[];
-    addedAt: string;
+    contributionType?: string;
+    actions?: string[];
+    addedAt?: string;
     avatar?: string;
+    stats?: any;
   }>>([]);
   const [loading, setLoading] = useState(true);
 
@@ -686,6 +700,7 @@ export default function Tasks() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [assignmentFilter, setAssignmentFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [viewByPriority, setViewByPriority] = useState(false);
   const [projectPage, setProjectPage] = useState(1);
   const [taskPage, setTaskPage] = useState(1);
@@ -693,6 +708,7 @@ export default function Tasks() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
+  const [projectCategory, setProjectCategory] = useState<string>("general");
   const [projectLogoFile, setProjectLogoFile] = useState<File | null>(null);
   const [projectLogoPreview, setProjectLogoPreview] = useState<string>("");
   const [projectAttachmentFiles, setProjectAttachmentFiles] = useState<File[]>([]);
@@ -718,6 +734,7 @@ export default function Tasks() {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [editProjectName, setEditProjectName] = useState("");
   const [editProjectDescription, setEditProjectDescription] = useState("");
+  const [editProjectCategory, setEditProjectCategory] = useState<string>("general");
   const [editProjectLogoPreview, setEditProjectLogoPreview] = useState<string>("");
   const [editProjectLogoFile, setEditProjectLogoFile] = useState<File | null>(null);
   const [isEditingProject, setIsEditingProject] = useState(false);
@@ -774,7 +791,7 @@ export default function Tasks() {
   const [dropboxPickerTarget, setDropboxPickerTarget] = useState<"task" | "project">("task");
   const [dropboxSelectedFiles, setDropboxSelectedFiles] = useState<DropboxSelectedFile[]>([]);
   const [projectDropboxSelectedFiles, setProjectDropboxSelectedFiles] = useState<DropboxSelectedFile[]>([]);
-  const currentRole = getAuthState().role || "";
+  const currentRole = (getAuthState().role || "") as any;
 
   // Team Lead reassign state
   const [teamLeadMappings, setTeamLeadMappings] = useState<Array<{ user: string; allowOverrideAdminAssignments: boolean }>>([]);
@@ -889,7 +906,7 @@ export default function Tasks() {
 
   // Fetch projects with server-side pagination
   const projectsQuery = useQuery({
-    queryKey: ["projects", projectPage, projectSearchQuery, statusFilter, assignmentFilter],
+    queryKey: ["projects", projectPage, projectSearchQuery, statusFilter, assignmentFilter, categoryFilter],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: projectPage.toString(),
@@ -898,6 +915,9 @@ export default function Tasks() {
         status: statusFilter,
         assignment: assignmentFilter,
       });
+      if (categoryFilter && categoryFilter !== "all") {
+        params.set("category", categoryFilter);
+      }
       const res = await apiFetch<{ items: Project[], totalPages: number, total: number }>(`/api/projects?${params.toString()}`);
       return {
         items: res.items,
@@ -911,7 +931,7 @@ export default function Tasks() {
 
   // Reset pages when filters change
   useEffect(() => { setTaskPage(1); }, [projectSearchQuery, statusFilter, priorityFilter, viewByPriority, assignmentFilter]);
-  useEffect(() => { setProjectPage(1); }, [projectSearchQuery, statusFilter, assignmentFilter]);
+  useEffect(() => { setProjectPage(1); }, [projectSearchQuery, statusFilter, assignmentFilter, categoryFilter]);
 
   useEffect(() => {
     if (tasksQuery.data) {
@@ -1340,6 +1360,7 @@ export default function Tasks() {
   const resetProjectFlow = () => {
     setProjectName("");
     setProjectDescription("");
+    setProjectCategory("general");
     setProjectTasks([]);
     setProjectLogoFile(null);
     setProjectLogoPreview("");
@@ -1478,6 +1499,7 @@ export default function Tasks() {
       const payload: CreateProjectPayload & { assignees?: string[]; logo?: ProjectLogo; dropboxAttachments?: DropboxSelectedFile[] } = {
         name: projectName.trim(),
         description,
+        category: projectCategory || "general",
         assignees: assigneesWithSelf,
         logo: projectLogo,
         attachments: projectAttachments,
@@ -2439,6 +2461,14 @@ export default function Tasks() {
         if (!isProjectMe && !isTaskMe) return false;
       }
 
+      // Category Filter
+      if (categoryFilter !== "all") {
+        const cat = (p.category || "").toLowerCase();
+        if (cat !== categoryFilter.toLowerCase()) {
+          return false;
+        }
+      }
+
       // Search Query
       if (qMain && !name.includes(qMain) && !desc.includes(qMain) && !assigneesText.includes(qMain) && !teamLeadText.includes(qMain)) {
         return false;
@@ -2446,7 +2476,7 @@ export default function Tasks() {
 
       return true;
     });
-  }, [projects, searchQuery, statusFilter, priorityFilter, assignmentFilter, assigneeFilter, matchesSelectedAssignee]);
+  }, [projects, searchQuery, statusFilter, priorityFilter, assignmentFilter, assigneeFilter, categoryFilter, matchesSelectedAssignee]);
 
   // Pagination is server-driven when no project is selected; client-driven when project is selected
   const paginatedProjects = filteredProjects;
@@ -2626,45 +2656,70 @@ export default function Tasks() {
           </Button>
       </div>
 
-      {/* Premium Tab Switcher */}
+      {/* Premium Tab Switcher & Category Filter */}
       {!selectedProject && (
-        <div className="flex gap-1 bg-muted/40 p-1 rounded-xl border border-border/60 w-fit mb-4">
-          <Button
-            variant={activeTab === "all" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => {
-              const next = new URLSearchParams(searchParams);
-              next.set("tab", "all");
-              setSearchParams(next);
-            }}
-            className="h-8 text-xs font-semibold px-4 rounded-lg"
-          >
-            All
-          </Button>
-          <Button
-            variant={activeTab === "projects" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => {
-              const next = new URLSearchParams(searchParams);
-              next.set("tab", "projects");
-              setSearchParams(next);
-            }}
-            className="h-8 text-xs font-semibold px-4 rounded-lg"
-          >
-            Projects Only
-          </Button>
-          <Button
-            variant={activeTab === "tasks" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => {
-              const next = new URLSearchParams(searchParams);
-              next.set("tab", "tasks");
-              setSearchParams(next);
-            }}
-            className="h-8 text-xs font-semibold px-4 rounded-lg"
-          >
-            Tasks Only
-          </Button>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <div className="flex gap-1 bg-muted/40 p-1 rounded-xl border border-border/60 w-fit">
+            <Button
+              variant={activeTab === "all" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => {
+                const next = new URLSearchParams(searchParams);
+                next.set("tab", "all");
+                setSearchParams(next);
+              }}
+              className="h-8 text-xs font-semibold px-4 rounded-lg"
+            >
+              All
+            </Button>
+            <Button
+              variant={activeTab === "projects" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => {
+                const next = new URLSearchParams(searchParams);
+                next.set("tab", "projects");
+                setSearchParams(next);
+              }}
+              className="h-8 text-xs font-semibold px-4 rounded-lg"
+            >
+              Projects Only
+            </Button>
+            <Button
+              variant={activeTab === "tasks" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => {
+                const next = new URLSearchParams(searchParams);
+                next.set("tab", "tasks");
+                setSearchParams(next);
+              }}
+              className="h-8 text-xs font-semibold px-4 rounded-lg"
+            >
+              Tasks Only
+            </Button>
+          </div>
+
+          {(activeTab === "all" || activeTab === "projects") && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                <Folder className="w-3.5 h-3.5 text-primary" /> Category:
+              </span>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="h-8 w-[160px] text-xs bg-background">
+                  <SelectValue placeholder="All Categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-xs">All Categories</SelectItem>
+                  <SelectItem value="location" className="text-xs">Location</SelectItem>
+                  <SelectItem value="mechanical" className="text-xs">Mechanical</SelectItem>
+                  <SelectItem value="medical" className="text-xs">Medical</SelectItem>
+                  <SelectItem value="software" className="text-xs">Software</SelectItem>
+                  <SelectItem value="hardware" className="text-xs">Hardware</SelectItem>
+                  <SelectItem value="legal" className="text-xs">Legal</SelectItem>
+                  <SelectItem value="general" className="text-xs">General</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
       )}
 
@@ -2888,6 +2943,7 @@ export default function Tasks() {
                                   setEditingProject(project);
                                   setEditProjectName(project.name);
                                   setEditProjectDescription(project.description || "");
+                                  setEditProjectCategory(project.category || "general");
                                   setEditProjectLogoPreview(project.logo?.url || "");
                                   setEditProjectLogoFile(null);
                                   setIsEditProjectOpen(true);
@@ -2928,9 +2984,16 @@ export default function Tasks() {
                         </div>
 
                         <div className="flex items-center justify-between mt-auto pt-2 border-t border-border/40">
-                          <Badge variant="outline" className="h-6 text-[10px] font-bold bg-muted/5 border-border/60">
-                            {project.status || "Pending"}
-                          </Badge>
+                          <div className="flex items-center gap-1.5">
+                            <Badge variant="outline" className="h-6 text-[10px] font-bold bg-muted/5 border-border/60">
+                              {project.status || "Pending"}
+                            </Badge>
+                            {project.category && (
+                              <Badge variant="secondary" className="h-6 text-[10px] font-semibold capitalize bg-primary/10 text-primary border-primary/20">
+                                {project.category}
+                              </Badge>
+                            )}
+                          </div>
                           <Button 
                             variant="ghost" 
                             size="icon" 
@@ -3122,7 +3185,7 @@ export default function Tasks() {
 
           <form onSubmit={(e) => { e.preventDefault(); void handleCreateProject(); }} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="sm:col-span-2 space-y-1.5">
+              <div className="space-y-1.5">
                 <label className="text-sm font-medium">Project Name *</label>
                 <Input
                   placeholder="Project name"
@@ -3141,6 +3204,24 @@ export default function Tasks() {
                 {validationErrors.projectName && (
                   <p className="text-xs text-destructive">{validationErrors.projectName}</p>
                 )}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Category</label>
+                <Select value={projectCategory} onValueChange={setProjectCategory}>
+                  <SelectTrigger className="h-10 text-sm">
+                    <SelectValue placeholder="Select Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="location">Location</SelectItem>
+                    <SelectItem value="mechanical">Mechanical</SelectItem>
+                    <SelectItem value="medical">Medical</SelectItem>
+                    <SelectItem value="software">Software</SelectItem>
+                    <SelectItem value="hardware">Hardware</SelectItem>
+                    <SelectItem value="legal">Legal</SelectItem>
+                    <SelectItem value="general">General</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="sm:col-span-2 space-y-1.5">
@@ -3234,7 +3315,7 @@ export default function Tasks() {
   const files = Array.from(e.target.files ?? []);
   if (!files.length) return;
   const processedFiles = files; // In manager/employee we skip resize to maintain original logic unless needed
-  const previews = await Promise.all(processedFiles.map(file => new Promise((resolve) => {
+  const previews = await Promise.all(processedFiles.map(file => new Promise<string>((resolve) => {
     if (file.type.startsWith("image/")) {
       const reader = new FileReader();
       reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
@@ -3599,7 +3680,7 @@ export default function Tasks() {
   const files = Array.from(e.target.files ?? []);
   if (!files.length) return;
   const processedFiles = files; // In manager/employee we skip resize to maintain original logic unless needed
-  const previews = await Promise.all(processedFiles.map(file => new Promise((resolve) => {
+  const previews = await Promise.all(processedFiles.map(file => new Promise<string>((resolve) => {
     if (file.type.startsWith("image/")) {
       const reader = new FileReader();
       reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
@@ -4174,23 +4255,12 @@ export default function Tasks() {
                                 </button>
                               )}
                               <span className="text-[11px] text-muted-foreground/60 px-3 hidden sm:inline-block font-medium border-l ml-1 border-border/50">Pro tip: Ctrl+Enter to send.</span>
-                              <input id="comment-attachment-input" type="file" multiple className="hidden" onChange={async (e) => {
-  const files = Array.from(e.target.files ?? []);
-  if (!files.length) return;
-  const processedFiles = files; // In manager/employee we skip resize to maintain original logic unless needed
-  const previews = await Promise.all(processedFiles.map(file => new Promise((resolve) => {
-    if (file.type.startsWith("image/")) {
-      const reader = new FileReader();
-      reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
-      reader.readAsDataURL(file);
-    } else resolve("");
-  })));
-  setCommentAttachments((prev) => [...prev, ...processedFiles]);
-  if (typeof setCommentAttachmentPreviews === 'function') {
-      setCommentAttachmentPreviews((prev) => [...prev, ...previews]);
-  }
-  e.target.value = "";
-}} />
+                              <input id="comment-attachment-input" type="file" multiple className="hidden" onChange={(e) => {
+                                const files = Array.from(e.target.files ?? []);
+                                if (!files.length) return;
+                                setCommentAttachments((prev) => [...prev, ...files]);
+                                e.target.value = "";
+                              }} />
                             </div>
                             <Button type="button" onClick={() => void sendComment()} disabled={(!commentDraft.trim() && commentAttachments.length === 0) || isSendingComment} size="sm" className="h-9 px-5 rounded-lg font-bold shadow hover:shadow-md transition-all gap-1.5 flex items-center">
                               {isSendingComment && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
@@ -5030,6 +5100,11 @@ export default function Tasks() {
                   <div className="min-w-0 space-y-1">
                     <div className="flex items-center gap-2 mb-1">
                       <Badge variant="outline" className="text-[10px] h-5 uppercase tracking-wider font-bold bg-muted/30 text-primary border-primary/20">Project Overview</Badge>
+                      {selectedProject.category && (
+                        <Badge variant="secondary" className="text-[10px] h-5 capitalize font-bold bg-primary/15 text-primary border-primary/30">
+                          {selectedProject.category} Project
+                        </Badge>
+                      )}
                       <span className="text-[10px] text-muted-foreground font-medium">• {selectedProject.id.slice(-6).toUpperCase()}</span>
                     </div>
                     <DialogTitle className="text-lg sm:text-2xl font-bold truncate leading-tight">{selectedProject.name}</DialogTitle>
@@ -5333,6 +5408,10 @@ export default function Tasks() {
                           <span className="text-xs text-muted-foreground flex items-center gap-2"><TrendingUp className="w-3 h-3" /> Status</span>
                           <Badge variant="outline" className="text-[10px] font-bold capitalize">{selectedProject.status || "In Planning"}</Badge>
                         </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-muted-foreground flex items-center gap-2"><Folder className="w-3 h-3" /> Category</span>
+                          <Badge variant="secondary" className="text-[10px] font-bold capitalize bg-primary/10 text-primary border-primary/20">{selectedProject.category || "General"}</Badge>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -5409,6 +5488,7 @@ export default function Tasks() {
                   const payload: Partial<Project> = {
                     name: editProjectName,
                     description: editProjectDescription,
+                    category: editProjectCategory,
                   };
                   if (logoPayload) {
                     payload.logo = logoPayload;
@@ -5420,6 +5500,7 @@ export default function Tasks() {
                   setEditingProject(null);
                   setEditProjectName("");
                   setEditProjectDescription("");
+                  setEditProjectCategory("general");
                   setEditProjectLogoPreview("");
                   setEditProjectLogoFile(null);
                   toast({ title: "Project updated", description: "Project has been updated successfully." });
@@ -5439,7 +5520,7 @@ export default function Tasks() {
             className="space-y-4"
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="sm:col-span-2 space-y-1.5">
+              <div className="space-y-1.5">
                 <label className="text-sm font-medium">Project Name *</label>
                 <Input
                   placeholder="Project name"
@@ -5447,6 +5528,23 @@ export default function Tasks() {
                   onChange={(e) => setEditProjectName(e.target.value)}
                   required
                 />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Category</label>
+                <Select value={editProjectCategory} onValueChange={setEditProjectCategory}>
+                  <SelectTrigger className="h-10 text-sm">
+                    <SelectValue placeholder="Select Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="location">Location</SelectItem>
+                    <SelectItem value="mechanical">Mechanical</SelectItem>
+                    <SelectItem value="medical">Medical</SelectItem>
+                    <SelectItem value="software">Software</SelectItem>
+                    <SelectItem value="hardware">Hardware</SelectItem>
+                    <SelectItem value="legal">Legal</SelectItem>
+                    <SelectItem value="general">General</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Description</label>
@@ -5501,6 +5599,7 @@ export default function Tasks() {
                   setEditingProject(null);
                   setEditProjectName("");
                   setEditProjectDescription("");
+                  setEditProjectCategory("general");
                   setEditProjectLogoPreview("");
                   setEditProjectLogoFile(null);
                 }}

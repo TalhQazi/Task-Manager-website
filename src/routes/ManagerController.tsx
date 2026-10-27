@@ -57,6 +57,7 @@ const ManagerAnnouncements = lazy(() => import("@/pages/manger/Announcements"));
 const ManagerPolls = lazy(() => import("@/pages/manger/Polls"));
 const Meetings = lazy(() => import("@/pages/admin/Meetings"));
 const MeetingRoom = lazy(() => import("@/pages/shared/MeetingRoom"));
+const ThemeEngine = lazy(() => import("@/pages/admin/ThemeEngine"));
 
 function PageLoader() {
   return (
@@ -117,6 +118,7 @@ export default function ManagerController() {
       { path: "team-attendance", element: <TeamAttendance /> },
       { path: "itinerary", element: <ItineraryBuilder /> },
       { path: "compliance-center", element: <ComplianceCenter /> },
+      { path: "theme-engine", element: <ThemeEngine /> },
 
       { path: "crm/communication", element: <CRMCommunication /> },
       { path: "crm/companies", element: <ManagerCRMCompanies /> },

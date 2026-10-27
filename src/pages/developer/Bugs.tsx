@@ -14,11 +14,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/admin/ui/table";
-import { Bug, Plus, Search } from "lucide-react";
+import { Bug, Plus, Search, Globe } from "lucide-react";
 
 import BugDashboardAnalytics from "@/components/bugs/BugDashboardAnalytics";
 import ReportBugModal from "@/components/bugs/ReportBugModal";
 import BugCollaborationModal from "@/components/bugs/BugCollaborationModal";
+import ExternalWebsiteIntegrationModal from "@/components/bugs/ExternalWebsiteIntegrationModal";
 
 type BugItem = {
   id: string;
@@ -29,6 +30,12 @@ type BugItem = {
   priority?: string;
   module?: string;
   taskTitle?: string;
+  websiteName?: string;
+  websiteUrl?: string;
+  pageUrl?: string;
+  reporterName?: string;
+  reporterEmail?: string;
+  originType?: string;
   createdByUsername?: string;
   createdByRole?: string;
   assignedDeveloperName?: string;
@@ -49,11 +56,13 @@ export default function DeveloperBugs() {
 
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [siteFilter, setSiteFilter] = useState("all");
 
   const [collabOpen, setCollabOpen] = useState(false);
   const [selectedBugId, setSelectedBugId] = useState<string | null>(null);
 
   const [reportOpen, setReportOpen] = useState(false);
+  const [integrationOpen, setIntegrationOpen] = useState(false);
 
   const load = async () => {
     try {
@@ -71,6 +80,12 @@ export default function DeveloperBugs() {
           priority: toText(x.priority || "medium"),
           module: toText(x.module),
           taskTitle: toText(x.taskTitle),
+          websiteName: toText(x.websiteName || (x.originType === "EXTERNAL" ? "External Website" : "Task Manager")),
+          websiteUrl: toText(x.websiteUrl),
+          pageUrl: toText(x.pageUrl),
+          reporterName: toText(x.reporterName),
+          reporterEmail: toText(x.reporterEmail),
+          originType: toText(x.originType || "INTERNAL"),
           createdByUsername: toText(x.createdByUsername),
           createdByRole: toText(x.createdByRole),
           assignedDeveloperName: toText(x.assignedDeveloperName),
@@ -104,6 +119,14 @@ export default function DeveloperBugs() {
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
 
+  const availableWebsites = useMemo(() => {
+    const set = new Set<string>();
+    items.forEach((b) => {
+      if (b.websiteName) set.add(b.websiteName);
+    });
+    return Array.from(set).sort();
+  }, [items]);
+
   const filtered = useMemo(() => {
     let list = items;
     if (statusFilter !== "all") {
@@ -112,13 +135,17 @@ export default function DeveloperBugs() {
       else list = list.filter((b) => (b.status || "").toUpperCase() === statusFilter.toUpperCase());
     }
 
+    if (siteFilter !== "all") {
+      list = list.filter((b) => (b.websiteName || "Task Manager").toLowerCase() === siteFilter.toLowerCase());
+    }
+
     const query = q.trim().toLowerCase();
     if (!query) return list;
     return list.filter((b) => {
-      const where = `${b.title} ${b.description} ${b.taskTitle || ""} ${b.createdByUsername || ""} ${b.assignedDeveloperName || ""} ${b.module || ""} ${b.source?.path || ""}`.toLowerCase();
+      const where = `${b.title} ${b.description} ${b.taskTitle || ""} ${b.createdByUsername || ""} ${b.assignedDeveloperName || ""} ${b.module || ""} ${b.websiteName || ""} ${b.reporterName || ""} ${b.source?.path || ""}`.toLowerCase();
       return where.includes(query);
     });
-  }, [items, q, statusFilter]);
+  }, [items, q, statusFilter, siteFilter]);
 
   const openBug = (b: BugItem) => {
     setSelectedBugId(b.id);
@@ -141,6 +168,14 @@ export default function DeveloperBugs() {
           <Button variant="outline" onClick={() => void load()} disabled={loading} size="sm">
             Refresh
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIntegrationOpen(true)}
+            className="gap-1.5 border-primary/40 text-primary hover:bg-primary/5 font-medium"
+          >
+            <Globe className="h-4 w-4" /> External Integration
+          </Button>
           <Button onClick={() => setReportOpen(true)} size="sm" className="gap-1.5">
             <Plus className="h-4 w-4" /> Report Bug
           </Button>
@@ -156,14 +191,38 @@ export default function DeveloperBugs() {
       )}
 
       <Card className="shadow-sm border">
-        <CardContent className="p-3 sm:p-4 flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
-          <div className="relative flex-1 max-w-md">
-            <Input
-              placeholder="Search assigned bugs..."
-              className="h-9 text-xs sm:text-sm"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
+        <CardContent className="p-3 sm:p-4 flex flex-col md:flex-row gap-3 md:items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1 max-w-xl">
+            <div className="relative flex-1">
+              <Input
+                placeholder="Search bugs by title, desc, website, reporter..."
+                className="h-9 text-xs sm:text-sm"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+              />
+            </div>
+
+            {/* Website Filter Dropdown */}
+            <Select value={siteFilter} onValueChange={setSiteFilter}>
+              <SelectTrigger className="h-9 text-xs w-full sm:w-44 bg-background">
+                <SelectValue placeholder="All Websites" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="text-xs">
+                  🌐 All Websites
+                </SelectItem>
+                <SelectItem value="Task Manager" className="text-xs">
+                  Task Manager (Internal)
+                </SelectItem>
+                {availableWebsites
+                  .filter((w) => w !== "Task Manager")
+                  .map((w, idx) => (
+                    <SelectItem key={idx} value={w} className="text-xs">
+                      {w}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Quick Filter Chips (Replaces Mobile-Buggy Dropdown) */}
@@ -174,7 +233,7 @@ export default function DeveloperBugs() {
               onClick={() => setStatusFilter("all")}
               className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
             >
-              All Bugs
+              All
             </Button>
             <Button
               size="sm"
@@ -182,7 +241,7 @@ export default function DeveloperBugs() {
               onClick={() => setStatusFilter(statusFilter === "open" ? "all" : "open")}
               className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
             >
-              Active Bugs
+              Active
             </Button>
             <Button
               size="sm"
@@ -206,7 +265,7 @@ export default function DeveloperBugs() {
               onClick={() => setStatusFilter(statusFilter === "closed" ? "all" : "closed")}
               className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
             >
-              Closed Bugs
+              Closed
             </Button>
           </div>
         </CardContent>
@@ -229,6 +288,7 @@ export default function DeveloperBugs() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="text-xs">Title</TableHead>
+                    <TableHead className="text-xs">Website</TableHead>
                     <TableHead className="text-xs">Status</TableHead>
                     <TableHead className="text-xs">Severity</TableHead>
                     <TableHead className="text-xs">Reporter</TableHead>
@@ -243,6 +303,18 @@ export default function DeveloperBugs() {
                         {b.taskTitle && <p className="text-xs text-muted-foreground">Task: {b.taskTitle}</p>}
                       </TableCell>
                       <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={`text-[11px] font-semibold gap-1 py-0.5 whitespace-nowrap ${
+                            b.originType === "EXTERNAL"
+                              ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                              : "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30"
+                          }`}
+                        >
+                          <Globe className="h-3 w-3" /> {b.websiteName || "Task Manager"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
                         <Badge variant="outline" className="text-xs uppercase font-medium">
                           {b.status}
                         </Badge>
@@ -251,7 +323,7 @@ export default function DeveloperBugs() {
                         {b.severity || "medium"}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
-                        {b.createdByUsername || "-"}
+                        {b.reporterName || b.createdByUsername || "-"}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {b.createdAt ? new Date(b.createdAt).toLocaleDateString() : "-"}
@@ -260,7 +332,7 @@ export default function DeveloperBugs() {
                   ))}
                   {filtered.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-12 text-muted-foreground text-xs italic">
+                      <TableCell colSpan={6} className="text-center py-12 text-muted-foreground text-xs italic">
                         No bugs found.
                       </TableCell>
                     </TableRow>
@@ -284,6 +356,12 @@ export default function DeveloperBugs() {
         onOpenChange={setReportOpen}
         onSuccess={() => void load()}
         defaultSourcePanel="developer"
+      />
+
+      <ExternalWebsiteIntegrationModal
+        open={integrationOpen}
+        onOpenChange={setIntegrationOpen}
+        onBugSubmitted={() => void load()}
       />
     </div>
   );

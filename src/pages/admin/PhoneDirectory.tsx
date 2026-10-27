@@ -9,6 +9,12 @@ import {
   Building2,
   Zap,
   Lock,
+  Unlock,
+  KeyRound,
+  ShieldAlert,
+  CreditCard,
+  Eye,
+  EyeOff,
   Landmark,
   Wrench,
   Truck,
@@ -86,6 +92,7 @@ import {
   TableRow,
 } from "@/components/admin/ui/table";
 import { apiFetch, listResource } from "@/lib/admin/apiClient";
+import { getAuthState } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 export const CATEGORIES = [
@@ -134,6 +141,11 @@ export interface PhoneContact {
   status: "active" | "inactive";
   operatingHours?: string;
   notes?: string;
+  // Banking details (Password protected - Super Admin only)
+  bankName?: string;
+  accountNo?: string;
+  accountNumberMasked?: string;
+  hasBankDetails?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -153,6 +165,10 @@ interface FormState {
   status: "active" | "inactive";
   operatingHours: string;
   notes: string;
+  // Banking inputs
+  bankName: string;
+  accountNo: string;
+  bankPassword?: string;
 }
 
 const INITIAL_FORM: FormState = {
@@ -170,6 +186,9 @@ const INITIAL_FORM: FormState = {
   status: "active",
   operatingHours: "24/7",
   notes: "",
+  bankName: "",
+  accountNo: "",
+  bankPassword: "",
 };
 
 // Styling and icons for categories
@@ -281,6 +300,10 @@ export default function PhoneDirectoryPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
+  // Role authentication check - Super Admin only for banking info
+  const auth = getAuthState();
+  const isSuperAdmin = auth.role === "super-admin";
+
   // State
   const [contacts, setContacts] = useState<PhoneContact[]>([]);
   const [locations, setLocations] = useState<LocationItem[]>([]);
@@ -305,6 +328,86 @@ export default function PhoneDirectoryPage() {
   const [viewingContact, setViewingContact] = useState<PhoneContact | null>(null);
   const [formData, setFormData] = useState<FormState>(INITIAL_FORM);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Password Reveal & Decryption State (Super Admin Only)
+  const [revealedBanks, setRevealedBanks] = useState<
+    Record<string, { bankName: string; accountNo: string; expiresAt: number }>
+  >({});
+  const [unlockTarget, setUnlockTarget] = useState<PhoneContact | null>(null);
+  const [unlockPassword, setUnlockPassword] = useState<string>("");
+  const [unlockLoading, setUnlockLoading] = useState<boolean>(false);
+  const [unlockError, setUnlockError] = useState<string | null>(null);
+  const [unlockSuccessCallback, setUnlockSuccessCallback] = useState<
+    ((data: { bankName: string; accountNo: string }) => void) | null
+  >(null);
+
+  // Trigger unlock password modal
+  const triggerUnlock = (
+    contact: PhoneContact,
+    onSuccess?: (data: { bankName: string; accountNo: string }) => void,
+    e?: React.MouseEvent
+  ) => {
+    e?.stopPropagation();
+    setUnlockTarget(contact);
+    setUnlockPassword("");
+    setUnlockError(null);
+    setUnlockSuccessCallback(() => onSuccess || null);
+  };
+
+  // Submit password to reveal encrypted account number
+  const handleUnlockSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!unlockTarget || !unlockPassword.trim()) {
+      setUnlockError("Please enter your administrator password.");
+      return;
+    }
+
+    try {
+      setUnlockLoading(true);
+      setUnlockError(null);
+      const contactId = unlockTarget.id || unlockTarget._id;
+      const res = await apiFetch<{
+        bankName: string;
+        accountNo: string;
+        accountNumberMasked: string;
+      }>(`/api/phone-directory/${contactId}/reveal-bank`, {
+        method: "POST",
+        body: JSON.stringify({ password: unlockPassword }),
+      });
+
+      const expiry = Date.now() + 60 * 1000; // auto-mask window (60s)
+      setRevealedBanks((prev) => ({
+        ...prev,
+        [contactId!]: {
+          bankName: res.bankName,
+          accountNo: res.accountNo,
+          expiresAt: expiry,
+        },
+      }));
+
+      if (unlockSuccessCallback) {
+        unlockSuccessCallback({ bankName: res.bankName, accountNo: res.accountNo });
+      }
+
+      setUnlockPassword("");
+      setUnlockTarget(null);
+      setUnlockSuccessCallback(null);
+    } catch (err: any) {
+      setUnlockError(err?.message || "Invalid password. Access denied.");
+    } finally {
+      setUnlockLoading(false);
+    }
+  };
+
+  // Manually re-hide / re-mask revealed bank info
+  const handleHideBank = (contactId: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setRevealedBanks((prev) => {
+      const copy = { ...prev };
+      delete copy[contactId];
+      return copy;
+    });
+  };
 
   // Sync URL search params with location filter
   useEffect(() => {
@@ -395,6 +498,8 @@ export default function PhoneDirectoryPage() {
     e?.stopPropagation();
     setEditingContact(contact);
     setFormError(null);
+    const contactId = contact.id || contact._id || "";
+    const revealed = revealedBanks[contactId];
     setFormData({
       name: contact.name,
       category: contact.category,
@@ -412,6 +517,9 @@ export default function PhoneDirectoryPage() {
       status: contact.status || "active",
       operatingHours: contact.operatingHours || "24/7",
       notes: contact.notes || "",
+      bankName: contact.bankName || "",
+      accountNo: revealed ? revealed.accountNo : "",
+      bankPassword: "",
     });
     setIsAddOpen(true);
   };
@@ -432,7 +540,7 @@ export default function PhoneDirectoryPage() {
       setFormError(null);
 
       const isAll = formData.isAllLocations || formData.locationId === "all_locations";
-      const payload = {
+      const payload: any = {
         name: formData.name.trim(),
         category: formData.category,
         phoneNumber: formData.phoneNumber.trim(),
@@ -448,6 +556,20 @@ export default function PhoneDirectoryPage() {
         operatingHours: formData.operatingHours.trim() || "24/7",
         notes: formData.notes.trim(),
       };
+
+      // Only super admin can submit banking details
+      if (isSuperAdmin) {
+        payload.bankName = formData.bankName.trim();
+        // If accountNo field has text:
+        if (formData.accountNo.trim()) {
+          payload.accountNo = formData.accountNo.trim();
+        } else if (!editingContact) {
+          payload.accountNo = "";
+        }
+        if (formData.bankPassword && formData.bankPassword.trim()) {
+          payload.bankPassword = formData.bankPassword.trim();
+        }
+      }
 
       if (editingContact) {
         await apiFetch(`/api/phone-directory/${editingContact.id || editingContact._id}`, {
@@ -1059,6 +1181,85 @@ export default function PhoneDirectoryPage() {
                         </div>
                       </div>
 
+                      {/* Banking Details (Super Admin Access Only - Password Protected) */}
+                      {isSuperAdmin && (contact.hasBankDetails || contact.bankName || contact.accountNumberMasked) && (
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          className="rounded-lg bg-amber-500/10 border border-amber-500/25 p-2 space-y-1.5"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <Landmark className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                              <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 truncate">
+                                {contact.bankName || "Bank Info"}
+                              </span>
+                            </div>
+                            <span className="text-[9px] font-semibold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 shrink-0">
+                              🔒 Protected
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between text-xs pt-0.5">
+                            <div className="font-mono text-xs font-semibold text-foreground">
+                              {revealedBanks[contact.id || contact._id || ""] ? (
+                                <span className="text-emerald-500 font-bold tracking-wider">
+                                  {revealedBanks[contact.id || contact._id || ""].accountNo}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground tracking-widest font-mono text-[11px]">
+                                  {contact.accountNumberMasked || "••••••••"}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-1">
+                              {revealedBanks[contact.id || contact._id || ""] ? (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={(e) =>
+                                      handleCopy(
+                                        revealedBanks[contact.id || contact._id || ""]!.accountNo,
+                                        `bank-${contact.id || contact._id}`,
+                                        e
+                                      )
+                                    }
+                                    className="h-6 w-6 p-0 hover:bg-background text-emerald-500"
+                                    title="Copy Account Number"
+                                  >
+                                    {copiedId === `bank-${contact.id || contact._id}` ? (
+                                      <Check className="h-3 w-3" />
+                                    ) : (
+                                      <Copy className="h-3 w-3" />
+                                    )}
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={(e) => handleHideBank(contact.id || contact._id || "", e)}
+                                    className="h-6 px-1.5 text-[10px] border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+                                  >
+                                    <EyeOff className="h-3 w-3 mr-1" />
+                                    Hide
+                                  </Button>
+                                </>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={(e) => triggerUnlock(contact, undefined, e)}
+                                  className="h-6 px-2 text-[10px] border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/15 font-semibold"
+                                >
+                                  <Lock className="h-2.5 w-2.5 mr-1 text-amber-500" />
+                                  Unlock
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Attached Location Pill */}
                       <div className="pt-1 flex items-center justify-between text-xs text-muted-foreground border-t border-border/30">
                         <div className="flex items-center gap-1.5 min-w-0">
@@ -1113,6 +1314,7 @@ export default function PhoneDirectoryPage() {
                 <TableHead className="text-xs">Attached Location</TableHead>
                 <TableHead className="text-xs">Contact Person</TableHead>
                 <TableHead className="text-xs">Hours</TableHead>
+                {isSuperAdmin && <TableHead className="text-xs">Bank Details (Super Admin)</TableHead>}
                 <TableHead className="text-right text-xs">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -1187,6 +1389,70 @@ export default function PhoneDirectoryPage() {
                     <TableCell className="text-xs text-muted-foreground font-mono text-[11px]">
                       {contact.operatingHours || "24/7"}
                     </TableCell>
+
+                    {isSuperAdmin && (
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        {contact.hasBankDetails || contact.bankName || contact.accountNumberMasked ? (
+                          <div className="flex items-center gap-2">
+                            <div className="text-xs min-w-0">
+                              <div className="font-semibold text-foreground flex items-center gap-1 truncate max-w-[140px]">
+                                <Landmark className="h-3 w-3 text-amber-500 shrink-0" />
+                                <span className="truncate">{contact.bankName || "Bank Info"}</span>
+                              </div>
+                              <span className="font-mono text-[11px] text-muted-foreground block truncate">
+                                {revealedBanks[contact.id || contact._id || ""]?.accountNo ||
+                                  contact.accountNumberMasked ||
+                                  "••••••••"}
+                              </span>
+                            </div>
+
+                            {revealedBanks[contact.id || contact._id || ""] ? (
+                              <div className="flex items-center gap-1 shrink-0">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) =>
+                                    handleCopy(
+                                      revealedBanks[contact.id || contact._id || ""]!.accountNo,
+                                      `bank-${contact.id || contact._id}`,
+                                      e
+                                    )
+                                  }
+                                  className="h-6 w-6 p-0 text-emerald-500"
+                                  title="Copy Account Number"
+                                >
+                                  {copiedId === `bank-${contact.id || contact._id}` ? (
+                                    <Check className="h-3 w-3" />
+                                  ) : (
+                                    <Copy className="h-3 w-3" />
+                                  )}
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={(e) => handleHideBank(contact.id || contact._id || "", e)}
+                                  className="h-6 px-1.5 text-[10px] border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+                                >
+                                  <EyeOff className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={(e) => triggerUnlock(contact, undefined, e)}
+                                className="h-6 px-2 text-[10px] border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/15 font-semibold shrink-0"
+                              >
+                                <Lock className="h-2.5 w-2.5 mr-1 text-amber-500" />
+                                Reveal
+                              </Button>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground/60">—</span>
+                        )}
+                      </TableCell>
+                    )}
 
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
@@ -1492,6 +1758,101 @@ export default function PhoneDirectoryPage() {
               </div>
             </div>
 
+            {/* Section 5: Banking Information (Super Admin Only & Password Protected) */}
+            {isSuperAdmin ? (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3.5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="h-7 w-7 rounded-lg bg-amber-500/20 text-amber-500 flex items-center justify-center">
+                      <Landmark className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        Banking Details
+                        <span className="text-[10px] font-semibold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                          🔒 Super Admin Protected
+                        </span>
+                      </Label>
+                      <p className="text-[10px] text-muted-foreground">
+                        Protected banking coordinates. Stored encrypted with AES-256-GCM.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  {/* Bank Name - Manual text input, NO dropdown */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold">
+                      Bank Name <span className="text-[10px] text-muted-foreground font-normal">(Manual entry)</span>
+                    </Label>
+                    <Input
+                      value={formData.bankName}
+                      onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
+                      placeholder="e.g. JPMorgan Chase, Bank of America, Wells Fargo, HBL..."
+                      className="h-9 text-xs bg-background"
+                    />
+                  </div>
+
+                  {/* Account Number */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-semibold">Account Number</Label>
+                      {editingContact && (editingContact.hasBankDetails || editingContact.accountNumberMasked) && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            triggerUnlock(editingContact, (data) => {
+                              setFormData((prev) => ({
+                                ...prev,
+                                accountNo: data.accountNo,
+                                bankName: prev.bankName || data.bankName,
+                              }));
+                            })
+                          }
+                          className="text-[10px] text-amber-500 hover:underline flex items-center gap-1 font-medium"
+                        >
+                          <KeyRound className="h-3 w-3" />
+                          Reveal Current No
+                        </button>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <Input
+                        value={formData.accountNo}
+                        onChange={(e) => setFormData({ ...formData, accountNo: e.target.value })}
+                        placeholder={
+                          editingContact?.accountNumberMasked && !formData.accountNo
+                            ? `Current: ${editingContact.accountNumberMasked} (or type new)`
+                            : "e.g. 1029384756"
+                        }
+                        className="h-9 pl-8 text-xs font-mono bg-background"
+                      />
+                      <CreditCard className="h-3.5 w-3.5 absolute left-2.5 top-3 text-muted-foreground pointer-events-none" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Optional Custom Password / PIN */}
+                <div className="space-y-1 pt-1 border-t border-amber-500/15">
+                  <Label className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
+                    <Lock className="h-3 w-3 text-amber-500/80" />
+                    Optional: Custom Unlock Password
+                  </Label>
+                  <Input
+                    type="password"
+                    value={formData.bankPassword || ""}
+                    onChange={(e) => setFormData({ ...formData, bankPassword: e.target.value })}
+                    placeholder="Leave blank to use your Super Admin login password"
+                    className="h-8 text-xs bg-background font-mono"
+                  />
+                  <p className="text-[10px] text-muted-foreground/80">
+                    By default, your logged-in Super Admin password unlocks this bank account.
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">Notes / Access Instructions / Protocols</Label>
               <Textarea
@@ -1622,6 +1983,95 @@ export default function PhoneDirectoryPage() {
                       <PhoneCall className="h-3 w-3" />
                       Call
                     </a>
+                  </div>
+                )}
+
+                {/* Banking Information (Password Protected - Super Admin Only) */}
+                {isSuperAdmin && (viewingContact.hasBankDetails || viewingContact.bankName || viewingContact.accountNumberMasked) && (
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-8 w-8 rounded-lg bg-amber-500/20 text-amber-500 flex items-center justify-center">
+                          <Landmark className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <span className="text-[10px] uppercase font-bold tracking-wider text-amber-600 dark:text-amber-400 block">
+                            Bank Account Information
+                          </span>
+                          <span className="text-sm font-semibold text-foreground">
+                            {viewingContact.bankName || "Bank name not set"}
+                          </span>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="border-amber-500/30 text-amber-600 dark:text-amber-400 text-[10px] px-2 py-0.5">
+                        🔒 Super Admin Protected
+                      </Badge>
+                    </div>
+
+                    <div className="rounded-lg bg-background/80 border border-border/60 p-3 flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] text-muted-foreground uppercase font-semibold block">
+                          Account Number
+                        </span>
+                        {revealedBanks[viewingContact.id || viewingContact._id || ""] ? (
+                          <span className="font-mono text-base font-bold text-emerald-600 dark:text-emerald-400">
+                            {revealedBanks[viewingContact.id || viewingContact._id || ""].accountNo}
+                          </span>
+                        ) : (
+                          <span className="font-mono text-sm font-semibold text-muted-foreground tracking-wider">
+                            {viewingContact.accountNumberMasked || "•••• •••• ••••"}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {revealedBanks[viewingContact.id || viewingContact._id || ""] ? (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                handleCopy(
+                                  revealedBanks[viewingContact.id || viewingContact._id || ""]!.accountNo,
+                                  `bank-${viewingContact.id || viewingContact._id}`
+                                )
+                              }
+                              className="h-8 px-2.5 text-xs text-emerald-600 border-emerald-500/30"
+                            >
+                              {copiedId === `bank-${viewingContact.id || viewingContact._id}` ? (
+                                <>
+                                  <Check className="h-3.5 w-3.5 mr-1" />
+                                  Copied
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="h-3.5 w-3.5 mr-1" />
+                                  Copy
+                                </>
+                              )}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleHideBank(viewingContact.id || viewingContact._id || "")}
+                              className="h-8 px-2.5 text-xs text-amber-600 border-amber-500/30"
+                            >
+                              <EyeOff className="h-3.5 w-3.5 mr-1" />
+                              Hide
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            size="sm"
+                            onClick={() => triggerUnlock(viewingContact)}
+                            className="h-8 px-3 text-xs bg-amber-600 hover:bg-amber-500 text-white font-semibold flex items-center gap-1.5 shadow"
+                          >
+                            <Lock className="h-3.5 w-3.5" />
+                            Unlock Account No
+                          </Button>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -1760,6 +2210,100 @@ export default function PhoneDirectoryPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Security Verification / Reveal Modal (Super Admin Password Protected) */}
+      <Dialog open={!!unlockTarget} onOpenChange={(open) => !open && setUnlockTarget(null)}>
+        <DialogContent className="sm:max-w-[430px] border border-amber-500/20 bg-background shadow-2xl">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500">
+                <ShieldAlert className="h-5 w-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-bold flex items-center gap-2">
+                  Security Verification
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground">
+                  Super Admin password required to decrypt banking coordinates
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <form onSubmit={handleUnlockSubmit} className="space-y-4 py-2 text-xs">
+            {unlockTarget && (
+              <div className="rounded-lg bg-muted/50 p-3 border border-border/60 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-foreground text-sm">{unlockTarget.name}</span>
+                  <Badge variant="outline" className="text-[10px] text-amber-500 border-amber-500/30">
+                    {unlockTarget.bankName || "Bank Contact"}
+                  </Badge>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Current: {unlockTarget.accountNumberMasked || "••••••••"}
+                </p>
+                <p className="text-[10px] text-muted-foreground/80 pt-1">
+                  ⚠️ This action will be logged in the system audit log with your account credentials.
+                </p>
+              </div>
+            )}
+
+            {unlockError && (
+              <div className="rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-xs p-2.5 font-medium">
+                {unlockError}
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold flex items-center gap-1.5">
+                <KeyRound className="h-3.5 w-3.5 text-amber-500" />
+                Enter Super Admin Password
+              </Label>
+              <Input
+                type="password"
+                value={unlockPassword}
+                onChange={(e) => {
+                  setUnlockPassword(e.target.value);
+                  setUnlockError(null);
+                }}
+                placeholder="Enter your administrator password"
+                className="h-9 text-xs font-mono"
+                autoFocus
+              />
+            </div>
+
+            <DialogFooter className="gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setUnlockTarget(null);
+                  setUnlockPassword("");
+                  setUnlockError(null);
+                }}
+                disabled={unlockLoading}
+                className="text-xs"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={unlockLoading || !unlockPassword.trim()}
+                className="bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold gap-1.5 shadow"
+              >
+                {unlockLoading ? (
+                  <div className="h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Unlock className="h-3.5 w-3.5" />
+                )}
+                {unlockLoading ? "Verifying..." : "Verify & Reveal"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

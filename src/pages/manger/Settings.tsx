@@ -1,12 +1,15 @@
 import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/manger/ui/button";
 import { Input } from "@/components/manger/ui/input";
-import { User, Shield, Save, Camera, Bell } from "lucide-react";
+import { User, Shield, Save, Camera, Bell, Palette, Settings as SettingsIcon, Sparkles } from "lucide-react";
 import { Switch } from "@/components/manger/ui/switch";
 import { apiFetch, toProxiedUrl } from "@/lib/manger/api";
 import NotificationSettingsTable from "@/components/shared/NotificationSettingsTable";
 import { toast } from "@/components/manger/ui/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
+import { cn } from "@/lib/utils";
+import ThemeEngine from "@/pages/admin/ThemeEngine";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getAuthState } from "@/lib/auth";
 import Cropper from "react-easy-crop";
@@ -37,6 +40,17 @@ type SettingsItem = {
 
 export default function Settings() {
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const currentTab = searchParams.get("tab") === "theme-engine" ? "theme-engine" : "general";
+
+  const handleTabChange = (tab: "general" | "theme-engine") => {
+    if (tab === "general") {
+      searchParams.delete("tab");
+      setSearchParams(searchParams, { replace: true });
+    } else {
+      setSearchParams({ tab: "theme-engine" }, { replace: true });
+    }
+  };
 
   const MAX_AVATAR_BYTES = 10 * 1024 * 1024;
 
@@ -353,15 +367,85 @@ export default function Settings() {
     .toUpperCase() || "M";
 
   return (
-    <div className="px-2 sm:px-4 lg:px-6 space-y-6 max-w-3xl mx-auto page-shell">
+    <div className={cn("px-2 sm:px-4 lg:px-6 space-y-6 mx-auto page-shell", currentTab === "theme-engine" ? "max-w-7xl" : "max-w-3xl")}>
       {/* Header */}
       <div className="page-header">
         <h1 className="page-title">Settings</h1>
         <p className="page-subtitle">Manage your account and preferences</p>
       </div>
 
-      {/* Profile Section */}
-      <div className="bg-card rounded-xl border border-border shadow-card p-6">
+      {/* Settings Navigation Tabs */}
+      <div className="flex items-center gap-2 border-b border-border/60 pb-3 overflow-x-auto">
+        <button
+          type="button"
+          onClick={() => handleTabChange("general")}
+          className={cn(
+            "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all shrink-0 cursor-pointer",
+            currentTab === "general"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
+          )}
+        >
+          <SettingsIcon className="h-4 w-4" />
+          General Settings
+        </button>
+        <button
+          type="button"
+          onClick={() => handleTabChange("theme-engine")}
+          className={cn(
+            "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all shrink-0 cursor-pointer",
+            currentTab === "theme-engine"
+              ? "bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 text-white shadow-md shadow-indigo-500/20"
+              : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
+          )}
+        >
+          <Palette className="h-4 w-4" />
+          Theme Engine
+          <span className="ml-1 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-white/20 text-white">
+            Studio
+          </span>
+        </button>
+      </div>
+
+      {currentTab === "theme-engine" ? (
+        <div className="pt-2 animate-in fade-in duration-200">
+          <ThemeEngine />
+        </div>
+      ) : (
+        <>
+          {/* Theme Engine & Appearance Card */}
+          <div className="bg-card rounded-xl border border-border shadow-card p-6 bg-gradient-to-br from-card via-card to-primary/[0.03]">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-indigo-500/10">
+                  <Palette className="w-5 h-5 text-indigo-500" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground">Theme Engine & Appearance</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Customize holiday themes, visual card styles, and ambient atmospheres
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-muted/40 border border-border/50">
+              <div className="space-y-0.5">
+                <p className="text-xs font-semibold text-foreground">Holiday Studio & Theme Customizer</p>
+                <p className="text-xs text-muted-foreground">Live real-time preview, season overrides & animations</p>
+              </div>
+              <Button
+                type="button"
+                onClick={() => handleTabChange("theme-engine")}
+                className="h-9 text-xs sm:text-sm font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-sm gap-2 shrink-0"
+              >
+                <Sparkles className="h-4 w-4" />
+                Open Theme Studio
+              </Button>
+            </div>
+          </div>
+
+          {/* Profile Section */}
+          <div className="bg-card rounded-xl border border-border shadow-card p-6">
         <div className="flex items-center gap-3 mb-6">
           <div className="p-2 rounded-lg bg-primary/10">
             <User className="w-5 h-5 text-primary" />
@@ -618,6 +702,8 @@ export default function Settings() {
           Save Changes
         </Button>
       </div>
+        </>
+      )}
     </div>
   );
 }
