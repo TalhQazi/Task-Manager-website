@@ -272,7 +272,7 @@ async function reportBugToTaskManager(bugData) {
             <div className="p-3 rounded-lg bg-sky-500/10 border border-sky-500/20 text-xs text-sky-800 dark:text-sky-300 flex items-start gap-2">
               <Sparkles className="h-4 w-4 shrink-0 mt-0.5" />
               <div>
-                <strong>Zero-Code Floating Bug Reporter:</strong> Paste this single `<script>` snippet into the `<head>` or `<body>` of your other website. A stylish floating "Report Bug" button will automatically appear with an interactive modal, file upload, and instant transmission to this Task Manager panel!
+                <strong>Zero-Code Floating Bug Reporter:</strong> Paste this single <code>&lt;script&gt;</code> snippet into the <code>&lt;head&gt;</code> or <code>&lt;body&gt;</code> of your other website. A stylish floating &quot;Report Bug&quot; button will automatically appear with an interactive modal, file upload, and instant transmission to this Task Manager panel!
               </div>
             </div>
 
