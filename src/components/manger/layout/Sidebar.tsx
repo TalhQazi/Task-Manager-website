@@ -93,6 +93,7 @@ const navItemsBase: NavItem[] = [
   { icon: Wrench, label: "Inventory/Appliances", path: "/manager/appliances" },
   { icon: MapPin, label: "Locations", path: "/manager/locations" },
   { icon: Phone, label: "Phone Directory", path: "/manager/phone-directory" },
+  { icon: Palette, label: "Paint & Finish Registry", path: "/manager/paint-registry" },
   { icon: MapPin, label: "Daily Itinerary", path: "/manager/itinerary" },
   { icon: Building2, label: "Vendors", path: "/manager/vendors" },
   { icon: UserX, label: "Do Not Hire", path: "/manager/do-not-hire" },

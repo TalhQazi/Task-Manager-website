@@ -40,6 +40,7 @@ import {
   Gavel,
   Video,
   Smartphone,
+  Palette,
 } from "lucide-react";
 
 import { useNavigate, useLocation } from "react-router-dom";
@@ -72,6 +73,7 @@ const navItemsBase: NavItem[] = [
       { icon: Car, label: "Vehicles", path: "/admin/vehicles" },
       { icon: UserX, label: "Do Not Hire", path: "/admin/do-not-hire" },
       { icon: MapPin, label: "Locations", path: "/admin/locations" },
+      { icon: Palette, label: "Paint & Finish Registry", path: "/admin/paint-registry" },
       { icon: Calendar, label: "Scheduling", path: "/admin/scheduling" },
       { icon: Bell, label: "Notifications", path: "/admin/notifications" },
       { icon: Clock, label: "Time Tracking", path: "/admin/time-tracking" },

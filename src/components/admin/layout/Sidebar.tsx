@@ -152,6 +152,7 @@ const navItemsBase: NavItem[] = [
       { icon: UserX, label: "Do Not Hire", path: "/admin/do-not-hire" },
       { icon: MapPin, label: "Locations", path: "/admin/locations" },
       { icon: Phone, label: "Phone Directory", path: "/admin/phone-directory" },
+      { icon: Palette, label: "Paint & Finish Registry", path: "/admin/paint-registry" },
       { icon: Calendar, label: "Scheduling", path: "/admin/scheduling" },
       { icon: Bell, label: "Notifications", path: "/admin/notifications" },
     ],
