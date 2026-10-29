@@ -22,6 +22,7 @@ const EmployeeTimeHistory = lazy(() => import("@/pages/manger/EmployeeTimeHistor
 const Vehicles = lazy(() => import("@/pages/manger/Vehicles"));
 const Appliances = lazy(() => import("@/pages/manger/Appliances"));
 const Locations = lazy(() => import("@/pages/manger/Locations"));
+const PaintRegistry = lazy(() => import("@/pages/admin/PaintRegistry"));
 const PhoneDirectory = lazy(() => import("@/pages/admin/PhoneDirectory"));
 const Vendors = lazy(() => import("@/pages/manger/Vendors"));
 const Messages = lazy(() => import("@/pages/manger/Messages"));
@@ -99,6 +100,7 @@ export default function ManagerController() {
       { path: "vehicles", element: <Vehicles /> },
       { path: "appliances", element: <Appliances /> },
       { path: "locations", element: <Locations /> },
+      { path: "paint-registry", element: <PaintRegistry /> },
       { path: "phone-directory", element: <PhoneDirectory /> },
       { path: "vendors", element: <Vendors /> },
       { path: "do-not-hire", element: <DoNotHire /> },

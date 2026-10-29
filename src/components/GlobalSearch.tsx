@@ -14,6 +14,7 @@ import {
   Building2,
   Megaphone,
   Truck,
+  Palette,
   Globe,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -77,6 +78,7 @@ export function GlobalSearch({ open, onOpenChange, isEmployee = false, basePath 
       { id: "a-profile", type: "page", title: "My Profile", subtitle: "Your account details and preferences", url: "/admin/profile", keywords: ["profile", "me", "account", "settings"] },
       { id: "a-notes", type: "page", title: "Personal Notes", subtitle: "Your personal notes and scratchpad", url: "/admin/personal-notes", keywords: ["notes", "scratchpad", "draft", "personal"] },
       { id: "a-phone-dir", type: "page", title: "Phone Directory", subtitle: "Emergency services, Police, Fire, and location contacts", url: "/admin/phone-directory", keywords: ["phone", "directory", "fire", "police", "emergency", "ambulance", "hospital", "utility", "contact", "numbers"] },
+      { id: "a-paint", type: "page", title: "Paint & Finish Registry", subtitle: "Search paint formulations, color codes, sheen, and can labels", url: "/admin/paint-registry", keywords: ["paint", "finish", "color", "code", "sheen", "primer", "walls", "coating", "sherwin", "benjamin moore", "swatch"] },
       { id: "a-comp", type: "page", title: "Compliance Center", subtitle: "Compliance audits, logs, and monitoring", url: "/admin/compliance-center", keywords: ["compliance", "audit", "logs", "monitor"] }
     ];
   }, [isEmployee]);

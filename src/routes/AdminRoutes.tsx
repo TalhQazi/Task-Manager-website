@@ -18,6 +18,7 @@ const EmployeeTaskHistory = lazy(() => import("@/pages/admin/EmployeeTaskHistory
 const Appliances = lazy(() => import("@/pages/admin/Appliances"));
 const Vehicles = lazy(() => import("@/pages/admin/Vehicles"));
 const Locations = lazy(() => import("@/pages/admin/Locations"));
+const PaintRegistry = lazy(() => import("@/pages/admin/PaintRegistry"));
 const PhoneDirectory = lazy(() => import("@/pages/admin/PhoneDirectory"));
 const Companies = lazy(() => import("@/pages/admin/Companies"));
 const Vendors = lazy(() => import("@/pages/admin/Vendors"));
@@ -140,6 +141,7 @@ export default function AdminRoutes() {
       { path: "appliances", element: <Appliances /> },
       { path: "vehicles", element: <Vehicles /> },
       { path: "locations", element: <Locations /> },
+      { path: "paint-registry", element: <PaintRegistry /> },
       { path: "phone-directory", element: <PhoneDirectory /> },
       { path: "companies", element: <Companies /> },
       { path: "vendors", element: <Vendors /> },

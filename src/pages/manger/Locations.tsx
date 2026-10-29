@@ -67,6 +67,7 @@ import {
 import { cn } from "@/lib/manger/utils";
 import { apiFetch } from "@/lib/manger/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { PaintRegistryTab } from "@/components/paint-registry/PaintRegistryTab";
 
 interface Location {
   id: string;
@@ -925,7 +926,7 @@ export default function Locations() {
 
       {/* Dialogs with animations */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-[850px] max-h-[92vh] overflow-y-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1229,7 +1230,7 @@ export default function Locations() {
 
       {/* View Location Dialog */}
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-[850px] max-h-[92vh] overflow-y-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1305,6 +1306,15 @@ export default function Locations() {
                     </span>
                   </div>
                 </div>
+
+                {/* Paint & Finish Registry Integration */}
+                <div className="pt-6 border-t">
+                  <PaintRegistryTab
+                    propertyId={selectedLocation.id}
+                    propertyName={selectedLocation.name}
+                    photoUrl={selectedLocation.photoDataUrl}
+                  />
+                </div>
               </div>
             )}
 
@@ -1324,7 +1334,7 @@ export default function Locations() {
 
       {/* Dialogs with animations */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-[850px] max-h-[92vh] overflow-y-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

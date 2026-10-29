@@ -62,9 +62,11 @@ import {
   ExternalLink,
   Sparkles,
   FileText,
+  Palette,
 } from "lucide-react";
 import { createResource, listResource, updateResource, apiFetch, getApiBaseUrl } from "@/lib/admin/apiClient";
 import { getAuthState } from "@/lib/auth";
+import { PaintRegistryTab } from "@/components/paint-registry/PaintRegistryTab";
 
 const LOCATION_TYPES = [
   "Property",
@@ -510,6 +512,7 @@ const Locations = () => {
   const [addLocationOpen, setAddLocationOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [viewDetailsOpen, setViewDetailsOpen] = useState(false);
+  const [viewDetailTab, setViewDetailTab] = useState<"overview" | "paint">("overview");
   const [locationContacts, setLocationContacts] = useState<any[]>([]);
   const [contactsLoading, setContactsLoading] = useState(false);
   const [editLocationOpen, setEditLocationOpen] = useState(false);
@@ -711,7 +714,8 @@ const Locations = () => {
     }
   };
 
-  const handleViewDetails = async (location: Location) => {
+  const handleViewDetails = async (location: Location, tab: "overview" | "paint" = "overview") => {
+    setViewDetailTab(tab);
     setSelectedLocation(location);
     setViewDetailsOpen(true);
     
@@ -1264,6 +1268,9 @@ const Locations = () => {
                           <DropdownMenuItem onClick={() => handleViewDetails(location)} className="rounded-lg gap-2 cursor-pointer focus:bg-blue-50 focus:text-blue-600">
                              <Eye className="h-4 w-4" /> View Info
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleViewDetails(location, "paint")} className="rounded-lg gap-2 cursor-pointer focus:bg-purple-50 focus:text-purple-600 text-purple-600 font-medium">
+                             <Palette className="h-4 w-4" /> Paint & Finishes
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => navigate(`/admin/phone-directory?locationId=${location.id}`)} className="rounded-lg gap-2 cursor-pointer focus:bg-emerald-50 focus:text-emerald-600 text-emerald-600 font-medium">
                              <Phone className="h-4 w-4" /> Phone Directory
                           </DropdownMenuItem>
@@ -1286,7 +1293,7 @@ const Locations = () => {
 
       {/* View Details Modal */}
       <Dialog open={viewDetailsOpen} onOpenChange={setViewDetailsOpen}>
-        <DialogContent className="w-[95vw] max-w-2xl p-0 overflow-hidden rounded-xl border-0 shadow-2xl max-h-[90vh] flex flex-col">
+        <DialogContent className="w-[95vw] max-w-4xl p-0 overflow-hidden rounded-2xl border-0 shadow-2xl max-h-[92vh] flex flex-col">
           <div className="bg-slate-900 p-6 text-white relative">
             <div className="flex items-center gap-4">
                <div className="h-16 w-16 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20">
@@ -1306,7 +1313,45 @@ const Locations = () => {
                </div>
             </div>
           </div>
-          
+
+          {/* Navigation Tabs */}
+          <div className="flex border-b border-slate-200 bg-slate-100 px-6 gap-2 text-xs">
+            <button
+              type="button"
+              onClick={() => setViewDetailTab("overview")}
+              className={`py-2.5 px-3 border-b-2 font-bold transition-all ${
+                viewDetailTab === "overview"
+                  ? "border-blue-600 text-blue-700 bg-white"
+                  : "border-transparent text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Overview & Site Info
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewDetailTab("paint")}
+              className={`py-2.5 px-3 border-b-2 font-bold transition-all flex items-center gap-1.5 ${
+                viewDetailTab === "paint"
+                  ? "border-blue-600 text-blue-700 bg-white"
+                  : "border-transparent text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Palette className="h-3.5 w-3.5 text-blue-600" />
+              Paint & Finishes
+            </button>
+          </div>
+
+          {viewDetailTab === "paint" ? (
+            selectedLocation ? (
+              <div className="p-6 flex-1 overflow-y-auto min-h-0">
+                <PaintRegistryTab
+                  propertyId={selectedLocation.id}
+                  propertyName={selectedLocation.name}
+                  photoUrl={selectedLocation.photoDataUrl}
+                />
+              </div>
+            ) : null
+          ) : (
           <div className="p-6 flex-1 overflow-y-auto min-h-0">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                <div className="col-span-2 rounded-xl bg-slate-50 p-4 border border-slate-100 flex items-start gap-4">
@@ -1570,6 +1615,8 @@ const Locations = () => {
                )}
             </div>
           </div>
+
+          )}
 
           <div className="p-4 bg-slate-50 border-t flex justify-end">
              <Button onClick={() => setViewDetailsOpen(false)} className="bg-slate-800 hover:bg-slate-900 text-white font-bold px-10">Done</Button>
