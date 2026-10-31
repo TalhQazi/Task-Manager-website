@@ -407,7 +407,7 @@ export default function DoNotHire() {
                     </div>
 
                     <div className="mt-3 overflow-x-auto -mr-3 pr-3">
-                      <div className="min-w-[560px] grid grid-cols-3 gap-4 text-xs pr-3">
+                      <div className="min-w-0 sm:min-w-[560px] grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs pr-3">
                         <div>
                           <p className="text-[11px] text-muted-foreground">Reason</p>
                           <p className="text-foreground line-clamp-1">{e.reason}</p>

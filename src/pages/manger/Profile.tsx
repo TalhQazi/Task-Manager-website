@@ -22,7 +22,7 @@ import {
   CheckCircle2,
   Clock,
 } from "lucide-react";
-import { apiFetch } from "@/lib/manger/api";
+import { apiFetch, toProxiedUrl } from "@/lib/manger/api";
 import { useQueryClient } from "@tanstack/react-query";
 import MilestoneBadge from "@/components/shared/MilestoneBadge";
 
@@ -190,9 +190,20 @@ export default function Profile() {
           location: editedProfile.location,
         }),
       });
+
+      // Synchronize to Settings model as well so header/sidebar updates instantly
+      await apiFetch("/api/settings", {
+        method: "PUT",
+        body: JSON.stringify({
+          fullName: editedProfile.name,
+          phone: editedProfile.phone,
+        }),
+      });
       
       setProfile(editedProfile);
       setIsEditing(false);
+      await queryClient.invalidateQueries({ queryKey: ["settings"] });
+      window.dispatchEvent(new CustomEvent("header-settings-updated"));
       toast.success("Profile updated successfully");
       loadProfile();
     } catch (err: any) {
@@ -420,7 +431,7 @@ export default function Profile() {
               <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3 sm:gap-6">
                 <div className="relative flex-shrink-0">
                   <Avatar className="h-16 w-16 sm:h-20 sm:w-20 md:h-24 md:w-24">
-                    <AvatarImage src={profile?.avatarUrl} alt={profile?.name} />
+                    <AvatarImage src={toProxiedUrl(profile?.avatarUrl)} alt={profile?.name} />
                     <AvatarFallback>{profile?.name?.charAt(0)}</AvatarFallback>
                   </Avatar>
                   <label
@@ -779,10 +790,16 @@ export default function Profile() {
 
                   <Button
                     onClick={handleSubmitOnboarding}
-                    disabled={submittingOnboarding || onboardingData?.overallStatus === "submitted"}
+                    disabled={submittingOnboarding}
                     className="w-full text-xs sm:text-sm h-8 sm:h-10"
                   >
-                    {submittingOnboarding ? "Submitting..." : "Submit Onboarding"}
+                    {submittingOnboarding 
+                      ? "Submitting..." 
+                      : onboardingData?.overallStatus === "submitted"
+                      ? "Resubmit Onboarding"
+                      : onboardingData?.overallStatus === "rejected"
+                      ? "Resubmit Onboarding"
+                      : "Submit Onboarding"}
                   </Button>
                 </>
               )}

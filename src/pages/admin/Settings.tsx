@@ -3,8 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
-import { Camera, User, Loader2, CheckCircle, XCircle, AlertCircle, Upload, FileImage, Image as ImageIcon, Quote, ToggleLeft, ToggleRight, Plus } from "lucide-react";
+import { Camera, User, Loader2, CheckCircle, XCircle, AlertCircle, Upload, FileImage, Image as ImageIcon, Quote, ToggleLeft, ToggleRight, Plus, Bell, Palette, Settings as SettingsIcon, Sparkles } from "lucide-react";
 import { apiFetch, toProxiedUrl } from "@/lib/admin/apiClient";
+import NotificationSettingsTable from "@/components/shared/NotificationSettingsTable";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Cropper from "react-easy-crop";
@@ -18,9 +19,10 @@ import {
 import { Label } from "@/components/admin/ui/label";
 import { Switch } from "@/components/admin/ui/switch";
 import { cn } from "@/lib/utils";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import AssetLibraryPicker from "@/components/admin/AssetLibraryPicker";
+import ThemeEngine from "@/pages/admin/ThemeEngine";
 
 type UploadStatus = "idle" | "uploading" | "success" | "error";
 
@@ -90,6 +92,18 @@ function loadSettings(): SettingsState {
 export default function Settings() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const currentTab = searchParams.get("tab") === "theme-engine" ? "theme-engine" : "general";
+
+  const handleTabChange = (tab: "general" | "theme-engine") => {
+    if (tab === "general") {
+      searchParams.delete("tab");
+      setSearchParams(searchParams, { replace: true });
+    } else {
+      setSearchParams({ tab: "theme-engine" }, { replace: true });
+    }
+  };
+
   const [settings, setSettings] = useState<SettingsState>(() => loadSettings());
 
   const [isSaving, setIsSaving] = useState(false);
@@ -319,6 +333,14 @@ export default function Settings() {
           email?: string;
           avatarUrl?: string;
           avatarDataUrl?: string;
+          rewardSettings?: {
+            animationsEnabled: boolean;
+            hapticsEnabled: boolean;
+            soundEnabled: boolean;
+          };
+          emailPreferences?: Record<string, boolean>;
+          webPreferences?: Record<string, boolean>;
+          role?: string;
         };
       }>("/api/settings");
     },
@@ -377,12 +399,14 @@ export default function Settings() {
     }
   };
 
-  const setBackendNotification = async (key: string, value: boolean) => {
+  const onPreferenceChange = async (type: "email" | "web", key: string, value: boolean) => {
+    const prefKey = type === "email" ? "emailPreferences" : "webPreferences";
+    const currentPrefs = backendSettingsQuery.data?.item?.[prefKey] || {};
     await apiFetch<{ item: any }>("/api/settings", {
       method: "PUT",
       body: JSON.stringify({
-        notifications: {
-          ...notifications,
+        [prefKey]: {
+          ...currentPrefs,
           [key]: value,
         },
       }),
@@ -480,6 +504,16 @@ export default function Settings() {
     const [message, setMessage] = useState<string | null>(null);
     const [isLibraryPickerOpen, setIsLibraryPickerOpen] = useState(false);
     const headerFileInputRef = useRef<HTMLInputElement>(null);
+
+    const getVerticalPositionValue = (posStr: string | undefined): number => {
+      if (!posStr) return 50;
+      if (posStr === "center") return 50;
+      if (posStr === "top") return 0;
+      if (posStr === "bottom") return 100;
+      if (posStr === "left" || posStr === "right") return 50;
+      const match = posStr.match(/(\d+)%/);
+      return match ? parseInt(match[1], 10) : 50;
+    };
 
     useEffect(() => {
       const fetchSettings = async () => {
@@ -635,49 +669,43 @@ export default function Settings() {
                 )}
 
                 {!headerSettings.imageConfig.dataUrl && (
-                  <div className="rounded-lg border border-dashed border-muted-foreground/30 p-8 text-center">
+                  <div className="rounded-lg border border-dashed border-muted-foreground/30 p-4 sm:p-8 text-center">
                     <ImageIcon className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
                     <p className="text-sm text-muted-foreground">No image uploaded</p>
                     <p className="text-xs text-muted-foreground mt-1">Default color gradient will be used</p>
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs text-muted-foreground">Size</label>
-                    <select
-                      value={headerSettings.imageConfig.size}
-                      onChange={(e) => setHeaderSettings(prev => ({
-                        ...prev,
-                        imageConfig: { ...prev.imageConfig, size: e.target.value }
-                      }))}
-                      className="w-full h-9 rounded-md border px-2 text-sm"
-                      disabled={!headerSettings.imageConfig.dataUrl}
-                    >
-                      <option value="cover">Cover</option>
-                      <option value="contain">Contain</option>
-                      <option value="auto">Auto</option>
-                    </select>
+                {headerSettings.imageConfig.dataUrl && (
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs text-muted-foreground font-semibold">Reposition Cover (Uplift / Downlift)</label>
+                      <span className="text-xs text-muted-foreground font-mono">{getVerticalPositionValue(headerSettings.imageConfig.position)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={getVerticalPositionValue(headerSettings.imageConfig.position)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setHeaderSettings(prev => ({
+                          ...prev,
+                          imageConfig: {
+                            ...prev.imageConfig,
+                            position: `center ${val}%`
+                          }
+                        }));
+                      }}
+                      className="w-full h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
+                    />
+                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                      <span>Downlift (Top)</span>
+                      <span>Center</span>
+                      <span>Uplift (Bottom)</span>
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-muted-foreground">Position</label>
-                    <select
-                      value={headerSettings.imageConfig.position}
-                      onChange={(e) => setHeaderSettings(prev => ({
-                        ...prev,
-                        imageConfig: { ...prev.imageConfig, position: e.target.value }
-                      }))}
-                      className="w-full h-9 rounded-md border px-2 text-sm"
-                      disabled={!headerSettings.imageConfig.dataUrl}
-                    >
-                      <option value="center">Center</option>
-                      <option value="top">Top</option>
-                      <option value="bottom">Bottom</option>
-                      <option value="left">Left</option>
-                      <option value="right">Right</option>
-                    </select>
-                  </div>
-                </div>
+                )}
 
                 <div className="space-y-2">
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -1047,7 +1075,7 @@ export default function Settings() {
   return (
     <>
       {/* Mobile-first container */}
-      <div className="pl-12 space-y-4 sm:space-y-5 md:space-y-6 pr-2 sm:pr-0">
+      <div className="px-2 sm:pl-6 space-y-4 sm:space-y-5 md:space-y-6 pr-2 sm:pr-0 page-shell">
 
         {/* Page Header - Responsive */}
         <div className="space-y-1.5 sm:space-y-2">
@@ -1059,8 +1087,80 @@ export default function Settings() {
           </p>
         </div>
 
-        {/* Settings Grid - Responsive */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 md:gap-6">
+        {/* Settings Navigation Tabs */}
+        <div className="flex items-center gap-2 border-b border-border/60 pb-3 overflow-x-auto">
+          <button
+            type="button"
+            onClick={() => handleTabChange("general")}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all shrink-0 cursor-pointer",
+              currentTab === "general"
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            <SettingsIcon className="h-4 w-4" />
+            General Settings
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabChange("theme-engine")}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all shrink-0 cursor-pointer",
+              currentTab === "theme-engine"
+                ? "bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 text-white shadow-md shadow-indigo-500/20"
+                : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            <Palette className="h-4 w-4" />
+            Theme Engine
+            <span className="ml-1 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-white/20 text-white">
+              Studio
+            </span>
+          </button>
+        </div>
+
+        {currentTab === "theme-engine" ? (
+          <div className="pt-2 animate-in fade-in duration-200">
+            <ThemeEngine />
+          </div>
+        ) : (
+          <>
+            {/* Settings Grid - Responsive */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 md:gap-6 items-start">
+              {/* Theme Engine & Appearance Card */}
+              <Card className="shadow-soft border-0 sm:border bg-gradient-to-br from-card via-card to-primary/[0.03]">
+                <CardHeader className="px-4 sm:px-6 py-4 sm:py-5">
+                  <CardTitle className="text-base sm:text-lg md:text-xl font-semibold flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <Palette className="w-5 h-5 text-indigo-500" />
+                      Theme Engine & Appearance
+                    </span>
+                    <Badge variant="outline" className="text-xs bg-indigo-500/10 text-indigo-600 border-indigo-500/30">
+                      Live Engine
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 px-4 sm:px-6 pb-5 sm:pb-6 pt-0">
+                  <p className="text-sm text-muted-foreground">
+                    Customize seasonal holiday themes, visual styles, ambient particle effects, and audio soundscapes.
+                  </p>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-muted/40 border border-border/50">
+                    <div className="space-y-0.5">
+                      <p className="text-xs font-semibold text-foreground">Theme Studio & Skinning Engine</p>
+                      <p className="text-xs text-muted-foreground">Skins, holiday schedules, real-time device preview & live tokens</p>
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={() => handleTabChange("theme-engine")}
+                      className="h-9 text-xs sm:text-sm font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-sm gap-2 shrink-0"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      Open Theme Studio
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
 
           {/* Profile Card */}
           <Card className="shadow-soft border-0 sm:border">
@@ -1077,7 +1177,7 @@ export default function Settings() {
                   <div className="relative">
                     <Avatar className="h-20 w-20 border-2 border-border">
                       {settings.avatarUrl && avatarUpload.status !== "uploading" ? (
-                        <AvatarImage src={settings.avatarUrl} alt={settings.fullName || "Admin"} className="object-cover" crossOrigin="anonymous" />
+                        <AvatarImage src={settings.avatarUrl} alt={settings.fullName || "Admin"} className="object-cover" />
                       ) : (
                         <AvatarFallback className="text-2xl bg-primary/10 text-primary">
                           {avatarUpload.status === "uploading" ? (
@@ -1270,6 +1370,24 @@ export default function Settings() {
             </CardContent>
           </Card>
 
+          {/* Notification Settings Card */}
+          <Card className="shadow-soft border-0 sm:border">
+            <CardHeader className="px-4 sm:px-6 py-4 sm:py-5">
+              <CardTitle className="text-base sm:text-lg md:text-xl font-semibold flex items-center gap-2">
+                <Bell className="h-5 w-5 text-primary" />
+                Notification Settings
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 sm:px-6 pb-5 sm:pb-6 pt-0">
+              <NotificationSettingsTable
+                emailPreferences={backendSettingsQuery.data?.item?.emailPreferences || {}}
+                webPreferences={backendSettingsQuery.data?.item?.webPreferences || {}}
+                userRole={backendSettingsQuery.data?.item?.role || "admin"}
+                onChange={onPreferenceChange}
+              />
+            </CardContent>
+          </Card>
+
           {/* Header Customization Card */}
           <HeaderCustomizationCard />
 
@@ -1436,7 +1554,9 @@ export default function Settings() {
             Settings are saved automatically in your browser
           </p>
         </div>
-      </div>
-    </>
+      </>
+    )}
+  </div>
+</>
   );
 }

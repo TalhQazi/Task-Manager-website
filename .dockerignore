@@ -1,0 +1,12 @@
+node_modules
+dist
+.git
+.github
+.vscode
+.expo
+.claude
+.env
+.env.*
+*.log
+*.pdf
+vite.config.ts.timestamp*

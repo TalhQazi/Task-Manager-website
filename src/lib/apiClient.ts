@@ -86,6 +86,20 @@ export async function setupPassword(identifier: string, newPassword: string): Pr
   });
 }
 
+export async function requestForgotPassword(email: string): Promise<{ ok: boolean; message: string }> {
+  return await apiFetch<{ ok: boolean; message: string }>("/api/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email: email.trim() }),
+  });
+}
+
+export async function resetPasswordWithCode(email: string, code: string, newPassword: string): Promise<{ ok: boolean; message: string }> {
+  return await apiFetch<{ ok: boolean; message: string }>("/api/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({ email: email.trim(), code: code.trim(), newPassword }),
+  });
+}
+
 export async function listResource<T>(resource: string): Promise<T[]> {
   const res = await apiFetch<{ items?: T[] } | T[]>(`/api/${resource}`);
   if (Array.isArray(res)) return res;

@@ -207,8 +207,9 @@ const Users = () => {
         if (!mounted) return;
         setApiError(e instanceof Error ? e.message : "Failed to load users");
       } finally {
-        if (!mounted) return;
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 
@@ -798,23 +799,48 @@ const confirmArchiveUser = async () => {
                   </div>
                 </div>
                 
-                {/* Role Filter */}
-                <div className="w-full sm:w-48">
-                  <label className="block text-xs text-muted-foreground mb-1.5 sm:hidden">
-                    Role
-                  </label>
-                  <Select value={roleFilter} onValueChange={setRoleFilter}>
-                    <SelectTrigger className="w-full h-9 sm:h-10 text-xs sm:text-sm rounded-lg border-0 bg-muted/50 focus:ring-2 focus:ring-primary/20">
-                      <SelectValue placeholder="Role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Roles</SelectItem>
-                      <SelectItem value="super-admin">Super Admin</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
-                      <SelectItem value="team-lead">Team Lead</SelectItem>
-                    </SelectContent>
-                  </Select>
+                {/* Quick Filter Chips (Replaces Mobile-Buggy Dropdown) */}
+                <div className="w-full sm:w-auto overflow-x-auto no-scrollbar py-1 flex items-center gap-1.5 shrink-0">
+                  <Button
+                    size="sm"
+                    variant={roleFilter === "all" ? "default" : "outline"}
+                    onClick={() => setRoleFilter("all")}
+                    className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+                  >
+                    All Roles
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={roleFilter === "super-admin" ? "default" : "outline"}
+                    onClick={() => setRoleFilter(roleFilter === "super-admin" ? "all" : "super-admin")}
+                    className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+                  >
+                    Super Admin
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={roleFilter === "admin" ? "default" : "outline"}
+                    onClick={() => setRoleFilter(roleFilter === "admin" ? "all" : "admin")}
+                    className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+                  >
+                    Admin
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={roleFilter === "manager" ? "default" : "outline"}
+                    onClick={() => setRoleFilter(roleFilter === "manager" ? "all" : "manager")}
+                    className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+                  >
+                    Manager
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={roleFilter === "team-lead" ? "default" : "outline"}
+                    onClick={() => setRoleFilter(roleFilter === "team-lead" ? "all" : "team-lead")}
+                    className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+                  >
+                    Team Lead
+                  </Button>
                 </div>
               </div>
             </CardContent>

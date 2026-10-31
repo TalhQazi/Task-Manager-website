@@ -148,7 +148,7 @@ export default function TeamAttendance() {
     return (
       <div className="px-3 sm:px-4 lg:px-6 py-4 space-y-6 max-w-[2000px] mx-auto">
         <Card>
-          <CardContent className="p-8 text-center">
+          <CardContent className="p-4 sm:p-8 text-center">
             <Clock className="h-12 w-12 mx-auto mb-3 text-gray-300 animate-pulse" />
             <p className="text-muted-foreground">Loading team attendance...</p>
           </CardContent>

@@ -13,6 +13,8 @@ import {
   Crown,
   Gem
 } from "lucide-react";
+import { useTheme } from "@/contexts/ThemeContext";
+import { cn } from "@/lib/utils";
 
 const AUTO_DISMISS_TIME = 3000; // 3 seconds
 
@@ -41,6 +43,10 @@ export function TaskBlaster() {
   const [particles, setParticles] = useState<Particle[]>([]);
   const [floatingElements, setFloatingElements] = useState<FloatingElement[]>([]);
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
+  const { uiTheme } = useTheme();
+  
+  const isMetallic = uiTheme.theme === "metallic-elite";
+  const reduceMotion = uiTheme.animationSettings?.reduceMotion;
 
   const { isVisible, task, settings } = state;
 
@@ -56,6 +62,9 @@ export function TaskBlaster() {
   const isDesktop = windowWidth >= 1024;
 
   const colors = useMemo(() => {
+    if (isMetallic) {
+      return ["#ffd27a", "#c89537", "#f59e0b", "#f97316", "#ffffff"];
+    }
     switch (task?.priority) {
       case "top":
       case "red":
@@ -65,11 +74,11 @@ export function TaskBlaster() {
       default:
         return ["#10b981", "#14b8a6", "#22c55e", "#34d399", "#06b6d4"];
     }
-  }, [task?.priority]);
+  }, [task?.priority, isMetallic]);
 
   // Play sound effect if enabled
   useEffect(() => {
-    if (isVisible && settings.soundEnabled) {
+    if (isVisible && settings.soundEnabled && !reduceMotion) {
       try {
         const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
         
@@ -93,14 +102,14 @@ export function TaskBlaster() {
         // Ignore audio errors
       }
     }
-  }, [isVisible, settings.soundEnabled]);
+  }, [isVisible, settings.soundEnabled, reduceMotion]);
 
   // Generate confetti particles and floating elements
   useEffect(() => {
     if (!isVisible) return;
 
-    const particleCount = isMobile ? 30 : isTablet ? 40 : 50;
-    const floatingCount = isMobile ? 10 : isTablet ? 15 : 20;
+    const particleCount = reduceMotion ? 0 : (isMobile ? 30 : isTablet ? 40 : 50);
+    const floatingCount = reduceMotion ? 0 : (isMobile ? 10 : isTablet ? 15 : 20);
 
     const newParticles: Particle[] = Array.from({ length: particleCount }, (_, i) => ({
       id: Date.now() + i,
@@ -129,7 +138,7 @@ export function TaskBlaster() {
     }, 2500);
 
     return () => clearTimeout(timer);
-  }, [isVisible, colors, isMobile, isTablet]);
+  }, [isVisible, colors, isMobile, isTablet, reduceMotion]);
 
   // Auto dismiss
   useEffect(() => {
@@ -149,7 +158,7 @@ export function TaskBlaster() {
 
     setIsPopped(true);
 
-    const explosionCount = isMobile ? 20 : 30;
+    const explosionCount = reduceMotion ? 0 : (isMobile ? 20 : 30);
     const explosionParticles: Particle[] = Array.from({ length: explosionCount }, (_, i) => {
       const angle = (i / explosionCount) * Math.PI * 2;
       const distance = (isMobile ? 100 : 150) + Math.random() * (isMobile ? 150 : 200);
@@ -170,13 +179,27 @@ export function TaskBlaster() {
       popBlaster();
       setIsPopped(false);
     }, 800);
-  }, [isPopped, popBlaster, colors, isMobile]);
+  }, [isPopped, popBlaster, colors, isMobile, reduceMotion]);
 
   const handleIgnore = useCallback(() => {
     dismissBlaster();
   }, [dismissBlaster]);
 
   const getIcon = () => {
+    if (isMetallic) {
+      return (
+        <div className="relative flex items-center justify-center">
+          <Target className={cn(
+            "text-[#ffd27a]",
+            isMobile ? "w-20 h-20 animate-spin" : isTablet ? "w-28 h-28 animate-spin" : "w-36 h-36 animate-spin"
+          )} style={{ animationDuration: reduceMotion ? "0s" : "20s" }} />
+          <Zap className={cn(
+            "absolute text-[#ffd27a] w-8 h-8 sm:w-10 sm:h-10",
+            !reduceMotion && "animate-bounce"
+          )} />
+        </div>
+      );
+    }
     return (
       <Trophy className={isMobile ? "w-16 h-16" : isTablet ? "w-24 h-24" : "w-32 h-32"} />
     );
@@ -228,15 +251,17 @@ export function TaskBlaster() {
           />
 
           {/* Animated radial glow */}
-          <motion.div
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ 
-              scale: [1, isMobile ? 1.3 : 1.5, isMobile ? 1.6 : 2], 
-              opacity: [0.3, 0.2, 0],
-            }}
-            transition={{ duration: 2, ease: "easeOut" }}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] sm:w-[600px] sm:h-[600px] md:w-[800px] md:h-[800px] rounded-full bg-gradient-to-r from-white/20 to-transparent"
-          />
+          {!reduceMotion && (
+            <motion.div
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ 
+                scale: [1, isMobile ? 1.3 : 1.5, isMobile ? 1.6 : 2], 
+                opacity: [0.3, 0.2, 0],
+              }}
+              transition={{ duration: 2, ease: "easeOut" }}
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] sm:w-[600px] sm:h-[600px] md:w-[800px] md:h-[800px] rounded-full bg-gradient-to-r from-white/20 to-transparent"
+            />
+          )}
 
           {/* Floating background elements */}
           {floatingElements.map((el) => (
@@ -332,31 +357,59 @@ export function TaskBlaster() {
               }}
               transition={{
                 duration: 1.5,
-                repeat: Infinity,
+                repeat: reduceMotion ? 0 : Infinity,
                 ease: "easeInOut",
               }}
-              className={`absolute inset-0 ${isMobile ? '-m-4' : '-m-8'} rounded-full bg-gradient-to-r ${getGradient()} blur-2xl`}
+              className={cn(
+                `absolute inset-0 ${isMobile ? '-m-4' : '-m-8'} rounded-full blur-2xl`,
+                isMetallic
+                  ? "bg-gradient-to-r from-[#ffd27a] to-[#c89537]"
+                  : `bg-gradient-to-r ${getGradient()}`
+              )}
             />
             
             <motion.div
               animate={{
                 scale: [1.2, 1, 1.2],
                 opacity: [0.2, 0.4, 0.2],
-                rotate: [0, 180, 360],
+                rotate: reduceMotion ? [0, 0] : [0, 180, 360],
               }}
               transition={{
                 duration: 3,
-                repeat: Infinity,
+                repeat: reduceMotion ? 0 : Infinity,
                 ease: "linear",
               }}
-              className={`absolute inset-0 ${isMobile ? '-m-6' : '-m-12'} rounded-full border-2 sm:border-4 border-dashed border-white/30`}
+              className={cn(
+                `absolute inset-0 ${isMobile ? '-m-6' : '-m-12'} rounded-full border-2 sm:border-4 border-dashed`,
+                isMetallic ? "border-[#ffd27a]/30" : "border-white/30"
+              )}
             />
+
+            {/* Scanning beam for metallic target lock */}
+            {isMetallic && !reduceMotion && (
+              <motion.div 
+                className="absolute left-0 right-0 pointer-events-none z-10"
+                style={{
+                  background: "linear-gradient(to bottom, transparent, rgba(255, 210, 122, 0.5) 50%, transparent)",
+                  height: '10px',
+                  width: '100%',
+                }}
+                animate={{
+                  top: ['0%', '100%', '0%']
+                }}
+                transition={{
+                  duration: 2.5,
+                  repeat: Infinity,
+                  ease: "linear"
+                }}
+              />
+            )}
 
             {/* Main circle */}
             <motion.div
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
-              animate={{
+              animate={reduceMotion ? {} : {
                 boxShadow: [
                   "0 0 20px rgba(255,255,255,0.3)",
                   "0 0 40px rgba(255,255,255,0.6)",
@@ -371,10 +424,15 @@ export function TaskBlaster() {
                   repeatType: "reverse",
                 },
               }}
-              className={`relative ${circleSize} rounded-full bg-gradient-to-br ${getGradient()} flex items-center justify-center text-white shadow-2xl border-2 sm:border-4 border-white/50`}
+              className={cn(
+                `relative ${circleSize} rounded-full flex items-center justify-center text-white shadow-2xl border-2 sm:border-4`,
+                isMetallic
+                  ? "bg-gradient-to-br from-[#2b2c2d] to-[#111315] border-[#ffd27a]/45 shadow-[inset_0_2px_4px_rgba(255,255,255,0.1),_0_10px_25px_rgba(0,0,0,0.8)]"
+                  : `bg-gradient-to-br ${getGradient()} border-white/50`
+              )}
             >
                 <motion.div
-                  animate={{ 
+                  animate={reduceMotion ? {} : { 
                     scale: [1, 1.05, 1],
                   }}
                   transition={{
@@ -388,18 +446,22 @@ export function TaskBlaster() {
             </motion.div>
 
             {/* Pulse rings */}
-            <motion.div
-              initial={{ scale: 1, opacity: 0.8 }}
-              animate={{ scale: isMobile ? 2 : 2.5, opacity: 0 }}
-              transition={{ duration: 1.5, repeat: Infinity }}
-              className="absolute inset-0 rounded-full border-2 border-white/50"
-            />
-            <motion.div
-              initial={{ scale: 1, opacity: 0.6 }}
-              animate={{ scale: isMobile ? 2.5 : 3, opacity: 0 }}
-              transition={{ duration: 1.5, repeat: Infinity, delay: 0.5 }}
-              className="absolute inset-0 rounded-full border-2 border-white/30"
-            />
+            {!reduceMotion && (
+              <>
+                <motion.div
+                  initial={{ scale: 1, opacity: 0.8 }}
+                  animate={{ scale: isMobile ? 2 : 2.5, opacity: 0 }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                  className={cn("absolute inset-0 rounded-full border-2", isMetallic ? "border-[#ffd27a]/40" : "border-white/50")}
+                />
+                <motion.div
+                  initial={{ scale: 1, opacity: 0.6 }}
+                  animate={{ scale: isMobile ? 2.5 : 3, opacity: 0 }}
+                  transition={{ duration: 1.5, repeat: Infinity, delay: 0.5 }}
+                  className={cn("absolute inset-0 rounded-full border-2", isMetallic ? "border-[#ffd27a]/20" : "border-white/30")}
+                />
+              </>
+            )}
           </motion.div>
 
           {/* Task info card */}
@@ -408,14 +470,24 @@ export function TaskBlaster() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 30, scale: 0.8 }}
             transition={{ delay: 0.2, duration: 0.5 }}
-            className={`absolute ${isMobile ? 'bottom-16' : 'bottom-1/4'} left-1/2 -translate-x-1/2 ${cardWidth} bg-white/95 backdrop-blur-md rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-2xl border-2 border-white/50`}
+            className={cn(
+              `absolute ${isMobile ? 'bottom-16' : 'bottom-1/4'} left-1/2 -translate-x-1/2 ${cardWidth} rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-2xl border-2`,
+              isMetallic
+                ? "bg-gradient-to-br from-[#2b2c2d] via-[#1c1d1f] to-[#111315] border-[#ffd27a]/45 text-white"
+                : "bg-white/95 backdrop-blur-md border-white/50"
+            )}
           >
             <div className="flex flex-col items-center gap-3 sm:gap-4">
               <motion.div 
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ delay: 0.4, type: "spring", stiffness: 200 }}
-                className={`${isMobile ? 'w-12 h-12' : 'w-16 h-16'} rounded-full bg-white flex items-center justify-center shadow-lg p-1 text-green-500`}
+                className={cn(
+                  `${isMobile ? 'w-12 h-12' : 'w-16 h-16'} rounded-full flex items-center justify-center shadow-lg p-1`,
+                  isMetallic 
+                    ? "bg-[#111315] border border-[#ffd27a]/30 text-[#ffd27a]"
+                    : "bg-white text-green-500"
+                )}
               >
                 <CheckCircle2 className="w-[60%] h-auto" />
               </motion.div>
@@ -424,7 +496,10 @@ export function TaskBlaster() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.5 }}
-                  className={`${isMobile ? 'text-lg' : 'text-xl'} font-bold text-gray-900`}
+                  className={cn(
+                    `${isMobile ? 'text-lg' : 'text-xl'} font-bold`,
+                    isMetallic ? "text-[#ffd27a]" : "text-gray-900"
+                  )}
                 >
                   Task Completed!
                 </motion.p>
@@ -432,7 +507,10 @@ export function TaskBlaster() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.6 }}
-                  className={`${isMobile ? 'text-sm' : 'text-base'} text-gray-600 mt-1 sm:mt-2 ${isMobile ? 'max-w-[200px]' : 'max-w-[280px]'} mx-auto`}
+                  className={cn(
+                    `${isMobile ? 'text-sm' : 'text-base'} mt-1 sm:mt-2 ${isMobile ? 'max-w-[200px]' : 'max-w-[280px]'} mx-auto`,
+                    isMetallic ? "text-[#cfd7dc]" : "text-gray-600"
+                  )}
                 >
                   {task?.title}
                 </motion.p>
@@ -440,7 +518,10 @@ export function TaskBlaster() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.8 }}
-                  className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-400 mt-2 sm:mt-3`}
+                  className={cn(
+                    `${isMobile ? 'text-xs' : 'text-sm'} mt-2 sm:mt-3`,
+                    isMetallic ? "text-[#ffd27a]/60" : "text-gray-400"
+                  )}
                 >
                   {isMobile ? 'Tap to pop! ✨' : 'Click the celebration to pop! ✨'}
                 </motion.p>
@@ -449,38 +530,54 @@ export function TaskBlaster() {
           </motion.div>
 
           {/* Corner decorations - responsive */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.3 }}
-            className={`absolute ${isMobile ? 'top-2 left-2' : 'top-6 sm:top-10 left-6 sm:left-10'} text-yellow-400`}
-          >
-            <Sparkles className={isMobile ? "w-5 h-5" : "w-6 h-6 sm:w-8 sm:h-8"} />
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, scale: 0 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.4 }}
-            className={`absolute ${isMobile ? 'top-2 right-2' : 'top-6 sm:top-10 right-6 sm:right-10'} text-pink-400`}
-          >
-            <Star className={isMobile ? "w-5 h-5" : "w-6 h-6 sm:w-8 sm:h-8"} />
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, scale: 0 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.5 }}
-            className={`absolute ${isMobile ? 'bottom-2 left-2' : 'bottom-6 sm:bottom-10 left-6 sm:left-10'} text-cyan-400`}
-          >
-            <Zap className={isMobile ? "w-5 h-5" : "w-6 h-6 sm:w-8 sm:h-8"} />
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, scale: 0 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.6 }}
-            className={`absolute ${isMobile ? 'bottom-2 right-2' : 'bottom-6 sm:bottom-10 right-6 sm:right-10'} text-purple-400`}
-          >
-            <Trophy className={isMobile ? "w-5 h-5" : "w-6 h-6 sm:w-8 sm:h-8"} />
-          </motion.div>
+          {!reduceMotion && (
+            <>
+              <motion.div
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.3 }}
+                className={cn(
+                  `absolute ${isMobile ? 'top-2 left-2' : 'top-6 sm:top-10 left-6 sm:left-10'}`,
+                  isMetallic ? "text-[#ffd27a]" : "text-yellow-400"
+                )}
+              >
+                <Sparkles className={isMobile ? "w-5 h-5" : "w-6 h-6 sm:w-8 sm:h-8"} />
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.4 }}
+                className={cn(
+                  `absolute ${isMobile ? 'top-2 right-2' : 'top-6 sm:top-10 right-6 sm:right-10'}`,
+                  isMetallic ? "text-[#ffd27a]" : "text-pink-400"
+                )}
+              >
+                <Star className={isMobile ? "w-5 h-5" : "w-6 h-6 sm:w-8 sm:h-8"} />
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.5 }}
+                className={cn(
+                  `absolute ${isMobile ? 'bottom-2 left-2' : 'bottom-6 sm:bottom-10 left-6 sm:left-10'}`,
+                  isMetallic ? "text-[#ffd27a]" : "text-cyan-400"
+                )}
+              >
+                <Zap className={isMobile ? "w-5 h-5" : "w-6 h-6 sm:w-8 sm:h-8"} />
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.6 }}
+                className={cn(
+                  `absolute ${isMobile ? 'bottom-2 right-2' : 'bottom-6 sm:bottom-10 right-6 sm:right-10'}`,
+                  isMetallic ? "text-[#ffd27a]" : "text-purple-400"
+                )}
+              >
+                <Trophy className={isMobile ? "w-5 h-5" : "w-6 h-6 sm:w-8 sm:h-8"} />
+              </motion.div>
+            </>
+          )}
         </motion.div>
       )}
     </AnimatePresence>

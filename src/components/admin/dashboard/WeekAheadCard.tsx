@@ -93,8 +93,9 @@ export function WeekAheadCard() {
         if (!mounted) return;
         setError(e instanceof Error ? e.message : "Failed to load week data");
       } finally {
-        if (!mounted) return;
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
     void load();

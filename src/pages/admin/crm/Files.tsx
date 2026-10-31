@@ -556,7 +556,7 @@ export default function CRMFiles() {
               onClick={(e) => e.stopPropagation()}
             >
               {/* Preview Top — File Visual + Actions */}
-              <div className={`relative p-8 flex flex-col items-center gap-4 ${TYPE_CONFIG[selectedFile.type]?.badge?.replace('text-', 'border-') || ''}`}
+              <div className={`relative p-4 sm:p-8 flex flex-col items-center gap-4 ${TYPE_CONFIG[selectedFile.type]?.badge?.replace('text-', 'border-') || ''}`}
                 style={{ background: 'linear-gradient(160deg, rgba(139,92,246,0.08) 0%, rgba(15,17,23,0) 60%)' }}>
                 {/* Close button */}
                 <button

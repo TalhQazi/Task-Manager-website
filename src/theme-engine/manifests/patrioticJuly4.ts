@@ -1,0 +1,45 @@
+import { HolidayThemeManifest } from "../types";
+
+export const PATRIOTIC_JULY4_MANIFEST: HolidayThemeManifest = {
+  themeKey: "patriotic-july4",
+  displayName: "Independence & Liberty Gala",
+  description: "Midnight navy wash, brilliant crimson accents, star badges, and radiant firework sparkle cascades.",
+  category: "patriotic",
+  priority: 85,
+  palette: {
+    primary: "#dc2626",
+    secondary: "#2563eb",
+    accent: "#38bdf8",
+    accent2: "#fbbf24",
+    backgroundBase: "#070b19",
+    surfaceTint: "rgba(37, 99, 235, 0.10)",
+    cardBorder: "rgba(220, 38, 38, 0.40)",
+    cardGlow: "0 0 24px rgba(37, 99, 235, 0.32)",
+    textColor: "#f8fafc",
+    scrimWash: "rgba(7, 11, 25, 0.70)",
+  },
+  layout: {
+    headerHeight: 64,
+    bannerHeight: 120,
+    sideFrameWidth: 48,
+    enableSideFrames: true,
+    enableBottomForeground: true,
+    enableHeaderBanner: true,
+  },
+  animations: {
+    particleType: "sparks",
+    particleCountDesktop: 40,
+    particleCountMobile: 20,
+    particleColor: ["#ef4444", "#ffffff", "#3b82f6", "#fbbf24"],
+    particleSpeed: 1.2,
+    enableGlowPulse: true,
+    transientEffectType: "firework-burst",
+    transientIntervalSeconds: 30,
+  },
+  accessibility: {
+    minContrastRatio: 4.5,
+    reducedMotionAlternative: "static-decorations",
+    highContrastCompatible: true,
+  },
+  isActive: true,
+};

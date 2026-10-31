@@ -53,6 +53,11 @@ export const RewardProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Check if reduced motion is preferred at OS level
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
+    // Dispatch global seasonal celebration event for the Holiday Theme Engine
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("seasonal-celebration", { detail: { x, y } }));
+    }
+
     setActiveRewards((prev) => [...prev, { id: Date.now(), x, y }]);
   }, [systemSettingsQuery.data]);
 

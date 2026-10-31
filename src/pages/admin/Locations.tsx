@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
@@ -58,8 +58,15 @@ import {
   AlertCircle,
   Archive,
   Download,
+  ClipboardCheck,
+  ExternalLink,
+  Sparkles,
+  FileText,
+  Palette,
 } from "lucide-react";
 import { createResource, listResource, updateResource, apiFetch, getApiBaseUrl } from "@/lib/admin/apiClient";
+import { getAuthState } from "@/lib/auth";
+import { PaintRegistryTab } from "@/components/paint-registry/PaintRegistryTab";
 
 const LOCATION_TYPES = [
   "Property",
@@ -83,11 +90,30 @@ function normalizeLocationType(value: unknown): LocationType {
   return "Property";
 }
 
+export interface LocationComplianceChecklist {
+  water: { status: string; notes: string; updatedBy?: string; updatedAt?: string };
+  power: { status: string; notes: string; updatedBy?: string; updatedAt?: string };
+  townPermitDemo: { status: string; notes: string; updatedBy?: string; updatedAt?: string };
+  townPermitRenovations: { status: string; notes: string; updatedBy?: string; updatedAt?: string };
+  sitePlanReview: { option: string; notes: string; updatedBy?: string; updatedAt?: string };
+  certificateOfOccupancy: { status: string; date: string; notes: string; updatedBy?: string; updatedAt?: string };
+}
+
+const DEFAULT_COMPLIANCE_CHECKLIST: LocationComplianceChecklist = {
+  water: { status: "Pending", notes: "", updatedBy: "", updatedAt: "" },
+  power: { status: "Pending", notes: "", updatedBy: "", updatedAt: "" },
+  townPermitDemo: { status: "Pending", notes: "", updatedBy: "", updatedAt: "" },
+  townPermitRenovations: { status: "Pending", notes: "", updatedBy: "", updatedAt: "" },
+  sitePlanReview: { option: "Needed", notes: "", updatedBy: "", updatedAt: "" },
+  certificateOfOccupancy: { status: "Pending", date: "", notes: "", updatedBy: "", updatedAt: "" },
+};
+
 interface Location {
   id: string;
   name: string;
   address: string;
   city: string;
+  state?: string;
   country: string;
   type: LocationType;
   businessUnits?: string[];
@@ -99,6 +125,8 @@ interface Location {
   photoDataUrl?: string;
   photoFileName?: string;
   attachments?: { fileName: string; url: string }[];
+  documents?: { fileName: string; url: string; fileType?: string; size?: number; uploadedAt?: string }[];
+  complianceChecklist?: LocationComplianceChecklist;
 }
 
 const toDateOnly = (value: string) => {
@@ -118,11 +146,14 @@ function normalizeLocation(l: BackendLocation): Location {
   const createdAt =
     String(l.createdAt || l.date || "").trim() || undefined;
 
+  const cl = (l.complianceChecklist || {}) as Partial<LocationComplianceChecklist>;
+
   return {
     id: String(l.id || l._id || "").trim(),
     name: String(l.name || "").trim(),
     address: String(l.address || "").trim(),
     city: String(l.city || "").trim(),
+    state: String(l.state || "").trim() || "",
     country: String(l.country || "").trim(),
     type: normalizeLocationType(l.type),
     businessUnits: Array.isArray(l.businessUnits) ? l.businessUnits : [],
@@ -134,6 +165,15 @@ function normalizeLocation(l: BackendLocation): Location {
     photoDataUrl: String(l.photoDataUrl || "").trim() || undefined,
     photoFileName: String(l.photoFileName || "").trim() || undefined,
     attachments: Array.isArray(l.attachments) ? l.attachments : [],
+    documents: Array.isArray(l.documents) ? l.documents : [],
+    complianceChecklist: {
+      water: { status: cl.water?.status || "Pending", notes: cl.water?.notes || "" },
+      power: { status: cl.power?.status || "Pending", notes: cl.power?.notes || "" },
+      townPermitDemo: { status: cl.townPermitDemo?.status || "Pending", notes: cl.townPermitDemo?.notes || "" },
+      townPermitRenovations: { status: cl.townPermitRenovations?.status || "Pending", notes: cl.townPermitRenovations?.notes || "" },
+      sitePlanReview: { option: cl.sitePlanReview?.option || "Needed", notes: cl.sitePlanReview?.notes || "" },
+      certificateOfOccupancy: { status: cl.certificateOfOccupancy?.status || "Pending", date: cl.certificateOfOccupancy?.date || "", notes: cl.certificateOfOccupancy?.notes || "" },
+    },
   };
 }
 
@@ -163,12 +203,318 @@ const statusClasses = {
   inactive: "bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-300",
 };
 
+function ComplianceChecklistFormSection({
+  checklist,
+  onChange,
+}: {
+  checklist: LocationComplianceChecklist;
+  onChange: (updated: LocationComplianceChecklist) => void;
+}) {
+  const STATUS_OPTIONS = ["Pending", "In Progress", "Approved", "Completed", "Not Applicable"];
+  const SITE_PLAN_OPTIONS = ["Needed", "Not Needed", "Under Review", "Approved"];
+  const OCCUPANCY_OPTIONS = ["Pending", "In Progress", "Issued", "Approved", "Not Applicable"];
+
+  const auth = getAuthState();
+  const currentUserName = auth.name || auth.username || "Admin";
+
+  const stamp = () => ({
+    updatedBy: currentUserName,
+    updatedAt: new Date().toISOString(),
+  });
+
+  return (
+    <div className="space-y-3 pt-3 border-t border-slate-200">
+      <div className="flex items-center gap-2">
+        <ClipboardCheck className="h-4 w-4 text-blue-600" />
+        <Label className="text-sm font-bold text-slate-900">Location Compliance Checklist</Label>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-200">
+        {/* Water */}
+        <div className="space-y-1.5 p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200/80">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-semibold text-slate-700 dark:text-slate-200">Water</Label>
+            {checklist.water?.updatedBy && (
+              <span className="text-[10px] text-slate-400">
+                by {checklist.water.updatedBy}
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-1 gap-1.5">
+            <Select
+              value={checklist.water?.status || "Pending"}
+              onValueChange={(val) =>
+                onChange({ ...checklist, water: { ...(checklist.water || {}), ...stamp(), status: val, notes: checklist.water?.notes || "" } })
+              }
+            >
+              <SelectTrigger className="h-8 text-xs border-slate-200">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUS_OPTIONS.map((opt) => (
+                  <SelectItem key={opt} value={opt} className="text-xs">
+                    {opt}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              placeholder="Water notes (optional)"
+              value={checklist.water?.notes || ""}
+              onChange={(e) =>
+                onChange({ ...checklist, water: { ...(checklist.water || {}), ...stamp(), status: checklist.water?.status || "Pending", notes: e.target.value } })
+              }
+              className="h-7 text-xs border-slate-200"
+            />
+          </div>
+        </div>
+
+        {/* Power */}
+        <div className="space-y-1.5 p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200/80">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-semibold text-slate-700 dark:text-slate-200">Power</Label>
+            {checklist.power?.updatedBy && (
+              <span className="text-[10px] text-slate-400">
+                by {checklist.power.updatedBy}
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-1 gap-1.5">
+            <Select
+              value={checklist.power?.status || "Pending"}
+              onValueChange={(val) =>
+                onChange({ ...checklist, power: { ...(checklist.power || {}), ...stamp(), status: val, notes: checklist.power?.notes || "" } })
+              }
+            >
+              <SelectTrigger className="h-8 text-xs border-slate-200">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUS_OPTIONS.map((opt) => (
+                  <SelectItem key={opt} value={opt} className="text-xs">
+                    {opt}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              placeholder="Power notes (optional)"
+              value={checklist.power?.notes || ""}
+              onChange={(e) =>
+                onChange({ ...checklist, power: { ...(checklist.power || {}), ...stamp(), status: checklist.power?.status || "Pending", notes: e.target.value } })
+              }
+              className="h-7 text-xs border-slate-200"
+            />
+          </div>
+        </div>
+
+        {/* Town permit for demo */}
+        <div className="space-y-1.5 p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200/80">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-semibold text-slate-700 dark:text-slate-200">Town Permit for Demo</Label>
+            {checklist.townPermitDemo?.updatedBy && (
+              <span className="text-[10px] text-slate-400">
+                by {checklist.townPermitDemo.updatedBy}
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-1 gap-1.5">
+            <Select
+              value={checklist.townPermitDemo?.status || "Pending"}
+              onValueChange={(val) =>
+                onChange({
+                  ...checklist,
+                  townPermitDemo: { ...(checklist.townPermitDemo || {}), ...stamp(), status: val, notes: checklist.townPermitDemo?.notes || "" },
+                })
+              }
+            >
+              <SelectTrigger className="h-8 text-xs border-slate-200">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUS_OPTIONS.map((opt) => (
+                  <SelectItem key={opt} value={opt} className="text-xs">
+                    {opt}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              placeholder="Demo permit notes"
+              value={checklist.townPermitDemo?.notes || ""}
+              onChange={(e) =>
+                onChange({
+                  ...checklist,
+                  townPermitDemo: { ...(checklist.townPermitDemo || {}), ...stamp(), status: checklist.townPermitDemo?.status || "Pending", notes: e.target.value },
+                })
+              }
+              className="h-7 text-xs border-slate-200"
+            />
+          </div>
+        </div>
+
+        {/* Town permit for renovations */}
+        <div className="space-y-1.5 p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200/80">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-semibold text-slate-700 dark:text-slate-200">Town Permit for Renovations</Label>
+            {checklist.townPermitRenovations?.updatedBy && (
+              <span className="text-[10px] text-slate-400">
+                by {checklist.townPermitRenovations.updatedBy}
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-1 gap-1.5">
+            <Select
+              value={checklist.townPermitRenovations?.status || "Pending"}
+              onValueChange={(val) =>
+                onChange({
+                  ...checklist,
+                  townPermitRenovations: { ...(checklist.townPermitRenovations || {}), ...stamp(), status: val, notes: checklist.townPermitRenovations?.notes || "" },
+                })
+              }
+            >
+              <SelectTrigger className="h-8 text-xs border-slate-200">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUS_OPTIONS.map((opt) => (
+                  <SelectItem key={opt} value={opt} className="text-xs">
+                    {opt}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              placeholder="Renovation permit notes"
+              value={checklist.townPermitRenovations?.notes || ""}
+              onChange={(e) =>
+                onChange({
+                  ...checklist,
+                  townPermitRenovations: { ...(checklist.townPermitRenovations || {}), ...stamp(), status: checklist.townPermitRenovations?.status || "Pending", notes: e.target.value },
+                })
+              }
+              className="h-7 text-xs border-slate-200"
+            />
+          </div>
+        </div>
+
+        {/* Site plan review - needed or not needed */}
+        <div className="space-y-1.5 p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200/80">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-semibold text-slate-700 dark:text-slate-200">Site Plan Review</Label>
+            {checklist.sitePlanReview?.updatedBy && (
+              <span className="text-[10px] text-slate-400">
+                by {checklist.sitePlanReview.updatedBy}
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-1 gap-1.5">
+            <Select
+              value={checklist.sitePlanReview?.option || "Needed"}
+              onValueChange={(val) =>
+                onChange({
+                  ...checklist,
+                  sitePlanReview: { ...(checklist.sitePlanReview || {}), ...stamp(), option: val, notes: checklist.sitePlanReview?.notes || "" },
+                })
+              }
+            >
+              <SelectTrigger className="h-8 text-xs border-slate-200">
+                <SelectValue placeholder="Review Needed?" />
+              </SelectTrigger>
+              <SelectContent>
+                {SITE_PLAN_OPTIONS.map((opt) => (
+                  <SelectItem key={opt} value={opt} className="text-xs">
+                    {opt}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              placeholder="Site plan review notes"
+              value={checklist.sitePlanReview?.notes || ""}
+              onChange={(e) =>
+                onChange({
+                  ...checklist,
+                  sitePlanReview: { ...(checklist.sitePlanReview || {}), ...stamp(), option: checklist.sitePlanReview?.option || "Needed", notes: e.target.value },
+                })
+              }
+              className="h-7 text-xs border-slate-200"
+            />
+          </div>
+        </div>
+
+        {/* Certificate of occupancy */}
+        <div className="space-y-1.5 p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200/80">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-semibold text-slate-700 dark:text-slate-200">Certificate of Occupancy</Label>
+            {checklist.certificateOfOccupancy?.updatedBy && (
+              <span className="text-[10px] text-slate-400">
+                by {checklist.certificateOfOccupancy.updatedBy}
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-1 gap-1.5">
+            <div className="grid grid-cols-2 gap-1">
+              <Select
+                value={checklist.certificateOfOccupancy?.status || "Pending"}
+                onValueChange={(val) =>
+                  onChange({
+                    ...checklist,
+                    certificateOfOccupancy: { ...(checklist.certificateOfOccupancy || {}), ...stamp(), status: val, date: checklist.certificateOfOccupancy?.date || "", notes: checklist.certificateOfOccupancy?.notes || "" },
+                  })
+                }
+              >
+                <SelectTrigger className="h-8 text-xs border-slate-200">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {OCCUPANCY_OPTIONS.map((opt) => (
+                    <SelectItem key={opt} value={opt} className="text-xs">
+                      {opt}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                type="date"
+                value={checklist.certificateOfOccupancy?.date || ""}
+                onChange={(e) =>
+                  onChange({
+                    ...checklist,
+                    certificateOfOccupancy: { ...(checklist.certificateOfOccupancy || {}), ...stamp(), status: checklist.certificateOfOccupancy?.status || "Pending", date: e.target.value, notes: checklist.certificateOfOccupancy?.notes || "" },
+                  })
+                }
+                className="h-8 text-xs px-1 border-slate-200"
+                placeholder="Date"
+              />
+            </div>
+            <Input
+              placeholder="Occupancy certificate notes"
+              value={checklist.certificateOfOccupancy?.notes || ""}
+              onChange={(e) =>
+                onChange({
+                  ...checklist,
+                  certificateOfOccupancy: { ...(checklist.certificateOfOccupancy || {}), ...stamp(), status: checklist.certificateOfOccupancy?.status || "Pending", date: checklist.certificateOfOccupancy?.date || "", notes: e.target.value },
+                })
+              }
+              className="h-7 text-xs border-slate-200"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const Locations = () => {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [addLocationOpen, setAddLocationOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [viewDetailsOpen, setViewDetailsOpen] = useState(false);
+  const [viewDetailTab, setViewDetailTab] = useState<"overview" | "paint">("overview");
+  const [locationContacts, setLocationContacts] = useState<any[]>([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
   const [editLocationOpen, setEditLocationOpen] = useState(false);
   const [deactivateConfirmOpen, setDeactivateConfirmOpen] = useState(false);
   const [locationsList, setLocationsList] = useState<Location[]>([]);
@@ -186,6 +532,7 @@ const Locations = () => {
     name: "",
     address: "",
     city: "",
+    state: "",
     country: "USA",
     type: "Property" as Location["type"],
     businessUnits: [] as string[],
@@ -196,12 +543,15 @@ const Locations = () => {
     photoDataUrl: "",
     photoFileName: "",
     attachments: [] as { fileName: string; url: string }[],
+    documents: [] as { fileName: string; url: string; fileType?: string; size?: number; uploadedAt?: string }[],
+    complianceChecklist: { ...DEFAULT_COMPLIANCE_CHECKLIST },
   });
 
   const [editFormData, setEditFormData] = useState({
     name: "",
     address: "",
     city: "",
+    state: "",
     country: "",
     type: "Property" as Location["type"],
     businessUnits: [] as string[],
@@ -212,6 +562,8 @@ const Locations = () => {
     photoDataUrl: "",
     photoFileName: "",
     attachments: [] as { fileName: string; url: string }[],
+    documents: [] as { fileName: string; url: string; fileType?: string; size?: number; uploadedAt?: string }[],
+    complianceChecklist: { ...DEFAULT_COMPLIANCE_CHECKLIST },
   });
 
   useEffect(() => {
@@ -227,8 +579,9 @@ const Locations = () => {
         if (!mounted) return;
         setApiError(e instanceof Error ? e.message : "Failed to load locations");
       } finally {
-        if (!mounted) return;
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
     void load();
@@ -264,6 +617,28 @@ const Locations = () => {
     }
   }, [locationsList, searchParams, setSearchParams, viewDetailsOpen]);
 
+  useEffect(() => {
+    if (viewDetailsOpen && selectedLocation?.id) {
+      let mounted = true;
+      setContactsLoading(true);
+      apiFetch<{ items: any[] }>(`/api/phone-directory/by-location/${selectedLocation.id}`)
+        .then((res) => {
+          if (mounted) setLocationContacts(res.items || []);
+        })
+        .catch(() => {
+          if (mounted) setLocationContacts([]);
+        })
+        .finally(() => {
+          if (mounted) setContactsLoading(false);
+        });
+      return () => {
+        mounted = false;
+      };
+    } else {
+      setLocationContacts([]);
+    }
+  }, [viewDetailsOpen, selectedLocation]);
+
   const countriesWithUsa = useMemo(() => {
     if (!countries.includes("USA")) return ["USA", ...countries];
     return countries;
@@ -292,6 +667,7 @@ const Locations = () => {
         name: formData.name,
         address: formData.address,
         city: formData.city,
+        state: formData.state,
         country: formData.country,
         type: formData.type,
         businessUnits: formData.businessUnits,
@@ -303,6 +679,8 @@ const Locations = () => {
         photoDataUrl: formData.photoDataUrl || undefined,
         photoFileName: formData.photoFileName || undefined,
         attachments: formData.attachments,
+        documents: formData.documents,
+        complianceChecklist: formData.complianceChecklist,
       };
       await createResource<Location>("locations", newLocation);
       setSubmitSuccess(true);
@@ -315,6 +693,7 @@ const Locations = () => {
         name: "",
         address: "",
         city: "",
+        state: "",
         country: "USA",
         type: "Property",
         businessUnits: [],
@@ -325,6 +704,8 @@ const Locations = () => {
         photoDataUrl: "",
         photoFileName: "",
         attachments: [],
+        documents: [],
+        complianceChecklist: { ...DEFAULT_COMPLIANCE_CHECKLIST },
       });
     } catch (e) {
       setFormError(e instanceof Error ? e.message : "Failed to add location");
@@ -333,7 +714,8 @@ const Locations = () => {
     }
   };
 
-  const handleViewDetails = async (location: Location) => {
+  const handleViewDetails = async (location: Location, tab: "overview" | "paint" = "overview") => {
+    setViewDetailTab(tab);
     setSelectedLocation(location);
     setViewDetailsOpen(true);
     
@@ -356,6 +738,7 @@ const Locations = () => {
       name: location.name,
       address: location.address,
       city: location.city,
+      state: location.state || "",
       country: location.country,
       type: normalizeLocationType(location.type),
       businessUnits: location.businessUnits || [],
@@ -366,6 +749,8 @@ const Locations = () => {
       photoDataUrl: location.photoDataUrl || "",
       photoFileName: location.photoFileName || "",
       attachments: location.attachments || [],
+      documents: location.documents || [],
+      complianceChecklist: location.complianceChecklist || { ...DEFAULT_COMPLIANCE_CHECKLIST },
     });
     setEditLocationOpen(true);
 
@@ -393,6 +778,7 @@ const Locations = () => {
         name: editFormData.name,
         address: editFormData.address,
         city: editFormData.city,
+        state: editFormData.state,
         country: editFormData.country,
         type: editFormData.type,
         businessUnits: editFormData.businessUnits,
@@ -403,6 +789,8 @@ const Locations = () => {
         photoDataUrl: editFormData.photoDataUrl || undefined,
         photoFileName: editFormData.photoFileName || undefined,
         attachments: editFormData.attachments,
+        documents: editFormData.documents,
+        complianceChecklist: editFormData.complianceChecklist,
       });
       await refreshLocations();
       setEditLocationOpen(false);
@@ -456,7 +844,7 @@ const Locations = () => {
   }, [locationsList]);
 
   return (
-    <div className="pl-6 space-y-4 sm:space-y-6 md:space-y-8 pr-2 sm:pr-0 pb-10">
+    <div className="px-2 sm:pl-6 space-y-4 sm:space-y-6 md:space-y-8 pr-2 sm:pr-0 pb-10 page-shell">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="space-y-1">
@@ -468,7 +856,17 @@ const Locations = () => {
           </p>
         </div>
 
-        <Dialog open={addLocationOpen} onOpenChange={setAddLocationOpen}>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => navigate("/admin/phone-directory")}
+            className="border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300 shadow-sm"
+          >
+            <Phone className="h-4 w-4 mr-2 text-blue-600" />
+            Phone Directory
+          </Button>
+
+          <Dialog open={addLocationOpen} onOpenChange={setAddLocationOpen}>
           <DialogTrigger asChild>
             <Button className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20 transition-all duration-300 transform hover:scale-105 active:scale-95">
               <Plus className="h-4 w-4 mr-2" />
@@ -508,10 +906,14 @@ const Locations = () => {
                   <Input id="address" value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} placeholder="123 Business Way" className="focus:ring-2 focus:ring-blue-500/20 border-slate-200" />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="city" className="text-sm font-semibold">City *</Label>
                     <Input id="city" value={formData.city} onChange={(e) => setFormData({...formData, city: e.target.value})} placeholder="New York" className="focus:ring-2 focus:ring-blue-500/20 border-slate-200" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="state" className="text-sm font-semibold">State / Province</Label>
+                    <Input id="state" value={formData.state} onChange={(e) => setFormData({...formData, state: e.target.value})} placeholder="e.g. NY, TX, CA" className="focus:ring-2 focus:ring-blue-500/20 border-slate-200" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="country" className="text-sm font-semibold">Country *</Label>
@@ -568,6 +970,78 @@ const Locations = () => {
                   </div>
                 </div>
 
+                {/* Upload Documents & Permits */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-semibold flex items-center gap-1.5">
+                      <FileText className="h-4 w-4 text-indigo-600" />
+                      Location Documents & Permits
+                    </Label>
+                    <span className="text-xs text-muted-foreground">PDF, Word, Excel, Permits</span>
+                  </div>
+                  <div className="space-y-2">
+                    {formData.documents && formData.documents.length > 0 && (
+                      <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                        {formData.documents.map((doc, i) => (
+                          <div key={i} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-900/40 rounded-lg border border-slate-200 text-xs">
+                            <div className="flex items-center gap-2 overflow-hidden mr-2">
+                              <FileText className="h-4 w-4 text-indigo-600 shrink-0" />
+                              <span className="font-medium truncate max-w-[220px]">{doc.fileName}</span>
+                              {doc.size ? <span className="text-[10px] text-muted-foreground">({Math.round(doc.size / 1024)} KB)</span> : null}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setFormData({...formData, documents: formData.documents.filter((_, idx) => idx !== i)})}
+                              className="text-rose-500 hover:text-rose-700 p-1"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => document.getElementById('add-location-docs')?.click()}
+                      className="w-full border-dashed border-2 hover:border-indigo-400 hover:bg-indigo-50/50 py-3 flex items-center justify-center gap-2 text-xs font-semibold text-indigo-600 rounded-lg"
+                    >
+                      <Upload className="h-4 w-4" />
+                      Upload Documents / Permits
+                    </Button>
+                    <input
+                      id="add-location-docs"
+                      type="file"
+                      className="hidden"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,image/*"
+                      multiple
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files || []);
+                        files.forEach(file => {
+                          const reader = new FileReader();
+                          reader.onload = (re) => {
+                            setFormData(prev => ({
+                              ...prev,
+                              documents: [
+                                ...(prev.documents || []),
+                                {
+                                  fileName: file.name,
+                                  url: re.target?.result as string,
+                                  fileType: file.type,
+                                  size: file.size,
+                                  uploadedAt: new Date().toISOString()
+                                }
+                              ]
+                            }));
+                          };
+                          reader.readAsDataURL(file);
+                        });
+                      }}
+                    />
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                     <Label className="text-sm font-semibold">Business Units</Label>
                     <div className="flex flex-wrap gap-2 mb-2">
@@ -601,6 +1075,11 @@ const Locations = () => {
                     </div>
                 </div>
 
+                <ComplianceChecklistFormSection
+                  checklist={formData.complianceChecklist || DEFAULT_COMPLIANCE_CHECKLIST}
+                  onChange={(cl) => setFormData({ ...formData, complianceChecklist: cl })}
+                />
+
                 <div className="space-y-2">
                   <Label htmlFor="notes" className="text-sm font-semibold">Notes</Label>
                   <Textarea id="notes" value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} placeholder="Any additional information..." className="min-h-[100px] border-slate-200 focus:ring-2 focus:ring-blue-500/20" />
@@ -624,13 +1103,14 @@ const Locations = () => {
 
             <div className="p-6 bg-slate-50 flex flex-col sm:flex-row justify-end gap-3 border-t">
               <Button variant="outline" onClick={() => setAddLocationOpen(false)} className="border-0 shadow-none hover:bg-slate-100 font-medium text-slate-600 order-2 sm:order-1">Discard</Button>
-              <Button onClick={handleAddLocation} disabled={submitLoading} className="bg-blue-600 hover:bg-blue-700 text-white px-8 shadow-lg shadow-blue-500/20 font-bold order-1 sm:order-2">
+              <Button onClick={handleAddLocation} disabled={submitLoading} className="bg-blue-600 hover:bg-blue-700 text-white px-4 sm:px-8 shadow-lg shadow-blue-500/20 font-bold order-1 sm:order-2">
                 {submitLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
                 Confirm & Create
               </Button>
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -646,7 +1126,7 @@ const Locations = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground mb-1">{stat.label}</p>
-                  <p className="text-3xl font-bold text-slate-900 dark:text-white">{stat.value}</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">{stat.value}</p>
                 </div>
                 <div className={cn("h-12 w-12 rounded-xl flex items-center justify-center bg-opacity-10", `bg-${stat.color}-500`)}>
                   <stat.icon className={cn("h-6 w-6", `text-${stat.color}-500`)} />
@@ -784,9 +1264,15 @@ const Locations = () => {
                             <MoreHorizontal className="h-4 w-4 text-slate-500" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-40 rounded-xl border-slate-100 shadow-xl p-1">
+                        <DropdownMenuContent align="end" className="w-44 rounded-xl border-slate-100 shadow-xl p-1">
                           <DropdownMenuItem onClick={() => handleViewDetails(location)} className="rounded-lg gap-2 cursor-pointer focus:bg-blue-50 focus:text-blue-600">
                              <Eye className="h-4 w-4" /> View Info
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleViewDetails(location, "paint")} className="rounded-lg gap-2 cursor-pointer focus:bg-purple-50 focus:text-purple-600 text-purple-600 font-medium">
+                             <Palette className="h-4 w-4" /> Paint & Finishes
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => navigate(`/admin/phone-directory?locationId=${location.id}`)} className="rounded-lg gap-2 cursor-pointer focus:bg-emerald-50 focus:text-emerald-600 text-emerald-600 font-medium">
+                             <Phone className="h-4 w-4" /> Phone Directory
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleEditLocation(location)} className="rounded-lg gap-2 cursor-pointer focus:bg-amber-50 focus:text-amber-600">
                              <Edit className="h-4 w-4" /> Edit Record
@@ -807,7 +1293,7 @@ const Locations = () => {
 
       {/* View Details Modal */}
       <Dialog open={viewDetailsOpen} onOpenChange={setViewDetailsOpen}>
-        <DialogContent className="w-[95vw] max-w-2xl p-0 overflow-hidden rounded-xl border-0 shadow-2xl max-h-[90vh] flex flex-col">
+        <DialogContent className="w-[95vw] max-w-4xl p-0 overflow-hidden rounded-2xl border-0 shadow-2xl max-h-[92vh] flex flex-col">
           <div className="bg-slate-900 p-6 text-white relative">
             <div className="flex items-center gap-4">
                <div className="h-16 w-16 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20">
@@ -827,7 +1313,45 @@ const Locations = () => {
                </div>
             </div>
           </div>
-          
+
+          {/* Navigation Tabs */}
+          <div className="flex border-b border-slate-200 bg-slate-100 px-6 gap-2 text-xs">
+            <button
+              type="button"
+              onClick={() => setViewDetailTab("overview")}
+              className={`py-2.5 px-3 border-b-2 font-bold transition-all ${
+                viewDetailTab === "overview"
+                  ? "border-blue-600 text-blue-700 bg-white"
+                  : "border-transparent text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Overview & Site Info
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewDetailTab("paint")}
+              className={`py-2.5 px-3 border-b-2 font-bold transition-all flex items-center gap-1.5 ${
+                viewDetailTab === "paint"
+                  ? "border-blue-600 text-blue-700 bg-white"
+                  : "border-transparent text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Palette className="h-3.5 w-3.5 text-blue-600" />
+              Paint & Finishes
+            </button>
+          </div>
+
+          {viewDetailTab === "paint" ? (
+            selectedLocation ? (
+              <div className="p-6 flex-1 overflow-y-auto min-h-0">
+                <PaintRegistryTab
+                  propertyId={selectedLocation.id}
+                  propertyName={selectedLocation.name}
+                  photoUrl={selectedLocation.photoDataUrl}
+                />
+              </div>
+            ) : null
+          ) : (
           <div className="p-6 flex-1 overflow-y-auto min-h-0">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                <div className="col-span-2 rounded-xl bg-slate-50 p-4 border border-slate-100 flex items-start gap-4">
@@ -838,7 +1362,7 @@ const Locations = () => {
                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Site Address</p>
                      <p className="text-slate-700 font-medium leading-relaxed">
                         {selectedLocation?.address},<br/>
-                        {selectedLocation?.city}, {selectedLocation?.country}
+                        {selectedLocation?.city}{selectedLocation?.state ? `, ${selectedLocation.state}` : ""}, {selectedLocation?.country}
                      </p>
                   </div>
                </div>
@@ -863,6 +1387,179 @@ const Locations = () => {
                     )) : <p className="text-slate-300 italic text-sm">No business units defined</p>}
                   </div>
                </div>
+
+               {/* Location Compliance Checklist */}
+               <div className="col-span-2 space-y-3 pt-4 border-t border-slate-100">
+                  <p className="text-xs font-bold text-blue-600 uppercase tracking-widest flex items-center gap-1.5">
+                    <Sparkles className="h-4 w-4 text-blue-500" /> Location Compliance Checklist
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200/60 text-xs">
+                    <div className="p-3 bg-white rounded-lg border flex flex-col justify-between">
+                      <div>
+                        <span className="font-bold text-slate-700">Water Utility</span>
+                        <Badge className="w-fit mt-1 text-[10px] bg-blue-100 text-blue-700 border-0">{selectedLocation?.complianceChecklist?.water?.status || "Pending"}</Badge>
+                        {selectedLocation?.complianceChecklist?.water?.notes && <p className="text-[11px] text-slate-500 mt-1.5 italic">"{selectedLocation.complianceChecklist.water.notes}"</p>}
+                      </div>
+                      {selectedLocation?.complianceChecklist?.water?.updatedBy && (
+                        <p className="text-[10px] text-slate-400 mt-2 pt-1 border-t border-slate-100">
+                          Verified by <span className="font-semibold text-slate-600">{selectedLocation.complianceChecklist.water.updatedBy}</span>
+                          {selectedLocation.complianceChecklist.water.updatedAt && ` on ${new Date(selectedLocation.complianceChecklist.water.updatedAt).toLocaleDateString()}`}
+                        </p>
+                      )}
+                    </div>
+                    <div className="p-3 bg-white rounded-lg border flex flex-col justify-between">
+                      <div>
+                        <span className="font-bold text-slate-700">Power Utility</span>
+                        <Badge className="w-fit mt-1 text-[10px] bg-amber-100 text-amber-700 border-0">{selectedLocation?.complianceChecklist?.power?.status || "Pending"}</Badge>
+                        {selectedLocation?.complianceChecklist?.power?.notes && <p className="text-[11px] text-slate-500 mt-1.5 italic">"{selectedLocation.complianceChecklist.power.notes}"</p>}
+                      </div>
+                      {selectedLocation?.complianceChecklist?.power?.updatedBy && (
+                        <p className="text-[10px] text-slate-400 mt-2 pt-1 border-t border-slate-100">
+                          Verified by <span className="font-semibold text-slate-600">{selectedLocation.complianceChecklist.power.updatedBy}</span>
+                          {selectedLocation.complianceChecklist.power.updatedAt && ` on ${new Date(selectedLocation.complianceChecklist.power.updatedAt).toLocaleDateString()}`}
+                        </p>
+                      )}
+                    </div>
+                    <div className="p-3 bg-white rounded-lg border flex flex-col justify-between">
+                      <div>
+                        <span className="font-bold text-slate-700">Town Permit for Demo</span>
+                        <Badge className="w-fit mt-1 text-[10px] bg-purple-100 text-purple-700 border-0">{selectedLocation?.complianceChecklist?.townPermitDemo?.status || "Pending"}</Badge>
+                        {selectedLocation?.complianceChecklist?.townPermitDemo?.notes && <p className="text-[11px] text-slate-500 mt-1.5 italic">"{selectedLocation.complianceChecklist.townPermitDemo.notes}"</p>}
+                      </div>
+                      {selectedLocation?.complianceChecklist?.townPermitDemo?.updatedBy && (
+                        <p className="text-[10px] text-slate-400 mt-2 pt-1 border-t border-slate-100">
+                          Verified by <span className="font-semibold text-slate-600">{selectedLocation.complianceChecklist.townPermitDemo.updatedBy}</span>
+                          {selectedLocation.complianceChecklist.townPermitDemo.updatedAt && ` on ${new Date(selectedLocation.complianceChecklist.townPermitDemo.updatedAt).toLocaleDateString()}`}
+                        </p>
+                      )}
+                    </div>
+                    <div className="p-3 bg-white rounded-lg border flex flex-col justify-between">
+                      <div>
+                        <span className="font-bold text-slate-700">Town Permit for Renovations</span>
+                        <Badge className="w-fit mt-1 text-[10px] bg-indigo-100 text-indigo-700 border-0">{selectedLocation?.complianceChecklist?.townPermitRenovations?.status || "Pending"}</Badge>
+                        {selectedLocation?.complianceChecklist?.townPermitRenovations?.notes && <p className="text-[11px] text-slate-500 mt-1.5 italic">"{selectedLocation.complianceChecklist.townPermitRenovations.notes}"</p>}
+                      </div>
+                      {selectedLocation?.complianceChecklist?.townPermitRenovations?.updatedBy && (
+                        <p className="text-[10px] text-slate-400 mt-2 pt-1 border-t border-slate-100">
+                          Verified by <span className="font-semibold text-slate-600">{selectedLocation.complianceChecklist.townPermitRenovations.updatedBy}</span>
+                          {selectedLocation.complianceChecklist.townPermitRenovations.updatedAt && ` on ${new Date(selectedLocation.complianceChecklist.townPermitRenovations.updatedAt).toLocaleDateString()}`}
+                        </p>
+                      )}
+                    </div>
+                    <div className="p-3 bg-white rounded-lg border flex flex-col justify-between">
+                      <div>
+                        <span className="font-bold text-slate-700">Site Plan Review</span>
+                        <Badge className="w-fit mt-1 text-[10px] bg-emerald-100 text-emerald-700 border-0">{selectedLocation?.complianceChecklist?.sitePlanReview?.option || "Needed"}</Badge>
+                        {selectedLocation?.complianceChecklist?.sitePlanReview?.notes && <p className="text-[11px] text-slate-500 mt-1.5 italic">"{selectedLocation.complianceChecklist.sitePlanReview.notes}"</p>}
+                      </div>
+                      {selectedLocation?.complianceChecklist?.sitePlanReview?.updatedBy && (
+                        <p className="text-[10px] text-slate-400 mt-2 pt-1 border-t border-slate-100">
+                          Verified by <span className="font-semibold text-slate-600">{selectedLocation.complianceChecklist.sitePlanReview.updatedBy}</span>
+                          {selectedLocation.complianceChecklist.sitePlanReview.updatedAt && ` on ${new Date(selectedLocation.complianceChecklist.sitePlanReview.updatedAt).toLocaleDateString()}`}
+                        </p>
+                      )}
+                    </div>
+                    <div className="p-3 bg-white rounded-lg border flex flex-col justify-between">
+                      <div>
+                        <span className="font-bold text-slate-700">Certificate of Occupancy</span>
+                        <Badge className="w-fit mt-1 text-[10px] bg-green-100 text-green-700 border-0">{selectedLocation?.complianceChecklist?.certificateOfOccupancy?.status || "Pending"}</Badge>
+                        {selectedLocation?.complianceChecklist?.certificateOfOccupancy?.date && <p className="text-[10px] text-slate-400 mt-1 font-mono">Date: {selectedLocation.complianceChecklist.certificateOfOccupancy.date}</p>}
+                        {selectedLocation?.complianceChecklist?.certificateOfOccupancy?.notes && <p className="text-[11px] text-slate-500 mt-1.5 italic">"{selectedLocation.complianceChecklist.certificateOfOccupancy.notes}"</p>}
+                      </div>
+                      {selectedLocation?.complianceChecklist?.certificateOfOccupancy?.updatedBy && (
+                        <p className="text-[10px] text-slate-400 mt-2 pt-1 border-t border-slate-100">
+                          Verified by <span className="font-semibold text-slate-600">{selectedLocation.complianceChecklist.certificateOfOccupancy.updatedBy}</span>
+                          {selectedLocation.complianceChecklist.certificateOfOccupancy.updatedAt && ` on ${new Date(selectedLocation.complianceChecklist.certificateOfOccupancy.updatedAt).toLocaleDateString()}`}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+               </div>
+
+                {/* Attached Phone Directory & Emergency Contacts */}
+                <div className="col-span-2 space-y-3 pt-4 border-t border-slate-100">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-slate-800 uppercase tracking-widest flex items-center gap-1.5">
+                      <Phone className="h-4 w-4 text-emerald-600" />
+                      Attached Phone Directory ({locationContacts.length})
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setViewDetailsOpen(false);
+                        navigate(`/admin/phone-directory?locationId=${selectedLocation?.id}`);
+                      }}
+                      className="h-7 text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
+                    >
+                      <ExternalLink className="h-3 w-3 mr-1" />
+                      Open Full Directory
+                    </Button>
+                  </div>
+
+                  {contactsLoading ? (
+                    <div className="flex items-center justify-center py-6 text-xs text-slate-400">
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Loading directory contacts...
+                    </div>
+                  ) : locationContacts.length === 0 ? (
+                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/60 text-center space-y-2">
+                      <p className="text-xs text-slate-500">
+                        No emergency services or phone contacts currently attached to this location.
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setViewDetailsOpen(false);
+                          navigate(`/admin/phone-directory?locationId=${selectedLocation?.id}`);
+                        }}
+                        className="h-7 text-xs bg-white text-blue-600 border-blue-200 hover:bg-blue-50"
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        Attach Phone Number to {selectedLocation?.name}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {locationContacts.map((contact) => (
+                        <div
+                          key={contact.id || contact._id}
+                          className="p-3 bg-slate-50 rounded-lg border border-slate-200/70 flex items-center justify-between hover:bg-slate-100/70 transition-colors"
+                        >
+                          <div className="min-w-0 pr-2">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
+                                {contact.category}
+                              </span>
+                              {contact.priority === "emergency" && (
+                                <span className="text-[9px] font-bold text-red-600 bg-red-100 px-1 rounded">
+                                  EMERGENCY
+                                </span>
+                              )}
+                            </div>
+                            <p className="font-semibold text-xs text-slate-800 truncate mt-1">
+                              {contact.name}
+                            </p>
+                            <p className="font-mono text-xs text-slate-600 font-bold">
+                              {contact.phoneNumber}
+                              {contact.extension ? ` (x${contact.extension})` : ""}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <a
+                              href={`tel:${contact.phoneNumber.replace(/[^\d+]/g, "")}`}
+                              className="h-7 px-2.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1 shadow-sm"
+                            >
+                              <Phone className="h-3 w-3" />
+                              Call
+                            </a>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                {selectedLocation?.notes && (
                  <div className="col-span-2 pt-4 border-t border-slate-100">
@@ -889,8 +1586,37 @@ const Locations = () => {
                    </div>
                  </div>
                )}
+
+               {selectedLocation?.documents && selectedLocation.documents.length > 0 && (
+                 <div className="col-span-2 pt-4 border-t border-slate-100">
+                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                     <FileText className="h-4 w-4 text-indigo-600" />
+                     Uploaded Documents & Permits ({selectedLocation.documents.length})
+                   </p>
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                     {selectedLocation.documents.map((doc, i) => (
+                       <a
+                         key={i}
+                         href={doc.url}
+                         download={doc.fileName}
+                         target="_blank"
+                         rel="noreferrer"
+                         className="flex items-center justify-between p-2.5 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors text-xs font-medium text-slate-800 group"
+                       >
+                         <div className="flex items-center gap-2 overflow-hidden mr-2">
+                           <FileText className="h-4 w-4 text-indigo-600 shrink-0" />
+                           <span className="truncate">{doc.fileName}</span>
+                         </div>
+                         <Download className="h-4 w-4 text-indigo-600 group-hover:text-indigo-800 shrink-0" />
+                       </a>
+                     ))}
+                   </div>
+                 </div>
+               )}
             </div>
           </div>
+
+          )}
 
           <div className="p-4 bg-slate-50 border-t flex justify-end">
              <Button onClick={() => setViewDetailsOpen(false)} className="bg-slate-800 hover:bg-slate-900 text-white font-bold px-10">Done</Button>
@@ -933,10 +1659,14 @@ const Locations = () => {
                 <Input value={editFormData.address} onChange={(e) => setEditFormData({...editFormData, address: e.target.value})} className="border-slate-200" />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold">City *</Label>
                   <Input value={editFormData.city} onChange={(e) => setEditFormData({...editFormData, city: e.target.value})} className="border-slate-200" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold">State / Province</Label>
+                  <Input value={editFormData.state} onChange={(e) => setEditFormData({...editFormData, state: e.target.value})} placeholder="e.g. NY, TX, CA" className="border-slate-200" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold">Country *</Label>
@@ -993,6 +1723,78 @@ const Locations = () => {
                 </div>
               </div>
 
+              {/* Upload Documents & Permits */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-semibold flex items-center gap-1.5">
+                    <FileText className="h-4 w-4 text-indigo-600" />
+                    Location Documents & Permits
+                  </Label>
+                  <span className="text-xs text-muted-foreground">PDF, Word, Excel, Permits</span>
+                </div>
+                <div className="space-y-2">
+                  {editFormData.documents && editFormData.documents.length > 0 && (
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                      {editFormData.documents.map((doc, i) => (
+                        <div key={i} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-900/40 rounded-lg border border-slate-200 text-xs">
+                          <div className="flex items-center gap-2 overflow-hidden mr-2">
+                            <FileText className="h-4 w-4 text-indigo-600 shrink-0" />
+                            <span className="font-medium truncate max-w-[220px]">{doc.fileName}</span>
+                            {doc.size ? <span className="text-[10px] text-muted-foreground">({Math.round(doc.size / 1024)} KB)</span> : null}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setEditFormData({...editFormData, documents: editFormData.documents.filter((_, idx) => idx !== i)})}
+                            className="text-rose-500 hover:text-rose-700 p-1"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => document.getElementById('edit-location-docs')?.click()}
+                    className="w-full border-dashed border-2 hover:border-indigo-400 hover:bg-indigo-50/50 py-3 flex items-center justify-center gap-2 text-xs font-semibold text-indigo-600 rounded-lg"
+                  >
+                    <Upload className="h-4 w-4" />
+                    Upload Documents / Permits
+                  </Button>
+                  <input
+                    id="edit-location-docs"
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,image/*"
+                    multiple
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      files.forEach(file => {
+                        const reader = new FileReader();
+                        reader.onload = (re) => {
+                          setEditFormData(prev => ({
+                            ...prev,
+                            documents: [
+                              ...(prev.documents || []),
+                              {
+                                fileName: file.name,
+                                url: re.target?.result as string,
+                                fileType: file.type,
+                                size: file.size,
+                                uploadedAt: new Date().toISOString()
+                              }
+                            ]
+                          }));
+                        };
+                        reader.readAsDataURL(file);
+                      });
+                    }}
+                  />
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label className="text-sm font-semibold">Status Override</Label>
                 <Select value={editFormData.status} onValueChange={(v) => setEditFormData({...editFormData, status: v as Location["status"]})}>
@@ -1006,6 +1808,11 @@ const Locations = () => {
                 </Select>
               </div>
 
+              <ComplianceChecklistFormSection
+                checklist={editFormData.complianceChecklist || DEFAULT_COMPLIANCE_CHECKLIST}
+                onChange={(cl) => setEditFormData({ ...editFormData, complianceChecklist: cl })}
+              />
+
               <div className="space-y-2">
                 <Label className="text-sm font-semibold">Internal Notes</Label>
                 <Textarea value={editFormData.notes} onChange={(e) => setEditFormData({...editFormData, notes: e.target.value})} className="min-h-[100px] border-slate-200" />
@@ -1015,7 +1822,7 @@ const Locations = () => {
 
           <div className="p-6 bg-slate-50 border-t flex flex-col sm:flex-row justify-end gap-3">
              <Button variant="outline" onClick={() => setEditLocationOpen(false)} className="font-semibold text-slate-500 border-0 hover:bg-slate-100 order-2 sm:order-1">Cancel Changes</Button>
-             <Button onClick={saveEditLocation} disabled={submitLoading} className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 shadow-lg shadow-blue-500/30 order-1 sm:order-2">
+             <Button onClick={saveEditLocation} disabled={submitLoading} className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 sm:px-8 shadow-lg shadow-blue-500/30 order-1 sm:order-2">
                {submitLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
                Update Record
              </Button>
@@ -1026,7 +1833,7 @@ const Locations = () => {
       {/* Archive Modal */}
       <Dialog open={deactivateConfirmOpen} onOpenChange={setDeactivateConfirmOpen}>
         <DialogContent className="max-w-md p-0 overflow-hidden rounded-2xl border-0 shadow-2xl">
-          <div className="p-8 text-center">
+          <div className="p-4 sm:p-8 text-center">
             <div className={cn(
               "h-20 w-20 rounded-full mx-auto flex items-center justify-center mb-6",
               selectedLocation?.status === 'active' ? "bg-amber-100" : "bg-blue-100"

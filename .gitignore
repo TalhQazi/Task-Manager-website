@@ -1,10 +1,14 @@
 node_modules
 .env
 .env.local
-.env.*
+.env
 .sixth
 .vscode
 dist
 dist-ssr
 *.local
 .DS_Store
+Signacore_Agent_Spec_v1.0.docx
+signacore-api/
+*.pdf
+*.py

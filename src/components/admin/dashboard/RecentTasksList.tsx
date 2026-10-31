@@ -54,8 +54,9 @@ export function RecentTasksList({ basePath = "/admin/tasks" }: { basePath?: stri
         if (!mounted) return;
         if (isInitial) setApiError(e instanceof Error ? e.message : "Failed to load tasks");
       } finally {
-        if (!mounted) return;
-        if (isInitial) setLoading(false);
+        if (mounted) {
+          if (isInitial) setLoading(false);
+        }
       }
     };
     void load(true);
