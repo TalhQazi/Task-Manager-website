@@ -17,6 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
+import { Label } from "@/components/admin/ui/label";
 import { Progress } from "@/components/ui/progress";
 import {
   Table,

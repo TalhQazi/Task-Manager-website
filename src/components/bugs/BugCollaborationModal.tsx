@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { apiFetch, toProxiedUrl } from "@/lib/manger/api";
 import { getAuthState } from "@/lib/auth";
+import { getEmployeeAuth } from "@/Employee/lib/auth";
 
 type BugItem = {
   id: string;
@@ -156,8 +157,9 @@ const getStatusBadge = (status: string) => {
 
 export default function BugCollaborationModal({ bugId, open, onOpenChange, onBugUpdated }: BugCollaborationModalProps) {
   const auth = getAuthState();
-  const currentUsername = String(auth.username || auth.name || "User").trim();
-  const currentRole = String(auth.role || "").toLowerCase();
+  const empAuth = getEmployeeAuth();
+  const currentUsername = String(empAuth?.username || empAuth?.name || auth.username || auth.name || "User").trim();
+  const currentRole = String(empAuth?.role || auth.role || "").toLowerCase();
   const isAdmin = ["admin", "super-admin"].includes(currentRole);
 
   const [bug, setBug] = useState<BugItem | null>(null);

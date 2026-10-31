@@ -54,7 +54,9 @@ export default function ExternalWebsiteIntegrationModal({
   const [testError, setTestError] = useState<string | null>(null);
 
   // Resolve backend origin
-  const apiBase = typeof window !== "undefined" ? window.location.origin : "https://task.se7eninc.com";
+  const apiBase =
+    String(import.meta.env.VITE_API_URL || "").trim().replace(/\/$/, "") ||
+    (typeof window !== "undefined" ? window.location.origin : "https://task.se7eninc.com");
 
   useEffect(() => {
     if (!open) return;

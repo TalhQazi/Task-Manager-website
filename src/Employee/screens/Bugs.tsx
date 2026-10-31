@@ -18,6 +18,7 @@ import { Bug, Plus, Globe } from "lucide-react";
 import BugDashboardAnalytics from "@/components/bugs/BugDashboardAnalytics";
 import ReportBugModal from "@/components/bugs/ReportBugModal";
 import BugCollaborationModal from "@/components/bugs/BugCollaborationModal";
+import ExternalWebsiteIntegrationModal from "@/components/bugs/ExternalWebsiteIntegrationModal";
 
 type BugItem = {
   id: string;
@@ -52,11 +53,13 @@ export default function EmployeeBugs() {
 
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [siteFilter, setSiteFilter] = useState("all");
 
   const [collabOpen, setCollabOpen] = useState(false);
   const [selectedBugId, setSelectedBugId] = useState<string | null>(null);
 
   const [reportOpen, setReportOpen] = useState(false);
+  const [integrationOpen, setIntegrationOpen] = useState(false);
 
   const load = async () => {
     try {
@@ -100,6 +103,14 @@ export default function EmployeeBugs() {
     void load();
   }, []);
 
+  const availableWebsites = useMemo(() => {
+    const set = new Set<string>();
+    items.forEach((b) => {
+      if (b.websiteName) set.add(b.websiteName);
+    });
+    return Array.from(set).sort();
+  }, [items]);
+
   const filtered = useMemo(() => {
     let list = items;
     if (statusFilter !== "all") {
@@ -108,13 +119,17 @@ export default function EmployeeBugs() {
       else list = list.filter((b) => (b.status || "").toUpperCase() === statusFilter.toUpperCase());
     }
 
+    if (siteFilter !== "all") {
+      list = list.filter((b) => (b.websiteName || "Task Manager").toLowerCase() === siteFilter.toLowerCase());
+    }
+
     const query = q.trim().toLowerCase();
     if (!query) return list;
     return list.filter((b) => {
-      const where = `${b.title} ${b.description} ${b.taskTitle || ""} ${b.createdByUsername || ""} ${b.assignedDeveloperName || ""} ${b.module || ""} ${b.source?.path || ""}`.toLowerCase();
+      const where = `${b.title} ${b.description} ${b.taskTitle || ""} ${b.createdByUsername || ""} ${b.assignedDeveloperName || ""} ${b.module || ""} ${b.websiteName || ""} ${b.reporterName || ""} ${b.source?.path || ""}`.toLowerCase();
       return where.includes(query);
     });
-  }, [items, q, statusFilter]);
+  }, [items, q, statusFilter, siteFilter]);
 
   const openBug = (b: BugItem) => {
     setSelectedBugId(b.id);
@@ -137,6 +152,14 @@ export default function EmployeeBugs() {
           <Button variant="outline" onClick={() => void load()} disabled={loading} size="sm">
             Refresh
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIntegrationOpen(true)}
+            className="gap-1.5 border-primary/40 text-primary hover:bg-primary/5 font-medium"
+          >
+            <Globe className="h-4 w-4" /> External Integration
+          </Button>
           <Button onClick={() => setReportOpen(true)} size="sm" className="gap-1.5">
             <Plus className="h-4 w-4" /> Report Bug
           </Button>
@@ -152,27 +175,43 @@ export default function EmployeeBugs() {
       )}
 
       <Card className="shadow-sm border">
-        <CardContent className="p-3 sm:p-4 flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
+        <CardContent className="p-3 sm:p-4 flex flex-col md:flex-row gap-3 sm:items-center justify-between">
           <div className="relative flex-1 max-w-md">
             <Input
-              placeholder="Search bugs..."
+              placeholder="Search bugs by title, desc, website, reporter..."
               className="h-9 text-xs sm:text-sm"
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />
           </div>
 
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[130px] h-9 text-xs">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="open">Open Bugs</SelectItem>
-              <SelectItem value="AWAITING_REPORTER_CONFIRMATION">Awaiting Verification</SelectItem>
-              <SelectItem value="closed">Closed Bugs</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={siteFilter} onValueChange={setSiteFilter}>
+              <SelectTrigger className="w-[140px] sm:w-[160px] h-9 text-xs">
+                <SelectValue placeholder="All Websites" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Websites</SelectItem>
+                {availableWebsites.map((w) => (
+                  <SelectItem key={w} value={w}>
+                    {w}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[130px] h-9 text-xs">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="open">Open Bugs</SelectItem>
+                <SelectItem value="AWAITING_REPORTER_CONFIRMATION">Awaiting Verification</SelectItem>
+                <SelectItem value="closed">Closed Bugs</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </CardContent>
       </Card>
 
@@ -257,6 +296,12 @@ export default function EmployeeBugs() {
         onOpenChange={setReportOpen}
         onSuccess={() => void load()}
         defaultSourcePanel="employee"
+      />
+
+      <ExternalWebsiteIntegrationModal
+        open={integrationOpen}
+        onOpenChange={setIntegrationOpen}
+        onBugSubmitted={() => void load()}
       />
     </div>
   );

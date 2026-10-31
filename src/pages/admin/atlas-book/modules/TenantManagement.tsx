@@ -25,6 +25,7 @@ export default function TenantManagement() {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("Active");
   const [open, setOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -246,13 +247,35 @@ export default function TenantManagement() {
     }
   };
 
-  const filtered = items.filter(i => 
-    i.name?.toLowerCase().includes(q.toLowerCase()) || 
-    i.email?.toLowerCase().includes(q.toLowerCase()) ||
-    i.assignedProperty?.toLowerCase().includes(q.toLowerCase()) ||
-    i.assignedUnit?.toLowerCase().includes(q.toLowerCase()) ||
-    i.locationName?.toLowerCase().includes(q.toLowerCase())
-  );
+  const activeCount = items.filter(i => (i.status || "Active").trim().toLowerCase() === "active").length;
+  const inactiveCount = items.filter(i => (i.status || "").trim().toLowerCase() === "inactive").length;
+  const allCount = items.length;
+
+  const filtered = items.filter(i => {
+    // 1. Status Filter (Defaults to Active on startup)
+    const itemStatus = (i.status || "Active").trim().toLowerCase();
+    const filterLower = statusFilter.trim().toLowerCase();
+
+    if (filterLower !== "all") {
+      if (filterLower === "active" && itemStatus !== "active") return false;
+      if (filterLower === "inactive" && itemStatus !== "inactive") return false;
+      if (filterLower !== "active" && filterLower !== "inactive" && itemStatus !== filterLower) return false;
+    }
+
+    // 2. Search Query Filter
+    const query = q.trim().toLowerCase();
+    if (!query) return true;
+
+    return (
+      i.name?.toLowerCase().includes(query) || 
+      i.email?.toLowerCase().includes(query) ||
+      i.phone?.toLowerCase().includes(query) ||
+      i.assignedProperty?.toLowerCase().includes(query) ||
+      i.assignedUnit?.toLowerCase().includes(query) ||
+      i.locationName?.toLowerCase().includes(query) ||
+      i.address?.toLowerCase().includes(query)
+    );
+  });
 
   return (
     <div className="space-y-6">
@@ -271,9 +294,87 @@ export default function TenantManagement() {
       </div>
 
       <Card className="shadow-soft p-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-          <Input placeholder="Search tenants by name, email, property, unit, or location..." className="pl-10" value={q} onChange={(e) => setQ(e.target.value)} />
+        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              placeholder="Search tenants by name, email, property, unit, location, phone..."
+              className="pl-10"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+          </div>
+
+          {/* Quick Filter Chips: Active (Default), Inactive, All */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 shrink-0">
+            <Button
+              type="button"
+              size="sm"
+              variant={statusFilter === "Active" ? "default" : "outline"}
+              onClick={() => setStatusFilter("Active")}
+              className={`h-9 text-xs font-semibold rounded-lg px-3 shrink-0 gap-1.5 transition-all ${
+                statusFilter === "Active"
+                  ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                  : "hover:bg-emerald-50 text-slate-700 dark:text-slate-300"
+              }`}
+            >
+              <span className="h-2 w-2 rounded-full bg-emerald-400" />
+              Active
+              <Badge
+                variant="secondary"
+                className={`ml-1 text-[10px] px-1.5 py-0 h-4 ${
+                  statusFilter === "Active" ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {activeCount}
+              </Badge>
+            </Button>
+
+            <Button
+              type="button"
+              size="sm"
+              variant={statusFilter === "Inactive" ? "default" : "outline"}
+              onClick={() => setStatusFilter("Inactive")}
+              className={`h-9 text-xs font-semibold rounded-lg px-3 shrink-0 gap-1.5 transition-all ${
+                statusFilter === "Inactive"
+                  ? "bg-rose-600 hover:bg-rose-700 text-white"
+                  : "hover:bg-rose-50 text-slate-700 dark:text-slate-300"
+              }`}
+            >
+              <span className="h-2 w-2 rounded-full bg-rose-400" />
+              Inactive
+              <Badge
+                variant="secondary"
+                className={`ml-1 text-[10px] px-1.5 py-0 h-4 ${
+                  statusFilter === "Inactive" ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {inactiveCount}
+              </Badge>
+            </Button>
+
+            <Button
+              type="button"
+              size="sm"
+              variant={statusFilter === "All" ? "default" : "outline"}
+              onClick={() => setStatusFilter("All")}
+              className={`h-9 text-xs font-semibold rounded-lg px-3 shrink-0 gap-1.5 transition-all ${
+                statusFilter === "All"
+                  ? "bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900"
+                  : "hover:bg-slate-100 text-slate-700 dark:text-slate-300"
+              }`}
+            >
+              All
+              <Badge
+                variant="secondary"
+                className={`ml-1 text-[10px] px-1.5 py-0 h-4 ${
+                  statusFilter === "All" ? "bg-white/20 text-white dark:bg-black/20 dark:text-black" : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {allCount}
+              </Badge>
+            </Button>
+          </div>
         </div>
       </Card>
 
@@ -298,7 +399,29 @@ export default function TenantManagement() {
               {loading ? (
                 <TableRow><TableCell colSpan={10} className="text-center py-10"><RefreshCw className="animate-spin mx-auto" /></TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={10} className="text-center py-10 text-muted-foreground italic">No tenants found.</TableCell></TableRow>
+                <TableRow>
+                  <TableCell colSpan={10} className="text-center py-12 text-muted-foreground italic">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <p>
+                        {q
+                          ? `No tenants matching "${q}" with status "${statusFilter}".`
+                          : statusFilter === "All"
+                          ? "No tenants found."
+                          : `No ${statusFilter.toLowerCase()} tenants found.`}
+                      </p>
+                      {statusFilter !== "All" && allCount > 0 && (
+                        <Button
+                          variant="link"
+                          size="sm"
+                          onClick={() => setStatusFilter("All")}
+                          className="text-xs text-primary underline"
+                        >
+                          View all {allCount} tenants
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
               ) : (
                 filtered.map((item) => (
                   <TableRow key={item._id}>
