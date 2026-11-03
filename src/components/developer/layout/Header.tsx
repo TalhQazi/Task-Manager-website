@@ -123,7 +123,7 @@ export function Header({ onMenuClick }: HeaderProps) {
               <div className="absolute inset-0 -z-10 blur-2xl bg-blue-400/30 scale-110 rounded-full" />
               <img
                 src="/clock2.png"
-                alt="TaskManager by Reardon"
+                alt="Task Manager"
                 className="h-12 sm:h-16 md:h-32 lg:h-40 w-auto max-w-[140px] sm:max-w-[190px] md:max-w-[280px] lg:max-w-[380px] object-contain mix-blend-screen opacity-95 [mask-image:radial-gradient(closest-side,black_79%,transparent_100%)]"
               />
             </div>

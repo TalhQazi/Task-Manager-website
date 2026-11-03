@@ -195,7 +195,7 @@ const Index = () => {
         >
           <Button
             size="lg"
-            className="gap-2 text-lg px-8 py-6 rounded-full group"
+            className="gap-2 text-lg px-4 sm:px-8 py-6 rounded-full group"
             onClick={() => {
               // Add your navigation or action here
               console.log("Get started clicked!");

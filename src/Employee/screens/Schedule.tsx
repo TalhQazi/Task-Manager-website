@@ -137,7 +137,7 @@ export default function EmployeeSchedule() {
       <div className="space-y-6">
         <h1 className="text-2xl font-bold">My Schedule</h1>
         <Card>
-          <CardContent className="p-8 text-center">
+          <CardContent className="p-4 sm:p-8 text-center">
             <CalendarIcon className="h-12 w-12 mx-auto mb-3 text-gray-300 animate-pulse" />
             <p className="text-muted-foreground">Loading schedule...</p>
           </CardContent>
@@ -201,7 +201,7 @@ export default function EmployeeSchedule() {
         </CardHeader>
         <CardContent className="p-0">
           {upcomingEvents.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
+            <div className="p-4 sm:p-8 text-center text-gray-500">
               <CalendarIcon className="h-12 w-12 mx-auto mb-3 opacity-30" />
               <p>No upcoming events</p>
             </div>

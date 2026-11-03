@@ -190,7 +190,7 @@ export default function FounderMessagesManager() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Messages</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{messages.length}</div>
+            <div className="text-2xl sm:text-3xl font-bold">{messages.length}</div>
           </CardContent>
         </Card>
         <Card>
@@ -198,7 +198,7 @@ export default function FounderMessagesManager() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Active</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-green-600">{activeMessages.length}</div>
+            <div className="text-2xl sm:text-3xl font-bold text-green-600">{activeMessages.length}</div>
           </CardContent>
         </Card>
         <Card>
@@ -206,7 +206,7 @@ export default function FounderMessagesManager() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Inactive</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-gray-400">{inactiveMessages.length}</div>
+            <div className="text-2xl sm:text-3xl font-bold text-gray-400">{inactiveMessages.length}</div>
           </CardContent>
         </Card>
       </div>

@@ -21,16 +21,24 @@ import {
   Megaphone,
   Settings,
   Mail,
-  MapPin
+  MapPin,
+  BookText,
+  Video,
+  BarChart2,
 } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 
+import { getAuthState } from "@/lib/auth";
+import { useMemo } from "react";
+
 const navItemsBase = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/employee", end: true },
+  { icon: ClipboardCheck, label: "Compliance Center", path: "/employee/compliance-center" },
   { icon: Megaphone, label: "Announcements", path: "/employee/announcements" },
+  { icon: BarChart2, label: "Ideas & Polls", path: "/employee/polls" },
   { icon: ClipboardList, label: "My Tasks", path: "/employee/tasks" },
   { icon: MapPin, label: "Daily Itinerary", path: "/employee/itinerary" },
   { icon: Calendar, label: "Events", path: "/employee/schedule" },
@@ -42,27 +50,20 @@ const navItemsBase = [
   { icon: CalendarIcon, label: "Leave Requests", path: "/employee/leave-requests" },
   { icon: Calendar, label: "Travel Calendar", path: "/employee/travel-calendar" },
   { icon: MessageCircle, label: "Messages", path: "/employee/messages" },
+  { icon: Video, label: "Meetings", path: "/employee/meetings" },
   { icon: Folder, label: "Images", path: "/employee/asset-library" },
   { icon: FileText, label: "Company Information", path: "/employee/company-information" },
   // { icon: UserCircle, label: "Profile", path: "/employee/profile" },
   { icon: Bell, label: "Notifications", path: "/employee/notifications" },
-  { icon: FileText, label: "My Notes", path: "/employee/personal-notes" },
+  { icon: BookText, label: "Knowledge Vault", path: "/employee/knowledge-vault" },
   { icon: Palette, label: "Theme Engine", path: "/employee/ui-customization" },
   { icon: ShoppingCart, label: "Shopping Lists", path: "/employee/shopping-lists" },
   { icon: Bug, label: "Bugs", path: "/employee/bugs" },
+  { icon: FileText, label: "Weekly Reports", path: "/employee/eod-reports" },
   { icon: Mail, label: "Email Settings", path: "/employee/email-settings" },
   
   // 👇 Settings item ko yahan add karein (ye sort se pehle filter ho jayega)
   { icon: Settings, label: "Settings", path: "/employee/settings" },
-];
-
-// 🔥 Logic: Settings ko alag karein → baki ko sort karein → Settings ko end mein lagayein
-const settingsItem = navItemsBase.find(item => item.label === "Settings");
-const otherItems = navItemsBase.filter(item => item.label !== "Settings");
-
-const navItems = [
-  ...otherItems.sort((a, b) => a.label.localeCompare(b.label)),
-  ...(settingsItem ? [settingsItem] : [])  // Settings hamesha last mein
 ];
 
 type SidebarMode = "desktop" | "mobile";
@@ -74,8 +75,19 @@ interface EmployeeSidebarProps {
 
 export function EmployeeSidebar({ mode = "desktop", onNavigate }: EmployeeSidebarProps) {
   const navigate = useNavigate();
+  const auth = getAuthState();
   const topOffset = 300;
   const [sidebarBg, setSidebarBg] = useState("var(--tb-sidebar-bg, #0B1323)");
+
+  const navItems = useMemo(() => {
+    let items = [...navItemsBase];
+    const settingsItem = items.find(item => item.label === "Settings");
+    const otherItems = items.filter(item => item.label !== "Settings");
+    return [
+      ...otherItems.sort((a, b) => a.label.localeCompare(b.label)),
+      ...(settingsItem ? [settingsItem] : [])
+    ];
+  }, []);
 
   const isMobile = mode === "mobile";
 
@@ -110,7 +122,10 @@ export function EmployeeSidebar({ mode = "desktop", onNavigate }: EmployeeSideba
             key={item.path}
             to={item.path}
             end={(item as any).end}
-            className="group relative flex h-10 w-full items-center gap-3 rounded-lg px-3 text-white/60 hover:bg-white/[0.04] hover:text-white transition-all duration-100 linear"
+            className={cn(
+              "group relative flex w-full items-center gap-3 rounded-lg text-white/60 hover:bg-white/[0.04] hover:text-white transition-all duration-100 linear shrink-0",
+              isMobile ? "h-16 px-4" : "h-10 px-3"
+            )}
             activeClassName="bg-white/[0.06] text-white"
             onClick={handleNavigate}
           >
@@ -119,17 +134,24 @@ export function EmployeeSidebar({ mode = "desktop", onNavigate }: EmployeeSideba
                 {/* Active indicator bar */}
                 <span 
                   className={cn(
-                    "absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full",
+                    "absolute left-0 top-1/2 -translate-y-1/2 w-[3px] rounded-r-full",
                     "bg-gradient-to-b from-[#00C6FF] to-[#0072FF]",
-                    "transition-all duration-[120ms] ease-in-out",
-                    isActive ? "opacity-100" : "opacity-0"
+                    "transition-all duration-150 ease-in-out",
+                    isActive ? "opacity-100" : "opacity-0",
+                    isMobile ? "h-10" : "h-6"
                   )} 
                 />
                 <item.icon
-                  className="h-5 w-5 flex-shrink-0 transition-all duration-100 linear relative z-10 group-hover:brightness-[108%]"
+                  className={cn(
+                    "flex-shrink-0 transition-all duration-100 linear relative z-10 group-hover:brightness-[108%]",
+                    isMobile ? "h-7 w-7" : "h-5 w-5"
+                  )}
                   style={{ color: "var(--tb-sidebar-icon-color)" }}
                 />
-                <span className="text-sm font-medium truncate" style={{ color: "var(--tb-sidebar-text-color)" }}>
+                <span 
+                  className={cn("truncate", isMobile ? "text-lg font-semibold" : "text-sm font-medium")}
+                  style={{ color: "var(--tb-sidebar-text-color)" }}
+                >
                   {item.label}
                 </span>
               </>

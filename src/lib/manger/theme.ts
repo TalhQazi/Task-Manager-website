@@ -63,8 +63,8 @@ export const themePresets: Record<string, {
 
 export function applyFullTheme(theme: string, textColor?: string, cardStyle?: string) {
   const root = document.documentElement;
-  const preset = themePresets[theme] || themePresets["dark-minimal"];
-  const resolvedText = textColor || themeDefaults[theme] || "#ffffff";
+  const preset = themePresets[theme] || themePresets["metallic-elite"];
+  const resolvedText = textColor || themeDefaults[theme] || themeDefaults["metallic-elite"] || "#d4af37";
 
   // Body class
   document.body.className = document.body.className.replace(/\btb-theme-[a-z-]+\b/g, "");
@@ -99,10 +99,9 @@ export function applyFullTheme(theme: string, textColor?: string, cardStyle?: st
   root.style.setProperty("--tb-animation-speed", speedMap[preset.animationSpeed]);
 
   // Card style
-  if (cardStyle) {
-    root.style.setProperty("--tb-card-style", cardStyle);
-    document.body.setAttribute("data-tb-card-style", cardStyle);
-  }
+  const resolvedCardStyle = cardStyle || "metallic";
+  root.style.setProperty("--tb-card-style", resolvedCardStyle);
+  document.body.setAttribute("data-tb-card-style", resolvedCardStyle);
 
   // Layout density default
   root.style.setProperty("--tb-spacing", "1rem");

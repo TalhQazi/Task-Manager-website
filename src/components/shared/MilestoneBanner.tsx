@@ -47,7 +47,7 @@ export default function MilestoneBanner({ milestones, onSendMessage }: Milestone
               {milestones.map((milestone) => (
                 <div
                   key={milestone.id}
-                  className="flex items-center justify-between gap-2 bg-black/20 rounded-lg p-2"
+                  className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between bg-black/20 rounded-lg p-2"
                 >
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-purple-100">{milestone.employeeName}</span>

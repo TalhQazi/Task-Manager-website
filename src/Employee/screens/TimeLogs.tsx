@@ -101,9 +101,9 @@ export default function TimeLogs() {
                         {formatDate(log.clock_in)}
                       </div>
                       {log.clock_out ? (
-                        <Badge className="bg-green-100 text-green-700 hover:bg-green-100">Completed</Badge>
+                        <Badge className="bg-green-100 text-green-700 hover:bg-green-100">Complete</Badge>
                       ) : (
-                        <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">Active</Badge>
+                        <Badge className="bg-warning/10 text-warning hover:bg-warning/10 border border-warning/20">In Progress</Badge>
                       )}
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-sm">
@@ -178,9 +178,9 @@ export default function TimeLogs() {
                         </td>
                         <td className="py-3 px-4">
                           {log.clock_out ? (
-                            <Badge className="bg-green-100 text-green-700 hover:bg-green-100">Completed</Badge>
+                            <Badge className="bg-green-100 text-green-700 hover:bg-green-100">Complete</Badge>
                           ) : (
-                            <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">Active</Badge>
+                            <Badge className="bg-warning/10 text-warning hover:bg-warning/10 border border-warning/20">In Progress</Badge>
                           )}
                         </td>
                       </tr>

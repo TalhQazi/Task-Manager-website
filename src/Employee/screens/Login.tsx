@@ -165,10 +165,19 @@ export default function EmployeeLogin() {
 
               {/* Password Field - Enhanced */}
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                  <Lock className="h-4 w-4" />
-                  Password
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                    <Lock className="h-4 w-4" />
+                    Password
+                  </label>
+                  <button
+                    type="button"
+                    onClick={goToAdminLogin}
+                    className="text-xs text-[#133767] dark:text-blue-400 hover:underline font-medium"
+                  >
+                    Forgot Password?
+                  </button>
+                </div>
                 <div className="relative group">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-[#133767] transition-colors" />
                   <Input

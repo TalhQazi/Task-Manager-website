@@ -75,7 +75,7 @@ export default function EmergencyAlertOverlay({
           >
             {/* Header with gradient */}
             <motion.div
-              className="bg-gradient-to-r from-red-600 via-red-700 to-red-800 px-8 py-8 text-center relative overflow-hidden"
+              className="bg-gradient-to-r from-red-600 via-red-700 to-red-800 px-4 sm:px-8 py-8 text-center relative overflow-hidden"
               animate={{
                 backgroundPosition: ["0% 0%", "100% 100%"],
               }}
@@ -108,10 +108,10 @@ export default function EmergencyAlertOverlay({
             </motion.div>
 
             {/* Content */}
-            <div className="bg-gradient-to-b from-gray-900 to-black px-8 py-8 space-y-6 max-h-[60vh] overflow-y-auto">
+            <div className="bg-gradient-to-b from-gray-900 to-black px-4 sm:px-8 py-8 space-y-6 max-h-[60vh] overflow-y-auto">
               {/* Title */}
               <div>
-                <h2 className="text-3xl font-bold text-white mb-4">
+                <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
                   {announcement.title}
                 </h2>
               </div>
@@ -166,7 +166,7 @@ export default function EmergencyAlertOverlay({
             </div>
 
             {/* Footer */}
-            <div className="bg-gradient-to-r from-gray-800 to-gray-900 px-8 py-6 flex items-center justify-between border-t border-red-500/20">
+            <div className="bg-gradient-to-r from-gray-800 to-gray-900 px-4 sm:px-8 py-6 flex items-center justify-between border-t border-red-500/20">
               <div className="text-sm text-white/60">
                 Your response will be recorded
               </div>

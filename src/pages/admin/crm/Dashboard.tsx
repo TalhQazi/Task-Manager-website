@@ -123,7 +123,7 @@ function useCountUp(target: number | string, duration = 1200) {
 function SparkBar({ value, max }: { value: number; max: number }) {
   const pct = max > 0 ? (value / max) * 100 : 0;
   return (
-    <div className="flex items-end h-8 gap-0.5">
+    <div className="flex items-end h-8 gap-0.5 page-shell">
       {[0.4, 0.6, 0.5, 0.8, 0.7, pct / 100].map((v, i) => (
         <div
           key={i}
@@ -393,7 +393,7 @@ export default function CRMDashboard() {
         {/* ── Pipeline Funnel ── */}
         {conversionData.length > 0 && (
           <section className="bg-neutral-900/60 border border-neutral-800/80 rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
               <div>
                 <h2 className="text-base font-bold text-white">Pipeline Funnel</h2>
                 <p className="text-xs text-neutral-500 mt-0.5">Stage-by-stage conversion</p>

@@ -3,7 +3,8 @@ import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
 import { Badge } from "@/components/admin/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/admin/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/admin/ui/avatar";
+import { useEmployeeAvatars } from "@/hooks/useEmployeeAvatars";
 import { Progress } from "@/components/admin/ui/progress";
 import {
   Dialog,
@@ -101,6 +102,7 @@ const stepStatusClasses = {
 };
 
 const Onboarding = () => {
+  const getAvatar = useEmployeeAvatars();
   const [searchParams, setSearchParams] = useSearchParams();
   const [viewDetailsOpen, setViewDetailsOpen] = useState(false);
   const [selectedOnboarding, setSelectedOnboarding] = useState<OnboardingData | null>(null);
@@ -254,7 +256,7 @@ const Onboarding = () => {
 
   return (
     <>
-      <div className="pl-12 space-y-4 sm:space-y-5 md:space-y-6 pr-2 sm:pr-0">
+      <div className="px-2 sm:pl-6 space-y-4 sm:space-y-5 md:space-y-6 pr-2 sm:pr-0 page-shell">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6">
           <div className="space-y-1.5 sm:space-y-2">
             <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">
@@ -360,6 +362,7 @@ const Onboarding = () => {
                     <div className="flex flex-col sm:flex-row sm:items-start gap-4">
                       <div className="flex items-center gap-3 sm:flex-1">
                         <Avatar className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0">
+                          {getAvatar(onboarding.employeeName) && <AvatarImage src={getAvatar(onboarding.employeeName)} alt={onboarding.employeeName} className="object-cover" />}
                           <AvatarFallback className="bg-primary text-primary-foreground text-xs sm:text-sm">
                             {getInitials(onboarding.employeeName)}
                           </AvatarFallback>

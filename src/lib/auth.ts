@@ -11,6 +11,7 @@ export type ModuleKey =
   | "appliances"
   | "vehicles"
   | "locations"
+  | "paint_registry"
   | "scheduling"
   | "time_tracking"
   | "messaging"
@@ -30,6 +31,7 @@ export const MODULE_LABELS: Record<ModuleKey, string> = {
   appliances: "Appliances",
   vehicles: "Vehicles",
   locations: "Locations",
+  paint_registry: "Paint & Finish Registry",
   scheduling: "Scheduling",
   time_tracking: "Time Tracking",
   messaging: "Messaging",
@@ -57,6 +59,7 @@ export const DEFAULT_PERMISSION_MATRIX: PermissionMatrix = {
     appliances: true,
     vehicles: true,
     locations: true,
+    paint_registry: true,
     scheduling: true,
     time_tracking: true,
     messaging: true,
@@ -74,6 +77,7 @@ export const DEFAULT_PERMISSION_MATRIX: PermissionMatrix = {
     appliances: true,
     vehicles: true,
     locations: true,
+    paint_registry: true,
     scheduling: true,
     time_tracking: true,
     messaging: true,
@@ -91,6 +95,7 @@ export const DEFAULT_PERMISSION_MATRIX: PermissionMatrix = {
     appliances: false,
     vehicles: false,
     locations: false,
+    paint_registry: false,
     scheduling: true,
     time_tracking: true,
     messaging: true,
@@ -107,6 +112,8 @@ export type AuthState = {
   username: string | null;
   name?: string | null;
   token: string | null;
+  id?: string | null;
+  sub?: string | null;
 };
 
 const AUTH_STORAGE_KEY = "taskflow_auth";
@@ -117,6 +124,8 @@ const defaultState: AuthState = {
   role: null,
   username: null,
   token: null,
+  id: null,
+  sub: null,
 };
 
 export function getAuthState(): AuthState {
@@ -133,6 +142,8 @@ export function getAuthState(): AuthState {
       username: typeof parsed.username === "string" ? parsed.username : null,
       name: typeof parsed.name === "string" ? parsed.name : null,
       token: typeof parsed.token === "string" ? parsed.token : null,
+      id: typeof (parsed as any).id === "string" ? (parsed as any).id : null,
+      sub: typeof (parsed as any).sub === "string" ? (parsed as any).sub : null,
     };
   } catch {
     return defaultState;

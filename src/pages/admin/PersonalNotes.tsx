@@ -19,7 +19,7 @@ export default function AdminPersonalNotes() {
   return (
     <div className="p-6 h-full flex flex-col gap-6">
       <div className="flex flex-col gap-1">
-        <h1 className="text-3xl font-bold tracking-tight">Personal Workspace</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Personal Workspace</h1>
         <p className="text-muted-foreground">Keep your private notes and reminders in one place.</p>
       </div>
       <PersonalNotes 

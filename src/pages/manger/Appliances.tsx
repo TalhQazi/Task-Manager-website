@@ -924,7 +924,7 @@ export default function Appliances() {
           <motion.div 
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="p-8 text-center text-muted-foreground"
+            className="p-4 sm:p-8 text-center text-muted-foreground"
           >
             <motion.div
               animate={{ 

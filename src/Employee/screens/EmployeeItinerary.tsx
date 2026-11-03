@@ -200,7 +200,7 @@ export default function EmployeeItinerary() {
           </div>
           
           {totalCount > 0 && (
-            <div className="w-full md:w-auto bg-black/30 border border-white/5 rounded-xl p-4 flex flex-col items-end justify-center min-w-[200px]">
+            <div className="w-full md:w-auto bg-black/30 border border-white/5 rounded-xl p-4 flex flex-col items-end justify-center w-full sm:min-w-[200px] min-w-0">
               <div className="flex justify-between items-center w-full mb-1">
                 <span className="text-xs text-gray-400">Route Progress</span>
                 <span className="text-sm font-semibold text-indigo-400 font-mono">{progressPercent}%</span>
@@ -278,7 +278,7 @@ export default function EmployeeItinerary() {
                     <Navigation className="h-3 w-3" /> Launch GPS Navigation
                   </span>
                   
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <a 
                       href={getGoogleMapsUrl(activeStop)} 
                       target="_blank" 
@@ -328,7 +328,7 @@ export default function EmployeeItinerary() {
                 </div>
               </div>
             ) : (
-              <Card className="border border-emerald-500/30 bg-emerald-500/5 p-8 text-center rounded-2xl">
+              <Card className="border border-emerald-500/30 bg-emerald-500/5 p-4 sm:p-8 text-center rounded-2xl">
                 <CardContent className="flex flex-col items-center justify-center gap-4">
                   <div className="h-14 w-14 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/20 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
                     <Check className="h-8 w-8" />

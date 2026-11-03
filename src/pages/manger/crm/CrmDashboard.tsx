@@ -174,7 +174,7 @@ export default function CRMDashboard() {
 
               {/* Monthly Deals Bar Chart */}
               <div className="bg-background/60 border border-border/10 rounded-2xl p-6">
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
                   <div>
                     <h2 className="text-base font-bold text-foreground">Monthly Deals</h2>
                     <p className="text-xs text-muted-foreground mt-0.5">Closed & expected deal volume</p>
@@ -216,7 +216,7 @@ export default function CRMDashboard() {
 
               {/* Conversion Stages */}
               <div className="bg-neutral-900/60 border border-neutral-800/80 rounded-2xl p-6">
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
                   <div>
                     <h2 className="text-base font-bold text-white">Conversion Stages</h2>
                     <p className="text-xs text-neutral-500 mt-0.5">Stage-by-stage pipeline breakdown</p>

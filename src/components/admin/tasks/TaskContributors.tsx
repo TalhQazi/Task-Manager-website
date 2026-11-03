@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Users, Calendar, CheckCircle, Clock } from "lucide-react";
-import { getTaskContributors, getTaskContributionHistory } from "@/lib/admin/apiClient";
+import { getTaskContributors, getTaskContributionHistory, toProxiedUrl } from "@/lib/admin/apiClient";
 import { toast } from "sonner";
 
 interface TaskContributorsProps {
@@ -172,7 +172,7 @@ export function TaskContributors({ taskId }: TaskContributorsProps) {
                 className="flex items-start gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
               >
                 <Avatar className="h-10 w-10">
-                  <AvatarImage src={contributor.avatar} alt={contributor.name} />
+                  <AvatarImage src={toProxiedUrl(contributor.avatar) || contributor.avatar} alt={contributor.name} />
                   <AvatarFallback className="bg-[#133767] text-white text-sm">
                     {getInitials(contributor.name)}
                   </AvatarFallback>

@@ -1,7 +1,9 @@
 import { lazy, Suspense } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { EmployeeLayout } from "../components/layout/EmployeeLayout";
 import { getEmployeeAuth } from "../lib/auth";
+import { getAuthState } from "@/lib/auth";
+import { resolveMeetingRoomPath } from "@/pages/shared/MeetingJoinRedirect";
 import EmployeePayroll from "../screens/payroll";
 import TaxDocs from "../screens/TaxDocs";
 import TimeLogs from "../screens/TimeLogs";
@@ -16,7 +18,7 @@ const EmployeeClocked = lazy(() => import("../screens/Clocked"));
 const EmployeeMessages = lazy(() => import("../screens/Messages"));
 const EmployeeProfile = lazy(() => import("../screens/Profile"));
 const EmployeeNotifications = lazy(() => import("../screens/Notifications"));
-const EmployeePersonalNotes = lazy(() => import("../screens/PersonalNotes"));
+const KnowledgeVault = lazy(() => import("@/pages/admin/KnowledgeVault"));
 const EmployeeScrumRecords = lazy(() => import("../screens/ScrumRecords"));
 const EmployeeAssetLibrary = lazy(() => import("../screens/AssetLibrary"));
 const EmployeeCompanyInformation = lazy(() => import("../screens/CompanyInformation"));
@@ -26,12 +28,17 @@ const ShoppingLists = lazy(() => import("@/pages/admin/ShoppingLists"));
 const TravelCalendar = lazy(() => import("../screens/TravelCalendar"));
 const EmployeeBugs = lazy(() => import("../screens/Bugs"));
 const EmployeeAnnouncements = lazy(() => import("@/pages/employee/Announcements"));
+const EmployeePolls = lazy(() => import("../screens/Polls"));
 const EmployeeEmailSettings = lazy(() => import("../screens/EmailSettings"));
 const EmployeeItinerary = lazy(() => import("../screens/EmployeeItinerary"));
+const EmployeeEODReports = lazy(() => import("../screens/EmployeeEODReports"));
+const ComplianceCenter = lazy(() => import("@/pages/manger/ComplianceCenter"));
+const EmployeeMeetings = lazy(() => import("../screens/Meetings"));
+const MeetingRoom = lazy(() => import("@/pages/shared/MeetingRoom"));
 
 function PageLoader() {
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh" }}>
+    <div style={{ display: "flex", flex: 1, alignItems: "center", justifyContent: "center", height: "60vh" }}>
       <div style={{
         width: 36, height: 36,
         border: "3px solid rgba(255,255,255,0.1)",
@@ -45,29 +52,53 @@ function PageLoader() {
 }
 
 function EmployeeController() {
+  const location = useLocation();
   const employeeAuth = getEmployeeAuth();
-  
-  // Redirect to employee login if not authenticated
+
+  // Redirect to login if not authenticated as employee.
+  // If a manager/admin opens an /employee meeting link, send them to their own room instead of bouncing to dashboard.
   if (!employeeAuth) {
-    return <Navigate to="/login/employee" replace />;
+    const roomMatch = location.pathname.match(/\/meetings\/room\/([^/]+)/);
+    if (roomMatch?.[1]) {
+      const panelPath = resolveMeetingRoomPath(roomMatch[1]);
+      if (panelPath && !panelPath.startsWith("/employee/")) {
+        return <Navigate to={panelPath} replace />;
+      }
+      // Logged-in staff without a resolvable panel — use universal join
+      const auth = getAuthState();
+      if (auth.isAuthenticated) {
+        return <Navigate to={`/join/meeting/${encodeURIComponent(roomMatch[1])}`} replace />;
+      }
+    }
+
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ from: location }}
+      />
+    );
   }
 
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes>
+        <Route path="/meetings/room/:code" element={<MeetingRoom />} />
         <Route element={<EmployeeLayout />}>
           <Route path="/" element={<EmployeeDashboard />} />
           <Route path="/dashboard" element={<EmployeeDashboard />} />
+          <Route path="/compliance-center" element={<ComplianceCenter />} />
           <Route path="/tasks" element={<EmployeeTasks />} />
           <Route path="/tasks/:taskId" element={<EmployeeTaskDetails />} />
           <Route path="/schedule" element={<EmployeeSchedule />} />
           <Route path="/clocked" element={<EmployeeClocked />} />
           <Route path="/messages" element={<EmployeeMessages />} />
+          <Route path="/meetings" element={<EmployeeMeetings />} />
           <Route path="/asset-library" element={<EmployeeAssetLibrary />} />
           <Route path="/company-information" element={<EmployeeCompanyInformation />} />
           <Route path="/profile" element={<EmployeeProfile />} />
           <Route path="/notifications" element={<EmployeeNotifications />} />
-          <Route path="/personal-notes" element={<EmployeePersonalNotes />} />
+          <Route path="/knowledge-vault" element={<KnowledgeVault />} />
 
           <Route path="/scrum-records" element={<EmployeeScrumRecords />} />
           <Route path="/ui-customization" element={<EmployeeUICustomization />} />
@@ -81,8 +112,11 @@ function EmployeeController() {
           <Route path="/travel-calendar" element={<TravelCalendar />} />
           <Route path="/bugs" element={<EmployeeBugs />} />
           <Route path="/announcements" element={<EmployeeAnnouncements />} />
+          <Route path="/polls" element={<EmployeePolls />} />
           <Route path="/email-settings" element={<EmployeeEmailSettings />} />
+          <Route path="/settings" element={<EmployeeEmailSettings />} />
           <Route path="/itinerary" element={<EmployeeItinerary />} />
+          <Route path="/eod-reports" element={<EmployeeEODReports />} />
         </Route>
         <Route path="*" element={<Navigate to="/employee" replace />} />
       </Routes>

@@ -79,8 +79,9 @@ export function DayAheadCard({ basePath = "/admin/tasks" }: { basePath?: string 
         if (!mounted) return;
         setError(e instanceof Error ? e.message : "Failed to load today's tasks");
       } finally {
-        if (!mounted) return;
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
     void load();
