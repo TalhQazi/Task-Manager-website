@@ -44,6 +44,9 @@ type SystemSettings = {
     lunchBreakAlert: Template;
     meetingInvite?: Template;
     pollAssignment?: Template;
+    userBlocked?: Template;
+    userUnblocked?: Template;
+    userStatusChanged?: Template;
   };
   taskRewardSystemEnabled?: boolean;
   scheConfig?: {
@@ -51,6 +54,24 @@ type SystemSettings = {
     switchNeutralSeasonal: boolean;
     forceCompanyUnifiedTheme: string;
   };
+};
+
+const DEFAULT_USER_TEMPLATES: Record<string, Template> = {
+  userBlocked: {
+    enabled: true,
+    subject: "Account Suspended / Deactivated - Task Manager",
+    body: "Hello {name},\n\nThis notification is to inform you that your Task Manager account has been deactivated or blocked by an administrator.\n\nReason / Details: {reason}\n\nWhile your account is suspended, you will not be able to log in or access your tasks and projects. If you believe this is an error or require further assistance, please contact your administrator or support team.\n\nBest regards,\nTask Manager System",
+  },
+  userUnblocked: {
+    enabled: true,
+    subject: "Account Activated / Unblocked - Task Manager",
+    body: "Hello {name},\n\nGood news! Your Task Manager account has been reactivated and unblocked by an administrator.\n\nYou can now log in and resume using your account:\nWebsite: {websiteUrl}\n\nIf you have any questions or have trouble signing in, please contact your administrator.\n\nBest regards,\nTask Manager System",
+  },
+  userStatusChanged: {
+    enabled: true,
+    subject: "Account Update Notification - Task Manager",
+    body: "Hello {name},\n\nThis is an automated notification to let you know that an update has been made to your Task Manager account by an administrator.\n\nDetails of update:\n- Operation: {operation}\n- Role: {role}\n- Status: {status}\n\nIf you did not expect this change, please contact your administrator immediately.\n\nAccess Task Manager: {websiteUrl}\n\nBest regards,\nTask Manager System",
+  },
 };
 
 export default function SystemEmailSettings() {
@@ -101,7 +122,16 @@ export default function SystemEmailSettings() {
 
   useEffect(() => {
     if (data) {
-      setFormData(data);
+      setFormData({
+        ...data,
+        templates: {
+          ...DEFAULT_USER_TEMPLATES,
+          ...data.templates,
+          userBlocked: data.templates?.userBlocked || DEFAULT_USER_TEMPLATES.userBlocked,
+          userUnblocked: data.templates?.userUnblocked || DEFAULT_USER_TEMPLATES.userUnblocked,
+          userStatusChanged: data.templates?.userStatusChanged || DEFAULT_USER_TEMPLATES.userStatusChanged,
+        },
+      });
     }
   }, [data]);
 
@@ -292,20 +322,47 @@ export default function SystemEmailSettings() {
           <div className="grid grid-cols-1 gap-6">
             {/* User Registration */}
             <TemplateCard
-              title="User Registration"
-              description="Sent when a new employee or user is registered"
+              title="Welcome Email (User Registration)"
+              description="Sent as the welcome email when a new user or employee registers or is created"
               template={formData.templates.userRegistration}
               onChange={(field, val) => handleTemplateChange("userRegistration", field, val)}
-              placeholders={["{name}", "{websiteUrl}", "{googlePlayUrl}", "{appleStoreUrl}"]}
+              placeholders={["{name}", "{email}", "{role}", "{websiteUrl}", "{googlePlayUrl}", "{appleStoreUrl}"]}
             />
 
             {/* Manager Registration */}
             <TemplateCard
-              title="Manager Registration"
-              description="Sent when a new manager account is created"
+              title="Welcome Email (Manager Registration)"
+              description="Sent when a new manager account is registered"
               template={formData.templates.managerRegistration}
               onChange={(field, val) => handleTemplateChange("managerRegistration", field, val)}
-              placeholders={["{name}", "{websiteUrl}", "{googlePlayUrl}", "{appleStoreUrl}"]}
+              placeholders={["{name}", "{email}", "{role}", "{websiteUrl}", "{googlePlayUrl}", "{appleStoreUrl}"]}
+            />
+
+            {/* Account Blocked / Deactivated */}
+            <TemplateCard
+              title="Account Blocked / Deactivated"
+              description="Sent to the user when their account is blocked, deactivated, suspended, or archived"
+              template={formData.templates.userBlocked || DEFAULT_USER_TEMPLATES.userBlocked}
+              onChange={(field, val) => handleTemplateChange("userBlocked", field, val)}
+              placeholders={["{name}", "{email}", "{reason}", "{role}", "{status}", "{websiteUrl}"]}
+            />
+
+            {/* Account Unblocked / Activated */}
+            <TemplateCard
+              title="Account Unblocked / Activated"
+              description="Sent to the user when their account is unblocked, reactivated, or restored from archive"
+              template={formData.templates.userUnblocked || DEFAULT_USER_TEMPLATES.userUnblocked}
+              onChange={(field, val) => handleTemplateChange("userUnblocked", field, val)}
+              placeholders={["{name}", "{email}", "{role}", "{status}", "{websiteUrl}"]}
+            />
+
+            {/* Account Operation / Details Updated */}
+            <TemplateCard
+              title="Account Operation / Details Updated"
+              description="Sent to the user when an operation or update occurs on their account (e.g., role changed, details edited, or password reset)"
+              template={formData.templates.userStatusChanged || DEFAULT_USER_TEMPLATES.userStatusChanged}
+              onChange={(field, val) => handleTemplateChange("userStatusChanged", field, val)}
+              placeholders={["{name}", "{email}", "{operation}", "{role}", "{status}", "{websiteUrl}"]}
             />
 
             {/* Forgot Password */}
@@ -631,12 +688,14 @@ function TemplateCard({
 }: {
   title: string;
   description: string;
-  template: Template;
+  template?: Template;
   onChange: (field: keyof Template, value: any) => void;
   placeholders: string[];
 }) {
+  const safeTemplate: Template = template || { enabled: false, subject: "", body: "" };
+
   return (
-    <Card className={`transition-all duration-300 border ${template.enabled ? 'border-primary/20 bg-primary/[0.01]' : 'border-border opacity-70'}`}>
+    <Card className={`transition-all duration-300 border ${safeTemplate.enabled ? 'border-primary/20 bg-primary/[0.01]' : 'border-border opacity-70'}`}>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div>
@@ -644,22 +703,22 @@ function TemplateCard({
             <CardDescription>{description}</CardDescription>
           </div>
           <div className="flex items-center gap-2">
-            <span className={`text-xs font-medium ${template.enabled ? 'text-primary' : 'text-muted-foreground'}`}>
-              {template.enabled ? "ENABLED" : "DISABLED"}
+            <span className={`text-xs font-medium ${safeTemplate.enabled ? 'text-primary' : 'text-muted-foreground'}`}>
+              {safeTemplate.enabled ? "ENABLED" : "DISABLED"}
             </span>
             <Switch
-              checked={template.enabled}
+              checked={safeTemplate.enabled}
               onCheckedChange={(val) => onChange("enabled", val)}
             />
           </div>
         </div>
       </CardHeader>
-      {template.enabled && (
+      {safeTemplate.enabled && (
         <CardContent className="space-y-4 pt-0">
           <div className="space-y-2">
             <Label>Subject</Label>
             <Input
-              value={template.subject}
+              value={safeTemplate.subject}
               onChange={(e) => onChange("subject", e.target.value)}
               placeholder="Email subject line"
             />
@@ -667,7 +726,7 @@ function TemplateCard({
           <div className="space-y-2">
             <Label>Body</Label>
             <Textarea
-              value={template.body}
+              value={safeTemplate.body}
               onChange={(e) => onChange("body", e.target.value)}
               placeholder="Email message content"
               rows={5}
