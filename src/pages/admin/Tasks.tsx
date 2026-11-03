@@ -3994,7 +3994,7 @@ export default function Tasks() {
                       <ChevronsUpDown className="h-4 w-4 opacity-50" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-[90vw] sm:w-[--radix-popover-trigger-width] p-0 z-[100]" align="start" collisionPadding={20}>
+                  <PopoverContent className="w-[90vw] sm:w-[--radix-popover-trigger-width] p-0 z-[100]" align="start" collisionPadding={20} onWheel={(e) => e.stopPropagation()}>
                     <Command className="h-full">
                       <CommandInput placeholder="Search team lead..." />
                       <CommandList className="max-h-[280px] sm:max-h-[320px] overflow-y-auto custom-scrollbar touch-pan-y overscroll-contain">
@@ -4148,7 +4148,7 @@ export default function Tasks() {
                       <ChevronsUpDown className="h-4 w-4 opacity-50" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-[90vw] sm:w-[--radix-popover-trigger-width] max-w-[380px] p-0 z-[150]" align="start" collisionPadding={20}>
+                  <PopoverContent className="w-[90vw] sm:w-[--radix-popover-trigger-width] max-w-[380px] p-0 z-[150]" align="start" collisionPadding={20} onWheel={(e) => e.stopPropagation()}>
                     <Command>
                       <CommandInput placeholder="Search employees..." />
                       <CommandList className="max-h-[280px] sm:max-h-[320px] overflow-y-auto custom-scrollbar touch-pan-y overscroll-contain">
@@ -4934,7 +4934,7 @@ export default function Tasks() {
                               <Edit className="w-3.5 h-3.5" /> Edit
                             </Button>
                           </PopoverTrigger>
-                          <PopoverContent className="w-64 p-0 z-[150]" align="end">
+                          <PopoverContent className="w-64 p-0 z-[150]" align="end" onWheel={(e) => e.stopPropagation()}>
                             <Command>
                               <CommandInput placeholder="Search employees..." />
                               <CommandList className="max-h-[280px] sm:max-h-[320px] overflow-y-auto custom-scrollbar touch-pan-y overscroll-contain">

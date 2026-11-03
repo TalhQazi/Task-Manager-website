@@ -235,6 +235,25 @@ export default function Vendors() {
     }
   };
 
+  const handleAddLocation = async () => {
+    const name = newLocationName.trim();
+    if (!name) return;
+    try {
+      const res = await apiFetch<{ item: Location }>("/api/locations", {
+        method: "POST",
+        body: JSON.stringify({ name, city: "Main", type: "site" }),
+      });
+      const created = res.item || (res as any);
+      setLocations((prev) => [...prev, created].sort((a, b) => (a.name || "").localeCompare(b.name || "")));
+      setFormData((prev) => ({ ...prev, location: created.name }));
+      setIsNewLocationOpen(false);
+      setNewLocationName("");
+      toast({ title: "Location added successfully" });
+    } catch (error) {
+      toast({ title: "Failed to add location", description: error instanceof Error ? error.message : "Something went wrong", variant: "destructive" });
+    }
+  };
+
   const handleAddCategory = async () => {
     const name = newCategoryName.trim();
     if (!name) return;
@@ -742,6 +761,34 @@ export default function Vendors() {
                 Cancel
               </Button>
               <Button onClick={handleCreate}>Add Vendor</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* New Location Dialog */}
+        <Dialog open={isNewLocationOpen} onOpenChange={setIsNewLocationOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Add New Location</DialogTitle>
+              <DialogDescription>
+                Add a new location or site to assign vendors to.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Location Name *</Label>
+                <Input
+                  value={newLocationName}
+                  onChange={(e) => setNewLocationName(e.target.value)}
+                  placeholder="e.g., Downtown Site, Warehouse B, Head Office"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsNewLocationOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleAddLocation}>Add Location</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

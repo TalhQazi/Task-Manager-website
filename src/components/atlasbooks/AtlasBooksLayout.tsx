@@ -27,7 +27,8 @@ export const AtlasBooksLayout: React.FC = () => {
     {
       title: "Core Operations",
       items: [
-        { name: "Dashboard", path: "/atlasbooks/executive-snapshot", screenId: 1 }
+        { name: "Dashboard", path: "/atlasbooks/executive-snapshot", screenId: 1 },
+        { name: "Notifications & Alerts", path: "/admin/notifications", screenId: 99 }
       ]
     },
     {
@@ -141,7 +142,7 @@ export const AtlasBooksLayout: React.FC = () => {
           </div>
 
           <h1 className="text-3xl md:text-4xl font-extrabold tracking-widest font-serif text-[#D4AF37] drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] uppercase">
-            AtlasBooks®
+            Atlas books (s)®
           </h1>
           <p className="text-[10px] md:text-xs text-[#ebd382] font-mono tracking-wider font-semibold drop-shadow-[0_1.5px_2px_rgba(0,0,0,0.9)] mt-1.5 uppercase">
             Internal Bookkeeping for Se7en Inc. and Its Global Family of Businesses

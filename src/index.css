@@ -173,7 +173,7 @@
 .custom-scrollbar,
 [cmdk-list] {
   scrollbar-width: thin !important;
-  scrollbar-color: rgba(148, 163, 184, 0.5) transparent !important;
+  scrollbar-color: rgba(100, 116, 139, 0.7) rgba(0, 0, 0, 0.08) !important;
   overflow-y: auto !important;
   -webkit-overflow-scrolling: touch !important;
   touch-action: pan-y !important;
@@ -181,26 +181,52 @@
 
 .custom-scrollbar::-webkit-scrollbar,
 [cmdk-list]::-webkit-scrollbar {
-  width: 6px !important;
-  height: 6px !important;
+  width: 9px !important;
+  height: 9px !important;
   display: block !important;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track,
 [cmdk-list]::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.05) !important;
+  background: rgba(0, 0, 0, 0.08) !important;
   border-radius: 9999px !important;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb,
 [cmdk-list]::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.5) !important;
+  background: rgba(100, 116, 139, 0.65) !important;
   border-radius: 9999px !important;
+  border: 2px solid transparent !important;
+  background-clip: padding-box !important;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover,
 [cmdk-list]::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 116, 139, 0.8) !important;
+  background: rgba(71, 85, 105, 0.9) !important;
+  border: 2px solid transparent !important;
+  background-clip: padding-box !important;
+}
+
+.dark .custom-scrollbar,
+.dark [cmdk-list] {
+  scrollbar-color: rgba(148, 163, 184, 0.7) rgba(255, 255, 255, 0.1) !important;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-track,
+.dark [cmdk-list]::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb,
+.dark [cmdk-list]::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.65) !important;
+  border: 2px solid transparent !important;
+  background-clip: padding-box !important;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover,
+.dark [cmdk-list]::-webkit-scrollbar-thumb:hover {
+  background: rgba(203, 213, 225, 0.9) !important;
 }
 
 /* ── Mobile responsiveness helpers ── */

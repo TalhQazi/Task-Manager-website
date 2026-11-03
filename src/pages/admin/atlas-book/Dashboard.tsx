@@ -46,7 +46,7 @@ export default function AtlasBookDashboard() {
       <div className="flex flex-col gap-2">
         <h1 className="text-4xl font-black tracking-tight flex items-center gap-3">
           <img src="/atlas.png" alt="AtlasBooks Logo" className="h-10 w-10 object-contain" />
-          Atlas<span className="text-primary">Books</span>
+          Atlas<span className="text-primary"> books (s)</span>
         </h1>
         <p className="text-muted-foreground text-lg">The ultimate business engine for comprehensive financial and operational management.</p>
       </div>

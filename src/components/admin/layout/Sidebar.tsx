@@ -64,6 +64,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { clearAuthState, getAuthState } from "@/lib/auth";
 import React, { useMemo, useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/admin/apiClient";
 
 type NavItem = {
@@ -79,16 +80,17 @@ const navItemsBase: NavItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin", end: true },
   { icon: Activity, label: "Work In Progress", path: "/admin/wip" },
   {
-    label: "Atlas Books",
+    label: "Atlas books (s)",
     customIcon: (
       <img
         src="/atlas.png"
-        alt="Atlas Books"
+        alt="Atlas books (s)"
         className="h-5 w-5 flex-shrink-0 object-contain rounded opacity-80 group-hover:opacity-100 transition-opacity"
       />
     ),
     children: [
-      { label: "Atlas Books Dashboard", path: "/admin/atlas-book" },
+      { label: "Atlas books (s) Dashboard", path: "/admin/atlas-book" },
+      { label: "Notifications & Alerts", path: "/admin/notifications" },
       { label: "Company Management", path: "/admin/atlas-book/company" },
       { label: "Property Management", path: "/admin/atlas-book/property" },
       { label: "Unit Management", path: "/admin/atlas-book/unit" },
@@ -154,7 +156,6 @@ const navItemsBase: NavItem[] = [
       { icon: Phone, label: "Phone Directory", path: "/admin/phone-directory" },
       { icon: Palette, label: "Paint & Finish Registry", path: "/admin/paint-registry" },
       { icon: Calendar, label: "Scheduling", path: "/admin/scheduling" },
-      { icon: Bell, label: "Notifications", path: "/admin/notifications" },
     ],
   },
   {
@@ -269,6 +270,25 @@ interface SidebarProps {
 export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
   const navigate = useNavigate();
   const auth = getAuthState();
+
+  // Query unread notification count
+  const notificationsQuery = useQuery({
+    queryKey: ["admin-notifications"],
+    queryFn: async () => {
+      try {
+        const res = await apiFetch<any[]>("/api/notifications?type=broadcast");
+        return Array.isArray(res) ? res : ((res as any)?.items || []);
+      } catch {
+        return [];
+      }
+    },
+    refetchInterval: 15000,
+  });
+
+  const unreadCount = useMemo(() => {
+    const list = notificationsQuery.data || [];
+    return list.filter((n: any) => n.status !== "read").length;
+  }, [notificationsQuery.data]);
 
   // Build nav items based on role
   const navItems = useMemo(() => {
@@ -455,6 +475,11 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
                 )}
               />
             ) : null}
+            {item.label === "Notifications" && unreadCount > 0 && (
+              <span className="ml-auto mr-1 flex items-center justify-center px-1.5 py-0.5 text-[10px] font-black rounded-full bg-red-500 text-white min-w-[18px] h-[18px] shadow-sm animate-pulse">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
             {item.label === "SignaCore" ? (
               <span className={cn("font-bold truncate", isMobile ? "text-lg" : "text-sm")}>
                 <span className="text-[#38bdf8]">Signa</span>

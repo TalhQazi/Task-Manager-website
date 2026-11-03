@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAtlasBooks } from "../../../contexts/AtlasBooksContext";
 import { KpiCard } from "../../../components/atlasbooks/KpiCard";
-import { Landmark, Briefcase, FileText, CheckCircle2, ShieldAlert, Plus, X, ArrowRight, UserPlus } from "lucide-react";
+import { Landmark, Briefcase, FileText, CheckCircle2, ShieldAlert, Plus, X, ArrowRight, UserPlus, MapPin } from "lucide-react";
 import { apiFetch } from "../../../lib/api";
 import { toast } from "sonner";
 
@@ -69,6 +69,33 @@ const Vendors: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  const handleAddNewLocation = async (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    const name = newLocationName.trim();
+    if (!name) {
+      toast.error("Please enter a location name.");
+      return;
+    }
+    try {
+      setAddingLocationLoading(true);
+      const res = await apiFetch<{ item?: any }>("/api/locations", {
+        method: "POST",
+        body: JSON.stringify({ name, city: "Main", type: "site" })
+      });
+      const created = res.item || res;
+      const createdName = created.name || name;
+      setLocations((prev) => [...prev, created].sort((a, b) => (a.name || "").localeCompare(b.name || "")));
+      setNewVendorLocation(createdName);
+      setNewLocationName("");
+      setIsAddingNewLocation(false);
+      toast.success(`Location "${createdName}" added successfully.`);
+    } catch (err: any) {
+      toast.error("Failed to add location: " + (err.message || "Unknown error"));
+    } finally {
+      setAddingLocationLoading(false);
+    }
+  };
 
   const handleCreateVendor = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -260,7 +287,15 @@ const Vendors: React.FC = () => {
                   ) : (
                     filteredLedger.map((v) => (
                       <tr key={v.id} className="hover:bg-zinc-950/40 transition-colors">
-                        <td className="py-3 text-zinc-200 font-bold">{v.name}</td>
+                        <td className="py-3 text-zinc-200 font-bold">
+                          <div>{v.name}</div>
+                          {v.location && (
+                            <div className="flex items-center gap-1 text-[10px] font-normal text-amber-400/90 mt-0.5">
+                              <MapPin className="w-3 h-3 text-amber-500 inline shrink-0" />
+                              <span>{v.location}</span>
+                            </div>
+                          )}
+                        </td>
                         <td className="py-3 text-zinc-500">{v.invoiceNo}</td>
                         <td className="py-3 text-zinc-400">{v.dueDate}</td>
                         <td className="py-3">
