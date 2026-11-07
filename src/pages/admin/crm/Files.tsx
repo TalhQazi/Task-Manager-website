@@ -1,4 +1,6 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { uploadWithProgress, UploadProgressInfo } from '@/lib/uploadWithProgress';
+import { UploadingModal } from '@/components/shared/UploadingModal';
 import { getAuthState } from '@/lib/auth';
 import { getApiBaseUrl } from '@/lib/admin/apiClient';
 
@@ -93,6 +95,16 @@ export default function CRMFiles() {
     date: new Date().toISOString().slice(0, 10), fileName: '',
   });
   const [selectedFiles, setSelectedFiles] = useState([]);
+  const [isUploadingModalOpen, setIsUploadingModalOpen] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgressInfo>({
+    loaded: 0,
+    total: 0,
+    percent: 0,
+    speedMBps: 0,
+    etaSeconds: 0,
+    status: 'idle',
+  });
+  const abortControllerRef = useRef<AbortController | null>(null);
   const [formErrors, setFormErrors] = useState({});
   const [selectedFile, setSelectedFile] = useState(null);
   const [contacts, setContacts] = useState([]);
@@ -162,7 +174,13 @@ export default function CRMFiles() {
   const handleUploadSave = async () => {
     if (!validateForm()) return;
     try {
-      setSaving(true); setError(null);
+      setSaving(true);
+      setError(null);
+      setIsUploadingModalOpen(true);
+
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
       const payload = new FormData();
       selectedFiles.forEach((f) => payload.append('files', f));
       payload.append('linkedContact', formData.linkedContact);
@@ -171,17 +189,26 @@ export default function CRMFiles() {
       payload.append('date', formData.date);
       if (formData.fileName) payload.append('fileName', formData.fileName);
 
-      const res = await fetch(`${getApiBaseUrl()}/api/crm-files/upload`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${getAuthState().token || ''}` },
-        body: payload,
+      const data = await uploadWithProgress({
+        url: `${getApiBaseUrl()}/api/crm-files/upload`,
+        token: getAuthState().token || '',
+        formData: payload,
+        signal: controller.signal,
+        onProgress: (info) => setUploadProgress(info),
       });
-      if (!res.ok) { const b = await res.json().catch(() => null); throw new Error(b?.error?.message || 'Upload failed'); }
-      const data = await res.json();
-      setFiles((p) => [...data.items.map((i) => ({ ...i, fileSize: formatFileSize(i.size) })), ...p]);
+
+      // Brief delay to display 100% complete state
+      await new Promise((r) => setTimeout(r, 600));
+
+      setFiles((p) => [...(data.items || []).map((i: any) => ({ ...i, fileSize: formatFileSize(i.size) })), ...p]);
+      setIsUploadingModalOpen(false);
       closeModals();
-    } catch (err) { setError(err?.message || 'Failed to upload'); }
-    finally { setSaving(false); }
+    } catch (err: any) {
+      setIsUploadingModalOpen(false);
+      setError(err?.message || 'Failed to upload');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDownload = async (file) => {
@@ -469,7 +496,19 @@ export default function CRMFiles() {
           </div>
         )}
 
-        {/* ── Upload Modal ── */}
+        {/* ── Upload Progress Modal (for large files up to 1GB) ── */}
+      <UploadingModal
+        isOpen={isUploadingModalOpen}
+        progress={uploadProgress}
+        fileName={selectedFiles[0]?.name}
+        totalFiles={selectedFiles.length}
+        onCancel={() => {
+          abortControllerRef.current?.abort();
+          setIsUploadingModalOpen(false);
+        }}
+      />
+
+      {/* ── Upload Modal ── */}
         {showUploadModal && (
           <ModalOverlay onClose={closeModals}>
             <div className="p-6">
@@ -487,7 +526,7 @@ export default function CRMFiles() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3" />
                   </svg>
                   <p className="text-sm text-slate-400">Click to select or drag files here</p>
-                  <p className="text-xs text-slate-500 mt-1">{selectedFiles.length > 0 ? `${selectedFiles.length} file(s) selected` : 'PDF, DOCX, XLSX, PNG, JPG'}</p>
+                  <p className="text-xs text-slate-500 mt-1">{selectedFiles.length > 0 ? `${selectedFiles.length} file(s) selected` : 'Supports all file types up to 1 GB (PDF, DOCX, XLSX, MP4, ZIP, images)'}</p>
                 </div>
                 {formErrors.file && <p className="text-xs text-red-400">{formErrors.file}</p>}
 

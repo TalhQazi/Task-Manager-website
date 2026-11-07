@@ -611,24 +611,42 @@ async function compressImageToDataUrl(file: File): Promise<string> {
   return canvas.toDataURL(mime, quality);
 }
 
-async function filesToAttachments(files: File[]) {
+async function filesToAttachments(
+  files: File[],
+  onProgress?: (info: UploadProgressInfo) => void,
+  signal?: AbortSignal
+): Promise<Array<{ fileName: string; url: string; mimeType: string; size: number }>> {
+  if (!files || files.length === 0) return [];
+
+  const hasLargeOrNonImage = files.some((f) => f.size > 2 * 1024 * 1024 || !isImageFile(f));
+
+  if (hasLargeOrNonImage) {
+    try {
+      const fd = new FormData();
+      files.forEach((f) => fd.append("files", f));
+      const token = getAuthState().token || (typeof localStorage !== "undefined" ? localStorage.getItem("token") : null);
+      const res = await uploadWithProgress<{ items: Array<{ fileName: string; url: string; mimeType: string; size: number }> }>({
+        url: `${getApiBaseUrl()}/api/tasks/attachments/upload`,
+        formData: fd,
+        token,
+        onProgress,
+        signal,
+      });
+      if (res && res.items && res.items.length) {
+        return res.items;
+      }
+    } catch (uploadErr) {
+      console.warn("Direct multipart attachment upload error, falling back:", uploadErr);
+    }
+  }
+
   const results = await Promise.all(
-    files.map(
-      async (file) => {
-        let url = "";
-        if (isImageFile(file)) {
-          try {
-            url = await compressImageToDataUrl(file);
-          } catch (e) {
-            console.error("Compression failed, using raw data URL", e);
-            url = await new Promise<string>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = () => resolve(String(reader.result || ""));
-              reader.onerror = () => reject(new Error("Failed to read file"));
-              reader.readAsDataURL(file);
-            });
-          }
-        } else {
+    files.map(async (file) => {
+      let url = "";
+      if (isImageFile(file)) {
+        try {
+          url = await compressImageToDataUrl(file);
+        } catch {
           url = await new Promise<string>((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = () => resolve(String(reader.result || ""));
@@ -636,15 +654,21 @@ async function filesToAttachments(files: File[]) {
             reader.readAsDataURL(file);
           });
         }
-        
-        return {
-          fileName: file.name,
-          url,
-          mimeType: file.type,
-          size: file.size,
-        };
+      } else {
+        url = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || ""));
+          reader.onerror = () => reject(new Error("Failed to read file"));
+          reader.readAsDataURL(file);
+        });
       }
-    ),
+      return {
+        fileName: file.name,
+        url,
+        mimeType: file.type,
+        size: file.size,
+      };
+    })
   );
 
   return results;
@@ -717,6 +741,18 @@ export default function Tasks() {
   const [isCreating, setIsCreating] = useState(false);
   const [validationErrors, setValidationErrors] = useState<{ projectName?: string; title?: string; description?: string }>({});
   const [assigneesOpen, setAssigneesOpen] = useState(false);
+  const [isTaskUploadingModalOpen, setIsTaskUploadingModalOpen] = useState(false);
+  const [taskUploadingFileName, setTaskUploadingFileName] = useState("");
+  const [taskUploadingFileCount, setTaskUploadingFileCount] = useState(1);
+  const [taskUploadProgress, setTaskUploadProgress] = useState<UploadProgressInfo>({
+    loaded: 0,
+    total: 0,
+    percent: 0,
+    speedMBps: 0,
+    etaSeconds: 0,
+    status: "idle",
+  });
+  const taskUploadAbortRef = useRef<AbortController | null>(null);
   const [editAssigneesOpen, setEditAssigneesOpen] = useState(false);
   const [projectCreationAssignees, setProjectCreationAssignees] = useState<string[]>([]);
   const [projectCreationAssigneesOpen, setProjectCreationAssigneesOpen] = useState(false);
@@ -1631,7 +1667,22 @@ export default function Tasks() {
       return;
     }
 
-    const attachments = attachmentFiles.length > 0 ? await filesToAttachments(attachmentFiles) : [];
+    let attachments: any[] = [];
+    if (attachmentFiles.length > 0) {
+      const isLarge = attachmentFiles.some((f) => f.size > 2 * 1024 * 1024);
+      if (isLarge) {
+        setIsTaskUploadingModalOpen(true);
+        setTaskUploadingFileName(attachmentFiles[0].name);
+        setTaskUploadingFileCount(attachmentFiles.length);
+      }
+      const ctrl = new AbortController();
+      taskUploadAbortRef.current = ctrl;
+      try {
+        attachments = await filesToAttachments(attachmentFiles, (p) => setTaskUploadProgress(p), ctrl.signal);
+      } finally {
+        setIsTaskUploadingModalOpen(false);
+      }
+    }
     const first = attachments[0];
     const firstAttachment = first
       ? { fileName: first.fileName, url: first.url, mimeType: first.mimeType, size: first.size }
@@ -2819,6 +2870,16 @@ export default function Tasks() {
 
   return (
     <div className="px-4 md:px-0 md:pl-6 space-y-4 sm:space-y-6">
+      <UploadingModal
+        isOpen={isTaskUploadingModalOpen}
+        progress={taskUploadProgress}
+        fileName={taskUploadingFileName}
+        totalFiles={taskUploadingFileCount}
+        onCancel={() => {
+          taskUploadAbortRef.current?.abort();
+          setIsTaskUploadingModalOpen(false);
+        }}
+      />
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div className="page-header mb-0">

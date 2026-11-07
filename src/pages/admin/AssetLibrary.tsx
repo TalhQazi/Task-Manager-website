@@ -224,7 +224,6 @@ function AssetLibraryHeader({ title, description, hideCarousel }: { title: strin
     </div>
   );
 }
-
 export default function AssetLibrary({ 
   moduleName = "asset-library", 
   title = "Images",
@@ -291,6 +290,17 @@ export default function AssetLibrary({
 
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isUploadingModalOpen, setIsUploadingModalOpen] = useState(false);
+  const [activeUploadingFiles, setActiveUploadingFiles] = useState<File[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgressInfo>({
+    loaded: 0,
+    total: 0,
+    percent: 0,
+    speedMBps: 0,
+    etaSeconds: 0,
+    status: "idle",
+  });
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const foldersQuery = useQuery({
     queryKey: ["company-information-images", "folders", moduleName],
@@ -459,21 +469,36 @@ export default function AssetLibrary({
   const uploadAssetsMutation = useMutation({
     mutationFn: async (files: File[]) => {
       setUploadError(null);
+      setActiveUploadingFiles(files);
+      setIsUploadingModalOpen(true);
+
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
 
       const fd = new FormData();
-      console.log("Uploading with folderId:", selectedFolderId);
       if (selectedFolderId) fd.append("folderId", selectedFolderId);
       fd.append("module", moduleName);
       files.forEach((f) => fd.append("files", f));
-      return apiFetch<{ items: Asset[] }>("/api/asset-library/assets/upload", {
-        method: "POST",
-        body: fd,
+
+      const token = getAuthState().token || (typeof localStorage !== "undefined" ? localStorage.getItem("token") : null);
+
+      const res = await uploadWithProgress<{ items: Asset[] }>({
+        url: `${getApiBaseUrl()}/api/asset-library/assets/upload`,
+        token,
+        formData: fd,
+        signal: controller.signal,
+        onProgress: (p) => setUploadProgress(p),
       });
+
+      await new Promise((r) => setTimeout(r, 600));
+      setIsUploadingModalOpen(false);
+      return res;
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["company-information-images"] });
     },
     onError: (err: any) => {
+      setIsUploadingModalOpen(false);
       setUploadError(err?.message || "Upload failed");
     },
   });
@@ -648,6 +673,16 @@ export default function AssetLibrary({
 
   return (
     <div className="px-2 sm:px-0 sm:pl-6 space-y-4 sm:space-y-5 md:space-y-6 page-shell">
+      <UploadingModal
+        isOpen={isUploadingModalOpen}
+        progress={uploadProgress}
+        fileName={activeUploadingFiles[0]?.name}
+        totalFiles={activeUploadingFiles.length}
+        onCancel={() => {
+          abortControllerRef.current?.abort();
+          setIsUploadingModalOpen(false);
+        }}
+      />
       <AssetLibraryHeader title={title} description={description} hideCarousel={hideHeaderCarousel} />
 
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
