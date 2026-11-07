@@ -21,6 +21,10 @@ import {
   FileCode,
   ShieldCheck,
   Check,
+  Globe,
+  Key,
+  HelpCircle,
+  Code2,
 } from "lucide-react";
 
 interface McpTool {
@@ -35,6 +39,8 @@ interface McpStatusResponse {
   protocol: string;
   databaseConnected: boolean;
   tools: McpTool[];
+  openApiUrl?: string;
+  chatgptApiKey?: string;
   stats: {
     totalTasks: number;
     totalProjects: number;
@@ -51,6 +57,7 @@ interface McpStatusResponse {
 export default function McpConnectorTab() {
   const [loading, setLoading] = useState(true);
   const [statusData, setStatusData] = useState<McpStatusResponse | null>(null);
+  const [openApiSpec, setOpenApiSpec] = useState<string>("");
   const [activeConfigTab, setActiveConfigTab] = useState("antigravity");
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
@@ -72,8 +79,21 @@ export default function McpConnectorTab() {
     }
   };
 
+  const loadOpenApiSpec = async () => {
+    try {
+      const res = await fetch("/api/mcp/openapi.json");
+      if (res.ok) {
+        const data = await res.json();
+        setOpenApiSpec(JSON.stringify(data, null, 2));
+      }
+    } catch (err) {
+      console.error("Failed to fetch OpenAPI spec:", err);
+    }
+  };
+
   useEffect(() => {
     void loadStatus();
+    void loadOpenApiSpec();
   }, []);
 
   const copyToClipboard = (text: string, key: string) => {
@@ -113,14 +133,14 @@ export default function McpConnectorTab() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-foreground">Task Manager MCP AI Connector</h2>
+              <h2 className="text-lg font-bold text-foreground">Task Manager MCP & ChatGPT AI Connector</h2>
               <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/40 text-[10px] gap-1 font-bold">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 SERVER READY
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Connect AI assistants (Antigravity, Claude, Cursor, ChatGPT) directly to your Task Manager database.
+              Connect AI assistants (ChatGPT, Antigravity, Claude, Cursor) directly to your Task Manager database.
             </p>
           </div>
         </div>
@@ -145,12 +165,12 @@ export default function McpConnectorTab() {
           <CardHeader className="pb-2">
             <CardDescription className="text-xs flex items-center gap-1.5">
               <Server className="h-3.5 w-3.5 text-blue-400" />
-              Protocol
+              Supported Protocols
             </CardDescription>
-            <CardTitle className="text-sm font-bold text-foreground">JSON-RPC 2.0 (stdio)</CardTitle>
+            <CardTitle className="text-sm font-bold text-foreground">MCP & OpenAPI 3.0</CardTitle>
           </CardHeader>
           <CardContent className="text-[11px] text-muted-foreground pt-0">
-            Official Model Context Protocol standard
+            Native stdio JSON-RPC + ChatGPT REST Actions
           </CardContent>
         </Card>
 
@@ -191,10 +211,10 @@ export default function McpConnectorTab() {
               <ShieldCheck className="h-3.5 w-3.5 text-purple-400" />
               Security Mode
             </CardDescription>
-            <CardTitle className="text-sm font-bold text-foreground">Local Stdio Sandbox</CardTitle>
+            <CardTitle className="text-sm font-bold text-foreground">API Key / Bearer Auth</CardTitle>
           </CardHeader>
           <CardContent className="text-[11px] text-muted-foreground pt-0">
-            Safe direct connection, zero external leaks
+            Direct authenticated sandbox, zero external leaks
           </CardContent>
         </Card>
       </div>
@@ -207,7 +227,7 @@ export default function McpConnectorTab() {
             MCP Server Executable Path
           </CardTitle>
           <CardDescription className="text-xs">
-            Path to the local Node.js MCP server file used by your AI clients
+            Path to the local Node.js MCP server file used by desktop AI clients
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -241,13 +261,14 @@ export default function McpConnectorTab() {
             AI Client Configuration Snippets
           </CardTitle>
           <CardDescription className="text-xs">
-            Copy and paste this configuration into your favorite AI tool to give it direct access to Task Manager
+            Select your preferred AI platform below for step-by-step connection guides and configs
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Tabs value={activeConfigTab} onValueChange={setActiveConfigTab}>
-            <TabsList className="grid grid-cols-3 max-w-md">
-              <TabsTrigger value="antigravity" className="text-xs">Antigravity / Gemini</TabsTrigger>
+            <TabsList className="grid grid-cols-2 sm:grid-cols-4 max-w-xl">
+              <TabsTrigger value="antigravity" className="text-xs">Antigravity</TabsTrigger>
+              <TabsTrigger value="chatgpt" className="text-xs font-bold text-emerald-400">ChatGPT (Actions)</TabsTrigger>
               <TabsTrigger value="claude" className="text-xs">Claude Desktop</TabsTrigger>
               <TabsTrigger value="cursor" className="text-xs">Cursor / VS Code</TabsTrigger>
             </TabsList>
@@ -283,6 +304,159 @@ export default function McpConnectorTab() {
                   {copiedKey === "antigravity" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                   {copiedKey === "antigravity" ? "Copied" : "Copy JSON"}
                 </Button>
+              </div>
+            </TabsContent>
+
+            {/* ChatGPT (Custom GPT Actions) Config */}
+            <TabsContent value="chatgpt" className="space-y-4 pt-2">
+              <div className="p-3.5 rounded-xl bg-gradient-to-r from-emerald-950/30 via-teal-950/20 to-zinc-900 border border-emerald-500/30 text-xs space-y-1">
+                <div className="flex items-center gap-2 font-bold text-emerald-400">
+                  <Bot className="h-4 w-4" />
+                  <span>Connect OpenAI ChatGPT / Custom GPTs to Task Manager</span>
+                </div>
+                <p className="text-muted-foreground text-[11px]">
+                  ChatGPT connects securely over HTTPS using <strong>OpenAPI 3.0 Actions</strong>.
+                  You can create a custom &quot;Task Manager Copilot&quot; in ChatGPT that can read your tasks, create new tasks, update statuses, and report project metrics through natural conversation.
+                </p>
+              </div>
+
+              {/* Schema URL & Key */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <Globe className="h-3.5 w-3.5 text-blue-400" />
+                    OpenAPI Schema URL (Import into ChatGPT)
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <div className="flex-1 px-3 py-2 rounded-lg bg-muted/80 border border-border font-mono text-[11px] truncate text-foreground select-all">
+                      {statusData?.openApiUrl || `${window.location.origin}/api/mcp/openapi.json`}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-xs px-2.5 gap-1 shrink-0"
+                      onClick={() =>
+                        copyToClipboard(
+                          statusData?.openApiUrl || `${window.location.origin}/api/mcp/openapi.json`,
+                          "openApiUrl"
+                        )
+                      }
+                    >
+                      {copiedKey === "openApiUrl" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                      {copiedKey === "openApiUrl" ? "Copied" : "Copy URL"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 px-2 text-xs"
+                      onClick={() => window.open(statusData?.openApiUrl || "/api/mcp/openapi.json", "_blank")}
+                      title="Open OpenAPI JSON in new tab"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <Key className="h-3.5 w-3.5 text-amber-400" />
+                    ChatGPT API Key / Bearer Token
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <div className="flex-1 px-3 py-2 rounded-lg bg-muted/80 border border-border font-mono text-[11px] truncate text-foreground select-all">
+                      {statusData?.chatgptApiKey || "taskmanager-mcp-key-2026"}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-xs px-2.5 gap-1 shrink-0"
+                      onClick={() =>
+                        copyToClipboard(
+                          statusData?.chatgptApiKey || "taskmanager-mcp-key-2026",
+                          "chatgptApiKey"
+                        )
+                      }
+                    >
+                      {copiedKey === "chatgptApiKey" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                      {copiedKey === "chatgptApiKey" ? "Copied" : "Copy Key"}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Step by Step Guide */}
+              <div className="p-4 rounded-xl border border-border/80 bg-muted/30 space-y-3">
+                <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <HelpCircle className="h-4 w-4 text-primary" />
+                  <span>Quick 4-Step Setup in ChatGPT</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                  <div className="p-3 rounded-lg bg-card border border-border/60 space-y-1">
+                    <span className="font-bold text-primary flex items-center gap-1.5">
+                      <span className="h-4 w-4 rounded-full bg-primary/20 text-primary flex items-center justify-center text-[10px] font-bold">1</span>
+                      Create Custom GPT
+                    </span>
+                    <p className="text-[11px] text-muted-foreground">
+                      Log in to <a href="https://chatgpt.com" target="_blank" rel="noreferrer" className="text-blue-400 underline">chatgpt.com</a>, click <strong>Explore GPTs</strong> on the left, then click <strong>+ Create</strong>.
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-lg bg-card border border-border/60 space-y-1">
+                    <span className="font-bold text-primary flex items-center gap-1.5">
+                      <span className="h-4 w-4 rounded-full bg-primary/20 text-primary flex items-center justify-center text-[10px] font-bold">2</span>
+                      Add New Action
+                    </span>
+                    <p className="text-[11px] text-muted-foreground">
+                      Switch to the <strong>Configure</strong> tab. Scroll down to <strong>Actions</strong> and click <strong>Create new action</strong>.
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-lg bg-card border border-border/60 space-y-1">
+                    <span className="font-bold text-primary flex items-center gap-1.5">
+                      <span className="h-4 w-4 rounded-full bg-primary/20 text-primary flex items-center justify-center text-[10px] font-bold">3</span>
+                      Import OpenAPI Schema
+                    </span>
+                    <p className="text-[11px] text-muted-foreground">
+                      Click <strong>&quot;Import from URL&quot;</strong>, paste the <em>OpenAPI Schema URL</em> above, and click <strong>Import</strong>.
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-lg bg-card border border-border/60 space-y-1">
+                    <span className="font-bold text-primary flex items-center gap-1.5">
+                      <span className="h-4 w-4 rounded-full bg-primary/20 text-primary flex items-center justify-center text-[10px] font-bold">4</span>
+                      Configure Authentication
+                    </span>
+                    <p className="text-[11px] text-muted-foreground">
+                      Under <strong>Authentication</strong>, choose <strong>API Key</strong>, select <strong>Bearer</strong> (or Custom Header <code>X-API-Key</code>), and paste your key.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Raw OpenAPI Specification Viewer */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <Code2 className="h-3.5 w-3.5 text-indigo-400" />
+                    OpenAPI 3.0 Specification (Manual Paste Option)
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 text-[11px] px-2 gap-1 text-muted-foreground hover:text-foreground"
+                    onClick={() => copyToClipboard(openApiSpec, "openApiSpec")}
+                    disabled={!openApiSpec}
+                  >
+                    {copiedKey === "openApiSpec" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3 text-muted-foreground" />}
+                    {copiedKey === "openApiSpec" ? "Copied Spec" : "Copy OpenAPI Spec"}
+                  </Button>
+                </div>
+                <div className="relative">
+                  <pre className="p-3.5 rounded-xl bg-black/70 border border-zinc-800 text-[11px] font-mono text-zinc-200 max-h-52 overflow-y-auto no-scrollbar">
+                    {openApiSpec || "// Loading OpenAPI specification schema from /api/mcp/openapi.json..."}
+                  </pre>
+                </div>
               </div>
             </TabsContent>
 
@@ -450,4 +624,3 @@ export default function McpConnectorTab() {
     </div>
   );
 }
-

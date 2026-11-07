@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
-import { Camera, User, Loader2, CheckCircle, XCircle, AlertCircle, Upload, FileImage, Image as ImageIcon, Quote, ToggleLeft, ToggleRight, Plus, Bell, Palette, Settings as SettingsIcon, Sparkles } from "lucide-react";
+import { Camera, User, Loader2, CheckCircle, XCircle, AlertCircle, Upload, FileImage, Image as ImageIcon, Quote, ToggleLeft, ToggleRight, Plus, Bell, Palette, Settings as SettingsIcon, Sparkles, Cpu } from "lucide-react";
 import { apiFetch, toProxiedUrl } from "@/lib/admin/apiClient";
 import NotificationSettingsTable from "@/components/shared/NotificationSettingsTable";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
