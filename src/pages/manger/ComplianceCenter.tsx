@@ -6,6 +6,7 @@ import { Button } from "@/components/manger/ui/button";
 import { Input } from "@/components/manger/ui/input";
 import { Textarea } from "@/components/manger/ui/textarea";
 import { Progress } from "@/components/manger/ui/progress";
+import { Checkbox } from "@/components/manger/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/manger/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/manger/ui/dialog";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/manger/ui/sheet";
@@ -44,6 +45,8 @@ import {
   MapPin,
   Users,
   Smartphone,
+  Monitor,
+  Tablet,
   CreditCard,
   Fingerprint,
   Mail,
@@ -153,6 +156,9 @@ interface Website {
   threadsCompliance?: string;
   locations?: any[];
   hiddenCategories?: string[];
+  testedOnDesktop?: string;
+  testedOnMobile?: string;
+  testedOnTablet?: string;
 }
 
 interface ChecklistItem {
@@ -162,6 +168,9 @@ interface ChecklistItem {
   title: string;
   description: string;
   requiresEvidence: boolean;
+  testedOnDesktop?: boolean;
+  testedOnMobile?: boolean;
+  testedOnTablet?: boolean;
   status: "pending" | "in-progress" | "blocked" | "completed" | "na";
   notes?: string;
   evidenceUrl?: string;
@@ -427,6 +436,9 @@ export default function ComplianceCenter() {
   const [itemEvidenceUrl, setItemEvidenceUrl] = useState("");
   const [itemEvidenceFile, setItemEvidenceFile] = useState(""); // base64
   const [itemBlockedReason, setItemBlockedReason] = useState("");
+  const [itemTestedOnDesktop, setItemTestedOnDesktop] = useState(false);
+  const [itemTestedOnMobile, setItemTestedOnMobile] = useState(false);
+  const [itemTestedOnTablet, setItemTestedOnTablet] = useState(false);
 
   // Load everything
   const loadData = async () => {
@@ -662,6 +674,9 @@ export default function ComplianceCenter() {
             evidenceUrl: itemEvidenceUrl,
             evidenceFile: itemEvidenceFile || undefined,
             blockedReason: itemStatus === "blocked" ? itemBlockedReason : "",
+            testedOnDesktop: itemTestedOnDesktop,
+            testedOnMobile: itemTestedOnMobile,
+            testedOnTablet: itemTestedOnTablet,
           }),
         }
       );
@@ -2119,6 +2134,137 @@ export default function ComplianceCenter() {
                 <WebsiteLocationsMap locations={selectedWebsite.locations} isMetallic={isMetallic} />
               )}
 
+              {/* Device Responsiveness Testing Section: Was this tested on desktop, mobile phone, tablet? */}
+              <Card className={`p-4 border ${isMetallic ? "bg-black/30 border-[#ffd27a]/15 text-white" : "bg-card border-border"}`}>
+                <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                  <div>
+                    <h3 className="font-bold text-sm text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <Monitor className="h-4 w-4 text-cyan-500" />
+                      Device Testing Verification
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Was this tested on desktop, mobile phone, tablet?
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-6 text-[10px] px-2 py-0 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 font-bold"
+                      onClick={async () => {
+                        await executeToggleCoreReq("testedOnDesktop", "green");
+                        await executeToggleCoreReq("testedOnMobile", "green");
+                        await executeToggleCoreReq("testedOnTablet", "green");
+                        toast.success("All 3 devices marked as tested & verified!");
+                      }}
+                      disabled={actionLoading}
+                      title="Check all 3 devices as tested and verified"
+                    >
+                      <Check className="h-3 w-3 mr-1" />
+                      Check All 3 Tested
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {[
+                    { key: "testedOnDesktop", label: "Desktop", icon: Monitor, desc: "Standard screen (1280px+)" },
+                    { key: "testedOnMobile", label: "Mobile Phone", icon: Smartphone, desc: "iOS & Android phones" },
+                    { key: "testedOnTablet", label: "Tablet", icon: Tablet, desc: "iPad & Android tablets" },
+                  ].map((device) => {
+                    const val = (selectedWebsite as any)[device.key] || "none";
+                    const isChecked = val === "green";
+                    const IconComp = device.icon;
+
+                    return (
+                      <div
+                        key={device.key}
+                        className={`flex flex-col p-3 rounded-xl border transition-all ${
+                          isChecked
+                            ? "bg-emerald-500/10 border-emerald-500/30"
+                            : isMetallic
+                            ? "bg-[#1b1c1d]/50 border-zinc-800"
+                            : "bg-muted/30 border-muted"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <div className={`p-1.5 rounded-lg ${isChecked ? "bg-emerald-500/20 text-emerald-400" : "bg-muted text-muted-foreground"}`}>
+                              <IconComp className="h-4 w-4" />
+                            </div>
+                            <div>
+                              <span className="text-xs font-bold text-foreground block">{device.label}</span>
+                              <span className="text-[10px] text-muted-foreground">{device.desc}</span>
+                            </div>
+                          </div>
+                          
+                          {/* 1-Click Checkmark Button */}
+                          <button
+                            type="button"
+                            onClick={() => handleToggleCoreReq(device.key, isChecked ? "none" : "green")}
+                            disabled={actionLoading}
+                            className={`h-7 px-2.5 rounded-lg flex items-center gap-1.5 text-xs font-bold transition-all shadow-xs ${
+                              isChecked
+                                ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20"
+                                : "bg-muted hover:bg-muted/80 text-muted-foreground border border-border"
+                            }`}
+                            title={isChecked ? "Click to uncheck" : "Click to mark as tested"}
+                          >
+                            <Check className={`h-3.5 w-3.5 ${isChecked ? "stroke-[3]" : "opacity-40"}`} />
+                            <span>{isChecked ? "Tested ✓" : "Check"}</span>
+                          </button>
+                        </div>
+
+                        {/* Status options */}
+                        <div className="flex items-center justify-between pt-1 border-t border-border/40 text-[10px]">
+                          <span className="text-muted-foreground font-medium">Status:</span>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleToggleCoreReq(device.key, "green")}
+                              disabled={actionLoading}
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-semibold transition-colors ${
+                                val === "green" ? "bg-emerald-500/20 text-emerald-400 font-bold" : "hover:bg-muted text-muted-foreground"
+                              }`}
+                              title="Set Compliant / Passed"
+                            >
+                              Pass
+                            </button>
+                            <button
+                              onClick={() => handleToggleCoreReq(device.key, "red")}
+                              disabled={actionLoading}
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-semibold transition-colors ${
+                                val === "red" ? "bg-red-500/20 text-red-400 font-bold" : "hover:bg-muted text-muted-foreground"
+                              }`}
+                              title="Set Failed / Issue Found"
+                            >
+                              Fail
+                            </button>
+                            <button
+                              onClick={() => handleToggleCoreReq(device.key, "na")}
+                              disabled={actionLoading}
+                              className={`px-1.5 py-0.5 rounded text-[10px] font-semibold transition-colors ${
+                                val === "na" ? "bg-cyan-500/20 text-cyan-400 font-bold" : "hover:bg-muted text-muted-foreground"
+                              }`}
+                              title="Mark N/A"
+                            >
+                              N/A
+                            </button>
+                            <button
+                              onClick={() => handleToggleCoreReq(device.key, "none")}
+                              disabled={actionLoading}
+                              className="p-1 rounded hover:bg-muted text-muted-foreground"
+                              title="Reset"
+                            >
+                              <span className="text-[9px] font-black">✕</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+
               {/* Core Requirements Section */}
               <Card className={`p-4 border ${isMetallic ? "bg-black/30 border-[#ffd27a]/15 text-white" : "bg-card border-border"}`}>
                 <h3 className="font-bold text-sm text-foreground mb-3 uppercase tracking-wider flex items-center gap-1.5">
@@ -2636,6 +2782,25 @@ export default function ComplianceCenter() {
                                   </div>
                                 </div>
 
+                                {/* Cross-device responsiveness indicators */}
+                                <div className="flex items-center gap-2 pt-1 text-[11px] flex-wrap">
+                                  <span className="text-[10px] font-semibold text-muted-foreground">Tested On:</span>
+                                  <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${
+                                    item.testedOnDesktop ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30" : "bg-muted/30 text-muted-foreground/50 border-border/40"
+                                  }`}>
+                                    <Monitor className="h-3 w-3" /> Desktop {item.testedOnDesktop ? "✓" : "—"}
+                                  </span>
+                                  <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${
+                                    item.testedOnMobile ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30" : "bg-muted/30 text-muted-foreground/50 border-border/40"
+                                  }`}>
+                                    <Smartphone className="h-3 w-3" /> Mobile Phone {item.testedOnMobile ? "✓" : "—"}
+                                  </span>
+                                  <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${
+                                    item.testedOnTablet ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30" : "bg-muted/30 text-muted-foreground/50 border-border/40"
+                                  }`}>
+                                    <Tablet className="h-3 w-3" /> Tablet {item.testedOnTablet ? "✓" : "—"}
+                                  </span>
+                                </div>
                                 {item.notes && !isEditing && (
                                   <div className="text-xs text-muted-foreground bg-black/10 p-2 rounded">
                                     <span className="font-bold">Notes:</span> {item.notes}
@@ -2786,6 +2951,9 @@ export default function ComplianceCenter() {
                                         setItemEvidenceUrl(item.evidenceUrl || "");
                                         setItemEvidenceFile("");
                                         setItemBlockedReason(item.blockedReason || "");
+                                        setItemTestedOnDesktop(Boolean(item.testedOnDesktop));
+                                        setItemTestedOnMobile(Boolean(item.testedOnMobile));
+                                        setItemTestedOnTablet(Boolean(item.testedOnTablet));
                                       }}
                                       className={isMetallic ? "text-[#ffd27a] hover:bg-[#ffd27a]/10" : "text-primary"}
                                     >
