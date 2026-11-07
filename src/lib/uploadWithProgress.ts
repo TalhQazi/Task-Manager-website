@@ -101,6 +101,9 @@ export function uploadWithProgress<T = any>({
         }
       } else {
         let errorMsg = `Upload failed (${xhr.status})`;
+        if (xhr.status === 413) {
+          errorMsg = "File size exceeds server upload limit (413 Request Entity Too Large). Nginx on the server needs 'client_max_body_size 1024M;' configured and reloaded.";
+        }
         try {
           const errJson = JSON.parse(xhr.responseText);
           errorMsg = errJson?.error?.message || errJson?.message || errorMsg;
@@ -150,3 +153,4 @@ export function uploadWithProgress<T = any>({
     xhr.send(formData);
   });
 }
+

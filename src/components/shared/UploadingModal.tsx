@@ -7,7 +7,9 @@ interface UploadingModalProps {
   progress: UploadProgressInfo;
   fileName?: string;
   totalFiles?: number;
+  errorMessage?: string;
   onCancel?: () => void;
+  onClose?: () => void;
 }
 
 export function formatBytes(bytes: number): string {
@@ -23,7 +25,9 @@ export const UploadingModal: React.FC<UploadingModalProps> = ({
   progress,
   fileName,
   totalFiles = 1,
+  errorMessage,
   onCancel,
+  onClose,
 }) => {
   if (!isOpen) return null;
 
@@ -123,9 +127,20 @@ export const UploadingModal: React.FC<UploadingModalProps> = ({
           </div>
         )}
 
-        {/* Action button */}
-        {!isDone && onCancel && (
-          <div className="flex justify-end pt-2">
+        {/* Error banner */}
+        {isError && (
+          <div className="flex items-start gap-2.5 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
+            <div className="space-y-1">
+              <span className="font-semibold block">Upload Failed</span>
+              <p className="text-zinc-300 break-words">{errorMessage || "An error occurred during upload. Check server upload limits."}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Action buttons */}
+        <div className="flex justify-end gap-2 pt-2">
+          {!isDone && !isError && onCancel && (
             <button
               type="button"
               onClick={onCancel}
@@ -134,9 +149,20 @@ export const UploadingModal: React.FC<UploadingModalProps> = ({
               <XCircle className="w-4 h-4" />
               <span>Cancel Upload</span>
             </button>
-          </div>
-        )}
+          )}
+
+          {isError && onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-rose-600 hover:bg-rose-500 transition-colors cursor-pointer"
+            >
+              <span>Dismiss</span>
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
 };
+

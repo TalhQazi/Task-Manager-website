@@ -621,23 +621,20 @@ async function filesToAttachments(
   const hasLargeOrNonImage = files.some((f) => f.size > 2 * 1024 * 1024 || !isImageFile(f));
 
   if (hasLargeOrNonImage) {
-    try {
-      const fd = new FormData();
-      files.forEach((f) => fd.append("files", f));
-      const token = getAuthState().token || (typeof localStorage !== "undefined" ? localStorage.getItem("token") : null);
-      const res = await uploadWithProgress<{ items: Array<{ fileName: string; url: string; mimeType: string; size: number }> }>({
-        url: `${getApiBaseUrl()}/api/tasks/attachments/upload`,
-        formData: fd,
-        token,
-        onProgress,
-        signal,
-      });
-      if (res && res.items && res.items.length) {
-        return res.items;
-      }
-    } catch (uploadErr) {
-      console.warn("Direct multipart attachment upload error, falling back:", uploadErr);
+    const fd = new FormData();
+    files.forEach((f) => fd.append("files", f));
+    const token = getAuthState().token || (typeof localStorage !== "undefined" ? localStorage.getItem("token") : null);
+    const res = await uploadWithProgress<{ items: Array<{ fileName: string; url: string; mimeType: string; size: number }> }>({
+      url: `${getApiBaseUrl()}/api/tasks/attachments/upload`,
+      formData: fd,
+      token,
+      onProgress,
+      signal,
+    });
+    if (res && res.items && res.items.length) {
+      return res.items;
     }
+    throw new Error("Failed to receive uploaded attachments from server.");
   }
 
   const results = await Promise.all(
