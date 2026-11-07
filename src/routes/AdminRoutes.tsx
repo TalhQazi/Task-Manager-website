@@ -168,6 +168,7 @@ export default function AdminRoutes() {
       { path: "asset-library", element: <AssetLibrary /> },
       { path: "company-information", element: <CompanyInformation /> },
       { path: "settings", element: <Settings /> },
+      { path: "mcp-connector", element: <Navigate to="/admin/settings?tab=mcp-connector" replace /> },
       { path: "asana-import", element: <AsanaImport /> },
       { path: "asana-data", element: <AsanaData /> },
       { path: "profile", element: <Profile /> },

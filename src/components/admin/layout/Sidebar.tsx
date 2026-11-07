@@ -20,6 +20,7 @@ import {
   MessageSquare,
   Bell,
   Settings,
+  Cpu,
   LogOut,
   Building2,
   Landmark,
@@ -247,6 +248,7 @@ const navItemsBase: NavItem[] = [
     children: [
       { icon: Settings, label: "General Settings", path: "/admin/settings" },
       { icon: Palette, label: "Theme Engine", path: "/admin/theme-engine" },
+      { icon: Cpu, label: "MCP AI Connector", path: "/admin/settings?tab=mcp-connector" },
     ],
   },
 ];

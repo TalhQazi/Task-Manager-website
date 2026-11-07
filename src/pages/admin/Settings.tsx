@@ -23,6 +23,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import AssetLibraryPicker from "@/components/admin/AssetLibraryPicker";
 import ThemeEngine from "@/pages/admin/ThemeEngine";
+import McpConnectorTab from "@/components/admin/McpConnectorTab";
 
 type UploadStatus = "idle" | "uploading" | "success" | "error";
 
@@ -1128,6 +1129,34 @@ export default function Settings() {
           <>
             {/* Settings Grid - Responsive */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 md:gap-6 items-start">
+              {/* MCP AI Connector Card */}
+              <Card className="shadow-soft border-0 sm:border bg-gradient-to-br from-card via-card to-blue-500/[0.04]">
+                <CardHeader className="px-4 sm:px-6 py-4 sm:py-5">
+                  <CardTitle className="text-base sm:text-lg md:text-xl font-semibold flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <Cpu className="h-5 w-5 text-blue-500" />
+                      MCP AI Connector
+                    </span>
+                    <Badge className="bg-emerald-500/20 text-emerald-500 dark:text-emerald-400 border-emerald-500/30 text-xs font-bold">
+                      Server Active
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6 space-y-3">
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    Connect Antigravity, Claude Desktop, Cursor, and AI assistants directly to your Task Manager database via Model Context Protocol.
+                  </p>
+                  <Button
+                    type="button"
+                    onClick={() => handleTabChange("mcp-connector")}
+                    className="h-9 text-xs sm:text-sm font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white gap-2 shadow-sm"
+                  >
+                    <Cpu className="h-4 w-4" />
+                    Open MCP Connector Settings
+                  </Button>
+                </CardContent>
+              </Card>
+
               {/* Theme Engine & Appearance Card */}
               <Card className="shadow-soft border-0 sm:border bg-gradient-to-br from-card via-card to-primary/[0.03]">
                 <CardHeader className="px-4 sm:px-6 py-4 sm:py-5">
