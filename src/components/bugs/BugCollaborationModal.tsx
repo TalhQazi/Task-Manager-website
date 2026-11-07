@@ -37,6 +37,7 @@ import {
 import { apiFetch, toProxiedUrl } from "@/lib/manger/api";
 import { getAuthState } from "@/lib/auth";
 import { getEmployeeAuth } from "@/Employee/lib/auth";
+import { toast } from "sonner";
 
 type BugItem = {
   id: string;
@@ -374,8 +375,14 @@ export default function BugCollaborationModal({ bugId, open, onOpenChange, onBug
       });
       setVerifyOpen(false);
       setVerifyFeedback("");
-      await loadData();
       if (onBugUpdated) onBugUpdated();
+      if (verifyDecision === "YES") {
+        toast.success("Fix verified and bug closed successfully.");
+        onOpenChange(false);
+      } else {
+        toast.info("Bug fix rejected and issue reopened.");
+        await loadData();
+      }
     } catch (e) {
       setApiError(e instanceof Error ? e.message : "Failed to submit verification");
     } finally {
@@ -391,8 +398,9 @@ export default function BugCollaborationModal({ bugId, open, onOpenChange, onBug
         method: "POST",
         body: JSON.stringify({ reason: "Admin force closed bug report." }),
       });
-      await loadData();
       if (onBugUpdated) onBugUpdated();
+      toast.success("Bug closed via admin override.");
+      onOpenChange(false);
     } catch (e) {
       setApiError(e instanceof Error ? e.message : "Admin override failed");
     } finally {
@@ -456,8 +464,9 @@ export default function BugCollaborationModal({ bugId, open, onOpenChange, onBug
                       try {
                         setLoading(true);
                         await apiFetch(`/api/bugs/${encodeURIComponent(bug.id)}/close`, { method: "PUT" });
-                        await loadData();
                         if (onBugUpdated) onBugUpdated();
+                        toast.success("Bug closed successfully.");
+                        onOpenChange(false);
                       } catch (e) {
                         setApiError(e instanceof Error ? e.message : "Failed to close bug");
                       } finally {
