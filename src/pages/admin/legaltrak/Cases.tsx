@@ -36,6 +36,8 @@ import {
   AlertTriangle,
   Paperclip,
   Download,
+  Building2,
+  Scale,
 } from "lucide-react";
 import { createResource, deleteResource, listResource, updateResource, getApiBaseUrl } from "@/lib/admin/apiClient";
 import { getAuthState } from "@/lib/auth";
@@ -53,6 +55,8 @@ interface LegalCase {
   type: string;
   status: "Open" | "In Progress" | "Pending Review" | "Closed";
   priority: "Low" | "Medium" | "High" | "Critical";
+  jurisdiction?: "State" | "Federal" | "Other";
+  courtTier?: string; // State: District, Superior, Supreme; Federal: District, Circuit, Supreme
   court?: string;
   judge?: string;
   judges?: string[];
@@ -114,6 +118,10 @@ export default function Cases() {
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
 
+  // Tabs: State / Federal and sub-tiers
+  const [activeJurisdiction, setActiveJurisdiction] = useState<"all" | "State" | "Federal">("all");
+  const [activeTier, setActiveTier] = useState<string>("all");
+
   const [addCourtOpen, setAddCourtOpen] = useState(false);
   const [newCourtName, setNewCourtName] = useState("");
 
@@ -136,6 +144,8 @@ export default function Cases() {
     type: string;
     status: LegalCase["status"];
     priority: LegalCase["priority"];
+    jurisdiction: "State" | "Federal";
+    courtTier: string;
     court: string;
     judge: string;
     judges: string[];
@@ -152,6 +162,8 @@ export default function Cases() {
     type: "",
     status: "Open",
     priority: "Medium",
+    jurisdiction: "State",
+    courtTier: "District",
     court: "",
     judge: "",
     judges: [],
@@ -198,6 +210,12 @@ export default function Cases() {
   }, [casesList, searchParams, setSearchParams]);
 
   const resetForm = () => {
+    const defaultJurisdiction = activeJurisdiction !== "all" ? activeJurisdiction : "State";
+    let defaultTier = "District";
+    if (activeTier !== "all") {
+      defaultTier = activeTier;
+    }
+
     setFormData({
       caseNumber: "",
       title: "",
@@ -205,6 +223,8 @@ export default function Cases() {
       type: "",
       status: "Open",
       priority: "Medium",
+      jurisdiction: defaultJurisdiction,
+      courtTier: defaultTier,
       court: "",
       judge: "",
       judges: [],
@@ -245,6 +265,8 @@ export default function Cases() {
       type: c.type,
       status: c.status,
       priority: c.priority,
+      jurisdiction: c.jurisdiction === "Federal" ? "Federal" : "State",
+      courtTier: c.courtTier || "District",
       court: c.court || "",
       judge: c.judge || "",
       judges: c.judges && c.judges.length > 0 ? c.judges : (c.judge ? [c.judge] : []),
@@ -258,7 +280,7 @@ export default function Cases() {
     setEditOpen(true);
   };
 
-  const handleEdit = async () => {
+  const handleEditSave = async () => {
     if (!selectedCase) return;
     try {
       setIsSubmitting(true);
@@ -298,34 +320,39 @@ export default function Cases() {
     try {
       setIsSubmitting(true);
       const newCourt = await createResource<LegalCourt>("legal/courts", { name: newCourtName.trim() });
-      setCourtsList(prev => [...prev, newCourt].sort((a, b) => a.name.localeCompare(b.name)));
+      setCourtsList(prev => [...prev, newCourt]);
       setFormData(prev => ({ ...prev, court: newCourt.name }));
-      setAddCourtOpen(false);
       setNewCourtName("");
+      setAddCourtOpen(false);
     } catch (e) {
-      setApiError(e instanceof Error ? e.message : "Failed to create court");
+      setApiError(e instanceof Error ? e.message : "Failed to add court");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
     try {
       setUploadingFiles(true);
-      const files = Array.from(e.target.files);
-      const newAtts = await Promise.all(files.map(async (file) => {
-        const base64Url = await fileToBase64(file);
-        return {
+      const newAttachments: Array<{ fileName: string; url: string; mimeType: string; size: number }> = [];
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const base64 = await fileToBase64(file);
+        newAttachments.push({
           fileName: file.name,
-          url: base64Url,
+          url: base64,
           mimeType: file.type,
-          size: file.size
-        };
-      }));
+          size: file.size,
+        });
+      }
+
       setFormData(prev => ({
         ...prev,
-        attachments: [...(prev.attachments || []), ...newAtts]
+        attachments: [...(prev.attachments || []), ...newAttachments]
       }));
     } catch (err) {
       console.error(err);
@@ -342,240 +369,312 @@ export default function Cases() {
     }));
   };
 
+  // Filtered cases by Search, Jurisdiction (State/Federal), and Tier
   const filteredCases = useMemo(() => {
-    return casesList.filter((c) => 
-      c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.caseNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.clientName.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [casesList, searchQuery]);
+    return casesList.filter((c) => {
+      // 1. Text Search Filter
+      const q = searchQuery.toLowerCase().trim();
+      const matchesSearch =
+        !q ||
+        c.title.toLowerCase().includes(q) ||
+        c.caseNumber.toLowerCase().includes(q) ||
+        c.clientName.toLowerCase().includes(q) ||
+        (c.court && c.court.toLowerCase().includes(q));
 
-  const renderFormFields = () => (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div className="space-y-1">
-        <label className="text-xs font-medium text-slate-300">Title *</label>
-        <input 
-          type="text" 
-          value={formData.title} 
-          onChange={e => setFormData({...formData, title: e.target.value})} 
-          className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" 
-          placeholder="Case Title" 
-          required 
-        />
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs font-medium text-slate-300">Case Number (Format: PENC-CIV-000061-2026 or PENSC-REA-2025-00021)</label>
-        <input 
-          type="text" 
-          value={formData.caseNumber} 
-          onChange={e => setFormData({...formData, caseNumber: formatCaseNumber(e.target.value)})} 
-          className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 font-mono" 
-          placeholder="e.g. PENSC-REA-2025-00021" 
-        />
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs font-medium text-slate-300">Client Name *</label>
-        <input 
-          type="text" 
-          value={formData.clientName} 
-          onChange={e => setFormData({...formData, clientName: e.target.value})} 
-          className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" 
-          placeholder="Client Name" 
-          required 
-        />
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs font-medium text-slate-300">Case Type *</label>
-        <input 
-          type="text" 
-          value={formData.type} 
-          onChange={e => setFormData({...formData, type: e.target.value})} 
-          className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" 
-          placeholder="e.g. Civil, Criminal" 
-          required 
-        />
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs font-medium text-slate-300">Status</label>
-        <select 
-          value={formData.status} 
-          onChange={e => setFormData({...formData, status: e.target.value as any})} 
-          className="w-full rounded-md border border-white/10 bg-[#1e293b] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-        >
-          <option value="Open">Open</option>
-          <option value="In Progress">In Progress</option>
-          <option value="Pending Review">Pending Review</option>
-          <option value="Closed">Closed</option>
-        </select>
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs font-medium text-slate-300">Priority</label>
-        <select 
-          value={formData.priority} 
-          onChange={e => setFormData({...formData, priority: e.target.value as any})} 
-          className="w-full rounded-md border border-white/10 bg-[#1e293b] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-        >
-          <option value="Low">Low</option>
-          <option value="Medium">Medium</option>
-          <option value="High">High</option>
-          <option value="Critical">Critical</option>
-        </select>
-      </div>
-      <div className="space-y-1 min-w-0">
-        <label className="text-xs font-medium text-slate-300">Court</label>
-        <div className="flex gap-2 min-w-0">
-          <select
-            value={formData.court}
-            onChange={e => setFormData({...formData, court: e.target.value})}
-            className="flex-1 min-w-0 truncate rounded-md border border-white/10 bg-[#1e293b] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+      if (!matchesSearch) return false;
+
+      // 2. Jurisdiction Filter (State / Federal)
+      const caseJurisdiction = c.jurisdiction === "Federal" ? "Federal" : "State";
+      if (activeJurisdiction !== "all" && caseJurisdiction !== activeJurisdiction) {
+        return false;
+      }
+
+      // 3. Court Tier Filter (District, Superior, Supreme / District, Circuit, Supreme)
+      if (activeTier !== "all") {
+        const caseTier = c.courtTier || "District";
+        if (caseTier.toLowerCase() !== activeTier.toLowerCase()) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [casesList, searchQuery, activeJurisdiction, activeTier]);
+
+  // Form Fields for Add / Edit
+  const renderFormFields = () => {
+    const stateTiers = ["District", "Superior", "Supreme"];
+    const federalTiers = ["District", "Circuit", "Supreme"];
+    const availableTiers = formData.jurisdiction === "Federal" ? federalTiers : stateTiers;
+
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Jurisdiction Selection: State vs Federal */}
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
+            <Scale className="h-3.5 w-3.5 text-blue-400" /> Jurisdiction *
+          </label>
+          <select 
+            value={formData.jurisdiction} 
+            onChange={(e) => {
+              const nextJurisdiction = e.target.value as "State" | "Federal";
+              const nextTiers = nextJurisdiction === "Federal" ? federalTiers : stateTiers;
+              setFormData({
+                ...formData,
+                jurisdiction: nextJurisdiction,
+                courtTier: nextTiers[0],
+              });
+            }} 
+            className="w-full rounded-md border border-white/10 bg-[#1e293b] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 font-semibold"
           >
-            <option value="">Select a court</option>
-            {courtsList.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+            <option value="State">State Court System</option>
+            <option value="Federal">Federal Court System</option>
           </select>
-          <Button type="button" variant="outline" onClick={() => setAddCourtOpen(true)} className="shrink-0 border-white/10 bg-white/5 hover:bg-white/10 text-white px-3">
-            <Plus className="h-4 w-4" />
-          </Button>
         </div>
-      </div>
-      <div className="space-y-2 sm:col-span-2">
-        <label className="text-xs font-medium text-slate-300">Judges Panel (Press Enter or click Add to append multiple judges)</label>
-        <div className="flex flex-wrap gap-2 mb-1.5 min-h-[36px] p-2 bg-black/20 border border-white/10 rounded-md">
-          {formData.judges && formData.judges.map((j, idx) => (
-            <Badge key={idx} variant="outline" className="bg-blue-500/10 text-blue-300 border-blue-500/20 py-1 px-2.5 flex items-center gap-1.5">
-              <span>{j}</span>
-              <button
-                type="button"
-                onClick={() => {
-                  setFormData(prev => ({ ...prev, judges: prev.judges.filter((_, i) => i !== idx) }));
-                }}
-                className="text-slate-400 hover:text-slate-200 focus:outline-none"
-              >
-                &times;
-              </button>
-            </Badge>
-          ))}
-          {(!formData.judges || formData.judges.length === 0) && (
-            <span className="text-xs text-slate-500 italic">No judges assigned yet.</span>
-          )}
+
+        {/* Court Tier Selection */}
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
+            <Building2 className="h-3.5 w-3.5 text-blue-400" /> Court Level / Tier *
+          </label>
+          <select 
+            value={formData.courtTier} 
+            onChange={(e) => setFormData({ ...formData, courtTier: e.target.value })} 
+            className="w-full rounded-md border border-white/10 bg-[#1e293b] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 font-semibold"
+          >
+            {availableTiers.map((tier) => (
+              <option key={tier} value={tier}>
+                {formData.jurisdiction} - {tier} Court
+              </option>
+            ))}
+          </select>
         </div>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            id="new-judge-input"
-            placeholder="Enter judge name..."
-            className="flex-1 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                const val = e.currentTarget.value.trim();
+
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-slate-300">Title *</label>
+          <input 
+            type="text" 
+            value={formData.title} 
+            onChange={e => setFormData({...formData, title: e.target.value})} 
+            className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" 
+            placeholder="Case Title" 
+            required 
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-slate-300">Case Number (Format: PENC-CIV-000061-2026 or PENSC-REA-2025-00021)</label>
+          <input 
+            type="text" 
+            value={formData.caseNumber} 
+            onChange={e => setFormData({...formData, caseNumber: formatCaseNumber(e.target.value)})} 
+            className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 font-mono" 
+            placeholder="e.g. PENSC-REA-2025-00021" 
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-slate-300">Client Name *</label>
+          <input 
+            type="text" 
+            value={formData.clientName} 
+            onChange={e => setFormData({...formData, clientName: e.target.value})} 
+            className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" 
+            placeholder="Client Name" 
+            required 
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-slate-300">Case Type *</label>
+          <input 
+            type="text" 
+            value={formData.type} 
+            onChange={e => setFormData({...formData, type: e.target.value})} 
+            className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" 
+            placeholder="e.g. Civil, Criminal, Appellate" 
+            required 
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-slate-300">Status</label>
+          <select 
+            value={formData.status} 
+            onChange={e => setFormData({...formData, status: e.target.value as any})} 
+            className="w-full rounded-md border border-white/10 bg-[#1e293b] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+          >
+            <option value="Open">Open</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Pending Review">Pending Review</option>
+            <option value="Closed">Closed</option>
+          </select>
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-slate-300">Priority</label>
+          <select 
+            value={formData.priority} 
+            onChange={e => setFormData({...formData, priority: e.target.value as any})} 
+            className="w-full rounded-md border border-white/10 bg-[#1e293b] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+          >
+            <option value="Low">Low</option>
+            <option value="Medium">Medium</option>
+            <option value="High">High</option>
+            <option value="Critical">Critical</option>
+          </select>
+        </div>
+        <div className="space-y-1 min-w-0">
+          <label className="text-xs font-medium text-slate-300">Court</label>
+          <div className="flex gap-2 min-w-0">
+            <select
+              value={formData.court}
+              onChange={e => setFormData({...formData, court: e.target.value})}
+              className="flex-1 min-w-0 truncate rounded-md border border-white/10 bg-[#1e293b] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+            >
+              <option value="">Select a court</option>
+              {courtsList.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+            </select>
+            <Button type="button" variant="outline" onClick={() => setAddCourtOpen(true)} className="shrink-0 border-white/10 bg-white/5 hover:bg-white/10 text-white px-3">
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+        <div className="space-y-2 sm:col-span-2">
+          <label className="text-xs font-medium text-slate-300">Judges Panel (Press Enter or click Add to append multiple judges)</label>
+          <div className="flex flex-wrap gap-2 mb-1.5 min-h-[36px] p-2 bg-black/20 border border-white/10 rounded-md">
+            {formData.judges && formData.judges.map((j, idx) => (
+              <Badge key={idx} variant="outline" className="bg-blue-500/10 text-blue-300 border-blue-500/20 py-1 px-2.5 flex items-center gap-1.5">
+                <span>{j}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormData(prev => ({ ...prev, judges: prev.judges.filter((_, i) => i !== idx) }));
+                  }}
+                  className="text-slate-400 hover:text-slate-200 focus:outline-none"
+                >
+                  &times;
+                </button>
+              </Badge>
+            ))}
+            {(!formData.judges || formData.judges.length === 0) && (
+              <span className="text-xs text-slate-500 italic">No judges assigned yet.</span>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              id="new-judge-input"
+              placeholder="Enter judge name..."
+              className="flex-1 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  const val = e.currentTarget.value.trim();
+                  if (val && !formData.judges.includes(val)) {
+                    setFormData(prev => ({ ...prev, judges: [...prev.judges, val] }));
+                    e.currentTarget.value = '';
+                  }
+                }
+              }}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                const input = document.getElementById("new-judge-input") as HTMLInputElement;
+                const val = input?.value.trim();
                 if (val && !formData.judges.includes(val)) {
                   setFormData(prev => ({ ...prev, judges: [...prev.judges, val] }));
-                  e.currentTarget.value = '';
+                  input.value = '';
                 }
-              }
-            }}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              const input = document.getElementById("new-judge-input") as HTMLInputElement;
-              const val = input?.value.trim();
-              if (val && !formData.judges.includes(val)) {
-                setFormData(prev => ({ ...prev, judges: [...prev.judges, val] }));
-                input.value = '';
-              }
-            }}
-            className="border-white/10 bg-white/5 hover:bg-white/10 text-white px-3"
-          >
-            Add
-          </Button>
-        </div>
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs font-medium text-slate-300">Originating Court (Origin)</label>
-        <input 
-          type="text" 
-          value={formData.originatingCourt} 
-          onChange={e => setFormData({...formData, originatingCourt: e.target.value})} 
-          className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" 
-          placeholder="e.g. SDNY, 9th Circuit" 
-        />
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs font-medium text-slate-300">Originating Case Number</label>
-        <input 
-          type="text" 
-          value={formData.originatingCaseNumber} 
-          onChange={e => setFormData({...formData, originatingCaseNumber: formatCaseNumber(e.target.value)})} 
-          className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 font-mono" 
-          placeholder="e.g. 22-1486" 
-        />
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs font-medium text-slate-300">Open Date</label>
-        <input 
-          type="date" 
-          value={formData.openDate} 
-          onChange={e => setFormData({...formData, openDate: e.target.value})} 
-          className="w-full rounded-md border border-white/10 bg-[#1e293b] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" 
-        />
-      </div>
-      <div className="space-y-1 sm:col-span-2">
-        <label className="text-xs font-medium text-slate-300">Description</label>
-        <textarea 
-          value={formData.description} 
-          onChange={e => setFormData({...formData, description: e.target.value})} 
-          className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none h-24" 
-          placeholder="Case details..." 
-        />
-      </div>
-
-      {/* File Attachments (Admins/Super Admins only) */}
-      {isAdminRole && (
-        <div className="space-y-1.5 sm:col-span-2 border-t border-white/5 pt-3 mt-1">
-          <label className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
-            <Paperclip className="h-3.5 w-3.5" /> Attachments
-          </label>
-          <div className="flex items-center gap-2 mt-1">
-            <input 
-              type="file" 
-              id="case-attachments-input" 
-              multiple 
-              className="hidden" 
-              onChange={handleFileChange} 
-            />
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => document.getElementById("case-attachments-input")?.click()}
-              className="border-white/10 bg-white/5 hover:bg-white/10 text-white text-xs"
+              }}
+              className="border-white/10 bg-white/5 hover:bg-white/10 text-white px-3"
             >
-              Attach Files
+              Add
             </Button>
-            {uploadingFiles && <span className="text-xs text-slate-400">Processing files...</span>}
           </div>
-          
-          {formData.attachments && formData.attachments.length > 0 && (
-            <div className="mt-2 space-y-1.5 max-h-32 overflow-y-auto border border-white/10 rounded-lg p-2 bg-black/20">
-              {formData.attachments.map((att: any, idx: number) => (
-                <div key={idx} className="flex justify-between items-center text-xs text-slate-300 bg-white/5 p-1.5 px-2.5 rounded border border-white/5">
-                  <span className="truncate max-w-[250px]">{att.fileName} ({att.size ? (att.size / 1024).toFixed(1) : 0} KB)</span>
-                  <button 
-                    type="button" 
-                    onClick={() => removeAttachment(idx)}
-                    className="text-rose-400 hover:text-rose-300 font-semibold text-xs ml-2"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
-      )}
-    </div>
-  );
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-slate-300">Originating Court (Origin)</label>
+          <input 
+            type="text" 
+            value={formData.originatingCourt} 
+            onChange={e => setFormData({...formData, originatingCourt: e.target.value})} 
+            className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" 
+            placeholder="e.g. SDNY, 9th Circuit" 
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-slate-300">Originating Case Number</label>
+          <input 
+            type="text" 
+            value={formData.originatingCaseNumber} 
+            onChange={e => setFormData({...formData, originatingCaseNumber: formatCaseNumber(e.target.value)})} 
+            className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 font-mono" 
+            placeholder="e.g. 22-1486" 
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-slate-300">Open Date</label>
+          <input 
+            type="date" 
+            value={formData.openDate} 
+            onChange={e => setFormData({...formData, openDate: e.target.value})} 
+            className="w-full rounded-md border border-white/10 bg-[#1e293b] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" 
+          />
+        </div>
+        <div className="space-y-1 sm:col-span-2">
+          <label className="text-xs font-medium text-slate-300">Description</label>
+          <textarea 
+            value={formData.description} 
+            onChange={e => setFormData({...formData, description: e.target.value})} 
+            className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none h-24" 
+            placeholder="Case details..." 
+          />
+        </div>
+
+        {/* File Attachments (Admins/Super Admins only) */}
+        {isAdminRole && (
+          <div className="space-y-1.5 sm:col-span-2 border-t border-white/5 pt-3 mt-1">
+            <label className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
+              <Paperclip className="h-3.5 w-3.5" /> Attachments
+            </label>
+            <div className="flex items-center gap-2 mt-1">
+              <input 
+                type="file" 
+                id="case-attachments-input" 
+                multiple 
+                className="hidden" 
+                onChange={handleFileChange} 
+              />
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => document.getElementById("case-attachments-input")?.click()}
+                className="border-white/10 bg-white/5 hover:bg-white/10 text-white text-xs"
+              >
+                Attach Files
+              </Button>
+              {uploadingFiles && <span className="text-xs text-slate-400">Processing files...</span>}
+            </div>
+            
+            {formData.attachments && formData.attachments.length > 0 && (
+              <div className="mt-2 space-y-1.5 max-h-32 overflow-y-auto border border-white/10 rounded-lg p-2 bg-black/20">
+                {formData.attachments.map((att: any, idx: number) => (
+                  <div key={idx} className="flex justify-between items-center text-xs text-slate-300 bg-white/5 p-1.5 px-2.5 rounded border border-white/5">
+                    <span className="truncate max-w-[250px]">{att.fileName} ({att.size ? (att.size / 1024).toFixed(1) : 0} KB)</span>
+                    <button 
+                      type="button" 
+                      onClick={() => removeAttachment(idx)}
+                      className="text-rose-400 hover:text-rose-300 font-semibold text-xs ml-2"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <motion.div className="px-2 sm:pl-6 pr-2 sm:pr-0 pb-6 space-y-6 page-shell" variants={containerVariants} initial="hidden" animate="visible">
@@ -588,12 +687,12 @@ export default function Cases() {
               <h1 className="text-2xl font-bold tracking-tight text-white">Legal Cases</h1>
             </div>
             <p className="text-sm text-slate-400 max-w-2xl">
-              Manage your legal cases, track statuses, priorities, and assignments.
+              Organize and track State and Federal cases across District, Superior, Circuit, and Supreme court tiers.
             </p>
           </div>
           <Dialog open={addOpen} onOpenChange={setAddOpen}>
             <DialogTrigger asChild>
-              <Button onClick={resetForm} className="bg-blue-600 hover:bg-blue-500 text-white border-0">
+              <Button onClick={resetForm} className="bg-blue-600 hover:bg-blue-500 text-white border-0 shadow-lg shadow-blue-600/30">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Case
               </Button>
@@ -602,7 +701,7 @@ export default function Cases() {
               <DialogHeader>
                 <DialogTitle>Create New Case</DialogTitle>
                 <DialogDescription className="text-slate-400">
-                  Fill out the details to open a new case record.
+                  Select court jurisdiction (State / Federal) and court level to file a case record.
                 </DialogDescription>
               </DialogHeader>
               <div className="py-4">
@@ -620,26 +719,149 @@ export default function Cases() {
         </div>
       </motion.div>
 
-      {/* Main Content */}
+      {/* Main Content with State / Federal Tabs */}
       <motion.div variants={itemVariants} className="rounded-xl border border-white/10 bg-white/[0.02] backdrop-blur-md overflow-hidden">
-        <div className="p-4 border-b border-white/10 flex items-center justify-between">
-          <div className="relative w-full max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <input 
-              type="text"
-              placeholder="Search cases..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-black/20 border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500/50 transition-colors"
-            />
+        {/* Jurisdiction & Court Tier Tabs Navigation */}
+        <div className="p-4 border-b border-white/10 bg-black/20 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            {/* Main Tabs: All / State / Federal */}
+            <div className="flex items-center gap-1.5 p-1 bg-black/40 border border-white/10 rounded-xl w-fit">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveJurisdiction("all");
+                  setActiveTier("all");
+                }}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  activeJurisdiction === "all"
+                    ? "bg-blue-600 text-white shadow-md shadow-blue-600/30"
+                    : "text-slate-400 hover:text-white hover:bg-white/5"
+                }`}
+              >
+                <span>All Cases</span>
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20 text-white font-mono">
+                  {casesList.length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveJurisdiction("State");
+                  setActiveTier("all");
+                }}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  activeJurisdiction === "State"
+                    ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/30"
+                    : "text-slate-400 hover:text-white hover:bg-white/5"
+                }`}
+              >
+                <span>State</span>
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20 text-white font-mono">
+                  {casesList.filter((c) => (c.jurisdiction || "State") === "State").length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveJurisdiction("Federal");
+                  setActiveTier("all");
+                }}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  activeJurisdiction === "Federal"
+                    ? "bg-purple-600 text-white shadow-md shadow-purple-600/30"
+                    : "text-slate-400 hover:text-white hover:bg-white/5"
+                }`}
+              >
+                <span>Federal</span>
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20 text-white font-mono">
+                  {casesList.filter((c) => c.jurisdiction === "Federal").length}
+                </span>
+              </button>
+            </div>
+
+            {/* Search Input */}
+            <div className="relative w-full sm:w-72">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <input 
+                type="text"
+                placeholder="Search cases..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 bg-black/30 border border-white/10 rounded-lg text-xs text-white focus:outline-none focus:border-blue-500/50 transition-colors"
+              />
+            </div>
           </div>
+
+          {/* Sub-Tabs: State Tiers (District, Superior, Supreme) */}
+          {activeJurisdiction === "State" && (
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/5">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 mr-1 flex items-center gap-1">
+                <Building2 className="h-3 w-3" /> State Tiers:
+              </span>
+              {["all", "District", "Superior", "Supreme"].map((tier) => {
+                const count = tier === "all"
+                  ? casesList.filter((c) => (c.jurisdiction || "State") === "State").length
+                  : casesList.filter((c) => (c.jurisdiction || "State") === "State" && (c.courtTier || "District").toLowerCase() === tier.toLowerCase()).length;
+                const isSelected = activeTier === tier;
+                return (
+                  <button
+                    key={tier}
+                    type="button"
+                    onClick={() => setActiveTier(tier)}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
+                      isSelected
+                        ? "bg-emerald-500/25 text-emerald-300 border border-emerald-500/50 shadow-sm"
+                        : "text-slate-400 hover:text-white hover:bg-white/5 border border-transparent"
+                    }`}
+                  >
+                    <span>{tier === "all" ? "All State" : tier}</span>
+                    <span className="text-[10px] font-mono opacity-80">({count})</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Sub-Tabs: Federal Tiers (District, Circuit, Supreme) */}
+          {activeJurisdiction === "Federal" && (
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/5">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-purple-400 mr-1 flex items-center gap-1">
+                <Scale className="h-3 w-3" /> Federal Tiers:
+              </span>
+              {["all", "District", "Circuit", "Supreme"].map((tier) => {
+                const count = tier === "all"
+                  ? casesList.filter((c) => c.jurisdiction === "Federal").length
+                  : casesList.filter((c) => c.jurisdiction === "Federal" && (c.courtTier || "District").toLowerCase() === tier.toLowerCase()).length;
+                const isSelected = activeTier === tier;
+                return (
+                  <button
+                    key={tier}
+                    type="button"
+                    onClick={() => setActiveTier(tier)}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
+                      isSelected
+                        ? "bg-purple-500/25 text-purple-300 border border-purple-500/50 shadow-sm"
+                        : "text-slate-400 hover:text-white hover:bg-white/5 border border-transparent"
+                    }`}
+                  >
+                    <span>{tier === "all" ? "All Federal" : tier}</span>
+                    <span className="text-[10px] font-mono opacity-80">({count})</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
+        {/* Cases Table */}
         <div className="overflow-x-auto">
           <Table>
             <TableHeader className="bg-black/20 hover:bg-black/20">
               <TableRow className="border-white/10 hover:bg-transparent">
                 <TableHead className="text-slate-400">Case No.</TableHead>
+                <TableHead className="text-slate-400">Jurisdiction & Tier</TableHead>
                 <TableHead className="text-slate-400">Title</TableHead>
                 <TableHead className="text-slate-400">Client</TableHead>
                 <TableHead className="text-slate-400">Type</TableHead>
@@ -651,51 +873,70 @@ export default function Cases() {
             <TableBody>
               {loading ? (
                 <TableRow className="border-white/10">
-                  <TableCell colSpan={7} className="text-center py-8 text-slate-400">Loading cases...</TableCell>
+                  <TableCell colSpan={8} className="text-center py-8 text-slate-400">Loading cases...</TableCell>
                 </TableRow>
               ) : filteredCases.length === 0 ? (
                 <TableRow className="border-white/10">
-                  <TableCell colSpan={7} className="text-center py-8 text-slate-400">No cases found.</TableCell>
+                  <TableCell colSpan={8} className="text-center py-8 text-slate-400">
+                    No {activeJurisdiction !== "all" ? activeJurisdiction : ""} cases found {activeTier !== "all" ? `in ${activeTier} court` : ""}.
+                  </TableCell>
                 </TableRow>
               ) : (
-                filteredCases.map((c) => (
-                  <TableRow key={c.id} className="border-white/10 hover:bg-white/5 transition-colors">
-                    <TableCell className="font-mono text-sm text-slate-300">{c.caseNumber}</TableCell>
-                    <TableCell className="font-medium text-white">{c.title}</TableCell>
-                    <TableCell className="text-slate-300">{c.clientName}</TableCell>
-                    <TableCell className="text-slate-300">{c.type}</TableCell>
-                    <TableCell>
-                      <span className={priorityClasses[c.priority] || "text-slate-400"}>
-                        {c.priority}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={statusClasses[c.status] || ""}>
-                        {c.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0 text-slate-400 hover:text-white hover:bg-white/10">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="bg-[#1e293b] border-white/10 text-white">
-                          <DropdownMenuItem onClick={() => { setSelectedCase(c); setViewOpen(true); }} className="hover:bg-white/10 focus:bg-white/10 cursor-pointer">
-                            <Eye className="h-4 w-4 mr-2" /> View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleEditOpen(c)} className="hover:bg-white/10 focus:bg-white/10 cursor-pointer">
-                            <Edit className="h-4 w-4 mr-2" /> Edit Case
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => { setSelectedCase(c); setDeleteOpen(true); }} className="text-rose-400 hover:bg-rose-500/10 focus:bg-rose-500/10 cursor-pointer">
-                            <Trash2 className="h-4 w-4 mr-2" /> Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))
+                filteredCases.map((c) => {
+                  const isFed = c.jurisdiction === "Federal";
+                  return (
+                    <TableRow key={c.id} className="border-white/10 hover:bg-white/[0.02]">
+                      <TableCell className="font-mono text-sm text-slate-300">{c.caseNumber}</TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant="outline" 
+                          className={`text-[11px] font-semibold border ${
+                            isFed
+                              ? "bg-purple-500/10 text-purple-300 border-purple-500/30"
+                              : "bg-emerald-500/10 text-emerald-300 border-emerald-500/30"
+                          }`}
+                        >
+                          {c.jurisdiction || "State"} • {c.courtTier || "District"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-medium text-white max-w-[200px] truncate" title={c.title}>
+                        {c.title}
+                      </TableCell>
+                      <TableCell className="text-slate-300">{c.clientName}</TableCell>
+                      <TableCell className="text-slate-400">{c.type}</TableCell>
+                      <TableCell className={priorityClasses[c.priority] || ""}>{c.priority}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={statusClasses[c.status] || ""}>
+                          {c.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0 text-slate-400 hover:text-white hover:bg-white/10">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="bg-[#0f172a] border-white/10 text-white">
+                            <DropdownMenuItem onClick={() => { setSelectedCase(c); setViewOpen(true); }} className="hover:bg-white/10 cursor-pointer">
+                              <Eye className="h-4 w-4 mr-2" /> View Details
+                            </DropdownMenuItem>
+                            {isAdminRole && (
+                              <>
+                                <DropdownMenuItem onClick={() => handleEditOpen(c)} className="hover:bg-white/10 cursor-pointer">
+                                  <Edit className="h-4 w-4 mr-2" /> Edit Case
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => { setSelectedCase(c); setDeleteOpen(true); }} className="hover:bg-white/10 cursor-pointer text-rose-400 focus:text-rose-400">
+                                  <Trash2 className="h-4 w-4 mr-2" /> Delete
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
@@ -706,7 +947,10 @@ export default function Cases() {
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="bg-[#0f172a] border-white/10 text-white w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Case {selectedCase?.caseNumber}</DialogTitle>
+            <DialogTitle>Edit Case</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Update case details, jurisdiction, court tier, and documents.
+            </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             {apiError && <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-md text-sm">{apiError}</div>}
@@ -714,7 +958,7 @@ export default function Cases() {
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setEditOpen(false)} className="hover:bg-white/10 text-white">Cancel</Button>
-            <Button onClick={handleEdit} disabled={isSubmitting || uploadingFiles || !formData.title || !formData.clientName || !formData.type} className="bg-blue-600 hover:bg-blue-500 text-white">
+            <Button onClick={handleEditSave} disabled={isSubmitting || uploadingFiles || !formData.title || !formData.clientName || !formData.type} className="bg-blue-600 hover:bg-blue-500 text-white">
               {isSubmitting ? "Saving..." : "Save Changes"}
             </Button>
           </div>
@@ -723,28 +967,47 @@ export default function Cases() {
 
       {/* View Dialog */}
       <Dialog open={viewOpen} onOpenChange={setViewOpen}>
-        <DialogContent className="bg-[#0f172a] border-white/10 text-white w-[95vw] sm:max-w-lg">
+        <DialogContent className="bg-[#0f172a] border-white/10 text-white w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Case Details</DialogTitle>
+            <div className="flex items-center gap-3">
+              <DialogTitle className="text-xl font-bold">{selectedCase?.title}</DialogTitle>
+              {selectedCase && (
+                <Badge 
+                  variant="outline" 
+                  className={`text-xs ${
+                    selectedCase.jurisdiction === "Federal"
+                      ? "bg-purple-500/15 text-purple-300 border-purple-500/30"
+                      : "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                  }`}
+                >
+                  {selectedCase.jurisdiction || "State"} Court • {selectedCase.courtTier || "District"}
+                </Badge>
+              )}
+            </div>
+            <DialogDescription className="text-slate-400 font-mono">
+              {selectedCase?.caseNumber}
+            </DialogDescription>
           </DialogHeader>
           {selectedCase && (
-            <div className="py-4 space-y-4">
-              <div>
-                <div className="text-xs text-slate-400">Case Number</div>
-                <div className="font-mono text-lg">{selectedCase.caseNumber}</div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-4 py-4 text-sm">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 border-b border-white/10 pb-4">
                 <div>
-                  <div className="text-xs text-slate-400">Title</div>
-                  <div className="font-medium">{selectedCase.title}</div>
+                  <div className="text-xs text-slate-400">Jurisdiction</div>
+                  <div className="font-semibold text-white">{selectedCase.jurisdiction || "State"}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-400">Court Tier</div>
+                  <div className="font-semibold text-white">{selectedCase.courtTier || "District"}</div>
                 </div>
                 <div>
                   <div className="text-xs text-slate-400">Client</div>
-                  <div className="font-medium">{selectedCase.clientName}</div>
+                  <div className="font-medium text-white">{selectedCase.clientName}</div>
                 </div>
                 <div>
                   <div className="text-xs text-slate-400">Status</div>
-                  <Badge variant="outline" className={statusClasses[selectedCase.status] || ""}>{selectedCase.status}</Badge>
+                  <Badge variant="outline" className={`${statusClasses[selectedCase.status] || ""} mt-0.5`}>
+                    {selectedCase.status}
+                  </Badge>
                 </div>
                 <div>
                   <div className="text-xs text-slate-400">Priority</div>

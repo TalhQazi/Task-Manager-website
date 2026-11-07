@@ -53,6 +53,10 @@ import {
   Globe,
   SlidersHorizontal,
   CheckSquare,
+  Eye,
+  EyeOff,
+  CheckCheck,
+  Sparkles,
 } from "lucide-react";
 
 export interface EmployeeComplianceItem {
@@ -148,6 +152,7 @@ interface Website {
   truthSocialCompliance?: string;
   threadsCompliance?: string;
   locations?: any[];
+  hiddenCategories?: string[];
 }
 
 interface ChecklistItem {
@@ -331,6 +336,7 @@ export default function ComplianceCenter() {
   const [siteHistory, setSiteHistory] = useState<ChecklistHistory[]>([]);
   const [globalAuditLogs, setGlobalAuditLogs] = useState<(ChecklistHistory & { siteName?: string })[]>([]);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [showHiddenCategories, setShowHiddenCategories] = useState(false);
 
   // Router navigation
   const navigate = useNavigate();
@@ -516,13 +522,103 @@ export default function ComplianceCenter() {
     setIsDrawerOpen(true);
     setActionLoading(true);
     try {
-      const complianceRes = await apiFetch<{ items: ChecklistItem[] }>("/api/websites/" + site._id + "/compliance");
+      const complianceRes = await apiFetch<{ items: ChecklistItem[]; website?: Website }>("/api/websites/" + site._id + "/compliance");
       setChecklistItems(complianceRes.items || []);
+      if (complianceRes.website) {
+        setSelectedWebsite(complianceRes.website);
+        setWebsites((prev) =>
+          prev.map((w) => (w._id === site._id ? complianceRes.website! : w))
+        );
+      }
 
       const historyRes = await apiFetch<{ items: ChecklistHistory[] }>("/api/websites/" + site._id + "/history");
       setSiteHistory(historyRes.items || []);
     } catch (err) {
       toast.error("Failed to load site compliance checklist.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Bulk update category status (e.g. mark entire category as NA, completed, or reset to pending)
+  const handleBulkCategoryStatus = async (
+    category: string,
+    status: "na" | "completed" | "pending",
+    hideCategory: boolean = false
+  ) => {
+    if (!selectedWebsite) return;
+    setActionLoading(true);
+    try {
+      const res = await apiFetch<{
+        success: boolean;
+        readinessScore: number;
+        items: ChecklistItem[];
+        website: Website;
+        hiddenCategories: string[];
+      }>(`/api/websites/${selectedWebsite._id}/compliance/category-status`, {
+        method: "PATCH",
+        body: JSON.stringify({ category, status, hide: hideCategory }),
+      });
+
+      if (res && res.website) {
+        setSelectedWebsite(res.website);
+        setWebsites((prev) =>
+          prev.map((w) => (w._id === selectedWebsite._id ? res.website : w))
+        );
+      }
+      if (res && res.items) {
+        setChecklistItems(res.items);
+      }
+
+      const historyRes = await apiFetch<{ items: ChecklistHistory[] }>(
+        `/api/websites/${selectedWebsite._id}/history`
+      );
+      setSiteHistory(historyRes.items || []);
+
+      const actionText =
+        status === "na"
+          ? "marked as N/A (100% compliant)"
+          : status === "completed"
+          ? "marked as Completed"
+          : "reset to Pending";
+      toast.success(`Category "${category}" ${actionText}${hideCategory ? " and hidden" : ""}`);
+      void loadData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update category status");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Toggle category visibility (hide / show section for this project)
+  const handleToggleCategoryVisibility = async (category: string) => {
+    if (!selectedWebsite) return;
+    const isCurrentlyHidden = (selectedWebsite.hiddenCategories || []).includes(category);
+    setActionLoading(true);
+    try {
+      const res = await apiFetch<{ success: boolean; hiddenCategories: string[] }>(
+        `/api/websites/${selectedWebsite._id}/compliance/toggle-category-visibility`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ category, hidden: !isCurrentlyHidden }),
+        }
+      );
+
+      const updatedHidden = res.hiddenCategories || [];
+      setSelectedWebsite((prev) =>
+        prev ? { ...prev, hiddenCategories: updatedHidden } : null
+      );
+      setWebsites((prev) =>
+        prev.map((w) =>
+          w._id === selectedWebsite._id ? { ...w, hiddenCategories: updatedHidden } : w
+        )
+      );
+
+      toast.success(
+        `Category "${category}" ${isCurrentlyHidden ? "unhidden" : "hidden for this project"}`
+      );
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update category visibility");
     } finally {
       setActionLoading(false);
     }
@@ -2127,26 +2223,83 @@ export default function ComplianceCenter() {
               </Card>
 
               {/* Social Media Compliance Checklist Section */}
-              <Card className={`p-4 border ${isMetallic ? "bg-black/30 border-[#ffd27a]/15 text-white" : "bg-card border-border"}`}>
-                <h3 className="font-bold text-sm text-foreground mb-3 uppercase tracking-wider flex items-center gap-1.5">
-                  <Shield className="h-4 w-4 text-blue-500" />
-                  Social Media Compliance Checklist
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {[
-                    { key: "youtubeCompliance", label: "YouTube" },
-                    { key: "rumbleCompliance", label: "Rumble" },
-                    { key: "libertySocialCompliance", label: "Liberty Social" },
-                    { key: "facebookCompliance", label: "Facebook" },
-                    { key: "xCompliance", label: "X (Twitter)" },
-                    { key: "instagramCompliance", label: "Instagram" },
-                    { key: "tikTokCompliance", label: "TikTok" },
-                    { key: "yelpCompliance", label: "Yelp" },
-                    { key: "truthSocialCompliance", label: "Truth Social" },
-                    { key: "threadsCompliance", label: "Threads" }
-                  ].map((socialItem) => {
-                    const val = (selectedWebsite as any)[socialItem.key] || "none";
-                    const matchItem = checklistItems.find(i => i.title === socialItem.label);
+              {(selectedWebsite.hiddenCategories || []).includes("Social Media") && !showHiddenCategories ? (
+                <div className="flex items-center justify-between p-3 rounded-xl border border-dashed border-amber-500/30 bg-amber-500/5 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-amber-500 shrink-0" />
+                    <span><strong>Social Media section is hidden</strong> for this project.</span>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 text-[11px] text-amber-500 hover:text-amber-400 gap-1 font-semibold"
+                    onClick={() => handleToggleCategoryVisibility("Social Media")}
+                  >
+                    <Eye className="h-3.5 w-3.5" /> Unhide Section
+                  </Button>
+                </div>
+              ) : (
+                <Card className={`p-4 border ${
+                  (selectedWebsite.hiddenCategories || []).includes("Social Media")
+                    ? "border-dashed border-amber-500/40 bg-amber-500/5 opacity-85"
+                    : isMetallic
+                    ? "bg-black/30 border-[#ffd27a]/15 text-white"
+                    : "bg-card border-border"
+                }`}>
+                  <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                    <h3 className="font-bold text-sm text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <Shield className="h-4 w-4 text-blue-500" />
+                      Social Media Compliance Checklist
+                      {(selectedWebsite.hiddenCategories || []).includes("Social Media") && (
+                        <Badge className="bg-amber-500/15 text-amber-500 border border-amber-500/30 text-[10px] ml-1">
+                          Hidden
+                        </Badge>
+                      )}
+                    </h3>
+                    <div className="flex items-center gap-1.5">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 text-[10px] px-2 py-0 border-cyan-500/30 text-cyan-500 dark:text-cyan-400 hover:bg-cyan-500/10"
+                        onClick={() => handleBulkCategoryStatus("Social Media", "na")}
+                        disabled={actionLoading}
+                        title="Mark all 8 Social Media platforms as N/A (100% compliant)"
+                      >
+                        Mark All Social N/A
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                        onClick={() => handleToggleCategoryVisibility("Social Media")}
+                        disabled={actionLoading}
+                        title={(selectedWebsite.hiddenCategories || []).includes("Social Media") ? "Unhide Social Media section" : "Hide Social Media section for this project"}
+                      >
+                        {(selectedWebsite.hiddenCategories || []).includes("Social Media") ? (
+                          <Eye className="h-3.5 w-3.5 text-amber-400" />
+                        ) : (
+                          <EyeOff className="h-3.5 w-3.5" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {[
+                      { key: "youtubeCompliance", label: "YouTube" },
+                      { key: "facebookCompliance", label: "Facebook" },
+                      { key: "xCompliance", label: "X" },
+                      { key: "libertySocialCompliance", label: "Liberty Social" },
+                      { key: "rumbleCompliance", label: "Rumble" },
+                      { key: "tikTokCompliance", label: "Tik Tok" },
+                      { key: "instagramCompliance", label: "Instagram" },
+                      { key: "threadsCompliance", label: "Threads" }
+                    ].map((socialItem) => {
+                      const val = (selectedWebsite as any)[socialItem.key] || "none";
+                      const matchItem = checklistItems.find(i => 
+                        i.title.toLowerCase() === socialItem.label.toLowerCase() ||
+                        (socialItem.label === "X" && (i.title === "X" || i.title === "X (Twitter)")) ||
+                        (socialItem.label === "Tik Tok" && (i.title === "Tik Tok" || i.title === "TikTok"))
+                      );
 
                     return (
                       <div key={socialItem.key} className={`flex flex-col p-2 rounded-lg border ${
@@ -2220,8 +2373,9 @@ export default function ComplianceCenter() {
                   })}
                 </div>
               </Card>
+            )}
 
-              {/* Override Parameter Button for Administrators */}
+            {/* Override Parameter Button for Administrators */}
               {isAdmin && (
                 <div className="flex justify-end">
                   <Button
@@ -2253,25 +2407,178 @@ export default function ComplianceCenter() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <h3 className="font-bold text-sm text-muted-foreground uppercase tracking-wider">Compliance Checkpoints</h3>
-                  <Accordion type="single" collapsible className="space-y-2">
-                    {Object.entries(groupedChecklistItems).map(([category, items]) => (
-                      <AccordionItem
-                        key={category}
-                        value={category}
-                        className={`border rounded-xl px-4 ${
-                          isMetallic ? "bg-black/20 border-zinc-800/80" : "bg-card border-border"
-                        }`}
+                  <div className="flex items-center justify-between pt-2">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-sm text-muted-foreground uppercase tracking-wider">
+                        Compliance Checkpoints
+                      </h3>
+                      {Object.keys(groupedChecklistItems).filter(c => (selectedWebsite?.hiddenCategories || []).includes(c)).length > 0 && (
+                        <Badge variant="outline" className="text-[10px] text-amber-500 border-amber-500/30">
+                          {Object.keys(groupedChecklistItems).filter(c => (selectedWebsite?.hiddenCategories || []).includes(c)).length} Hidden
+                        </Badge>
+                      )}
+                    </div>
+                    {Object.keys(groupedChecklistItems).filter(c => (selectedWebsite?.hiddenCategories || []).includes(c)).length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-xs text-muted-foreground hover:text-foreground gap-1"
+                        onClick={() => setShowHiddenCategories(!showHiddenCategories)}
                       >
-                        <AccordionTrigger className="hover:no-underline font-bold text-sm py-3 text-foreground">
-                          <div className="flex items-center gap-2">
-                            <span>{category}</span>
-                            <Badge variant="secondary" className="text-[10px] px-1.5">
-                              {items.filter((i) => i.status === "completed" || i.status === "na").length}/{items.length} Done
-                            </Badge>
-                          </div>
-                        </AccordionTrigger>
-                        <AccordionContent className="pt-2 pb-4 space-y-4">
+                        {showHiddenCategories ? (
+                          <>
+                            <EyeOff className="h-3.5 w-3.5 mr-1" />
+                            Hide Excluded Sections
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="h-3.5 w-3.5 mr-1" />
+                            Show Hidden Sections ({Object.keys(groupedChecklistItems).filter(c => (selectedWebsite?.hiddenCategories || []).includes(c)).length})
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
+
+                  <Accordion type="single" collapsible className="space-y-2">
+                    {Object.entries(groupedChecklistItems)
+                      .filter(([category]) => {
+                        const isHidden = (selectedWebsite?.hiddenCategories || []).includes(category);
+                        if (isHidden && !showHiddenCategories) return false;
+                        return true;
+                      })
+                      .map(([category, items]) => {
+                        const isCategoryHidden = (selectedWebsite?.hiddenCategories || []).includes(category);
+                        const allNa = items.length > 0 && items.every((i) => i.status === "na");
+                        const allCompleted = items.length > 0 && items.every((i) => i.status === "completed" || i.status === "na");
+                        const doneCount = items.filter((i) => i.status === "completed" || i.status === "na").length;
+
+                        return (
+                          <AccordionItem
+                            key={category}
+                            value={category}
+                            className={`border rounded-xl px-4 transition-all ${
+                              isCategoryHidden
+                                ? "border-dashed border-amber-500/40 bg-amber-500/5 opacity-80"
+                                : isMetallic
+                                ? "bg-black/20 border-zinc-800/80"
+                                : "bg-card border-border"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between py-1">
+                              <AccordionTrigger className="hover:no-underline font-bold text-sm py-3 text-foreground flex-1 pr-3">
+                                <div className="flex items-center gap-2 flex-wrap text-left">
+                                  <span>{category}</span>
+                                  {isCategoryHidden && (
+                                    <Badge className="bg-amber-500/15 text-amber-500 border border-amber-500/30 text-[10px] px-1.5">
+                                      Hidden
+                                    </Badge>
+                                  )}
+                                  {allNa ? (
+                                    <Badge className="bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 text-[10px] px-1.5">
+                                      All N/A (Excluded)
+                                    </Badge>
+                                  ) : (
+                                    <Badge
+                                      variant="secondary"
+                                      className={`text-[10px] px-1.5 ${
+                                        allCompleted ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : ""
+                                      }`}
+                                    >
+                                      {doneCount}/{items.length} Done
+                                    </Badge>
+                                  )}
+                                </div>
+                              </AccordionTrigger>
+
+                              {/* Category Fast-Action Toolbar in Header */}
+                              <div
+                                className="flex items-center gap-1.5 shrink-0"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Button
+                                  size="sm"
+                                  variant={allNa ? "secondary" : "outline"}
+                                  disabled={actionLoading}
+                                  className={`h-6 text-[10px] px-2 py-0 ${
+                                    allNa
+                                      ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/30 hover:bg-cyan-500/30"
+                                      : "text-muted-foreground hover:text-foreground"
+                                  }`}
+                                  onClick={() => handleBulkCategoryStatus(category, allNa ? "pending" : "na")}
+                                  title={allNa ? "Reset items from N/A" : `Mark all ${items.length} items in ${category} as N/A`}
+                                >
+                                  {allNa ? "Reset N/A" : "Mark N/A"}
+                                </Button>
+
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  disabled={actionLoading}
+                                  className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                                  onClick={() => handleToggleCategoryVisibility(category)}
+                                  title={isCategoryHidden ? `Unhide ${category} section` : `Hide ${category} section for this project`}
+                                >
+                                  {isCategoryHidden ? (
+                                    <Eye className="h-3.5 w-3.5 text-amber-400" />
+                                  ) : (
+                                    <EyeOff className="h-3.5 w-3.5" />
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
+
+                            <AccordionContent className="pt-1 pb-4 space-y-4">
+                              {/* Section Fast Controls */}
+                              <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-lg bg-muted/30 border border-border/50 text-xs">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold text-muted-foreground">Section Actions:</span>
+                                  {allNa && (
+                                    <span className="text-[11px] text-cyan-400 font-medium">
+                                      ✓ Excluded from penalties
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-6 text-[11px] px-2"
+                                    disabled={actionLoading}
+                                    onClick={() => handleBulkCategoryStatus(category, allNa ? "pending" : "na")}
+                                  >
+                                    {allNa ? "Reset All Items to Pending" : "Mark All Items N/A (1-Click)"}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-6 text-[11px] px-2"
+                                    disabled={actionLoading}
+                                    onClick={() => handleBulkCategoryStatus(category, "completed")}
+                                  >
+                                    Mark All Compliant
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-6 text-[11px] px-2 text-muted-foreground hover:text-foreground"
+                                    disabled={actionLoading}
+                                    onClick={() => handleToggleCategoryVisibility(category)}
+                                  >
+                                    {isCategoryHidden ? (
+                                      <>
+                                        <Eye className="h-3 w-3 mr-1 text-amber-400" />
+                                        Unhide Section
+                                      </>
+                                    ) : (
+                                      <>
+                                        <EyeOff className="h-3 w-3 mr-1" />
+                                        Hide Section for this Project
+                                      </>
+                                    )}
+                                  </Button>
+                                </div>
+                              </div>
                           {items.map((item) => {
                             const isEditing = editingItem?._id === item._id;
 
@@ -2492,7 +2799,8 @@ export default function ComplianceCenter() {
                           })}
                         </AccordionContent>
                       </AccordionItem>
-                    ))}
+                    );
+                  })}
                   </Accordion>
                 </div>
               )}
