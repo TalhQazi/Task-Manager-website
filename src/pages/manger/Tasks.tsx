@@ -100,7 +100,9 @@ import {
   Folder,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
-import { apiFetch, downloadTaskAttachment, toProxiedUrl, getTopContributors, downloadViaUrl, updateComment, deleteComment } from "@/lib/manger/api";
+import { apiFetch, downloadTaskAttachment, toProxiedUrl, getTopContributors, downloadViaUrl, updateComment, deleteComment, getApiBaseUrl } from "@/lib/manger/api";
+import { uploadWithProgress, type UploadProgressInfo } from "@/lib/uploadWithProgress";
+import { UploadingModal } from "@/components/shared/UploadingModal";
 import { getAuthState } from "@/lib/auth";
 import { ROLE_GROUPS } from "@/constants/roles";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -2539,7 +2541,17 @@ export default function Tasks() {
     : (tasksQuery.data?.totalPages || 1);
 
   return (
-    <div className="px-2 sm:px-4 lg:px-6 space-y-6"> 
+    <div className="px-2 sm:px-4 lg:px-6 space-y-6">
+      <UploadingModal
+        isOpen={isTaskUploadingModalOpen}
+        progress={taskUploadProgress}
+        fileName={taskUploadingFileName}
+        totalFiles={taskUploadingFileCount}
+        onCancel={() => {
+          taskUploadAbortRef.current?.abort();
+          setIsTaskUploadingModalOpen(false);
+        }}
+      /> 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="page-header mb-0">

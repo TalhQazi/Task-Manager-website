@@ -105,7 +105,9 @@ import {
   Folder,
 } from "lucide-react";
 import { cn } from "@/lib/admin/utils";
-import { apiFetch, downloadTaskAttachment, toProxiedUrl, downloadViaUrl } from "@/lib/admin/apiClient";
+import { apiFetch, downloadTaskAttachment, toProxiedUrl, downloadViaUrl, getApiBaseUrl } from "@/lib/admin/apiClient";
+import { uploadWithProgress, type UploadProgressInfo } from "@/lib/uploadWithProgress";
+import { UploadingModal } from "@/components/shared/UploadingModal";
 import { resizeImageIfNeeded } from "@/lib/imageResizer";
 import { getAuthState } from "@/lib/auth";
 import { ROLE_GROUPS } from "@/constants/roles";

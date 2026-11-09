@@ -74,7 +74,7 @@ export async function deleteResource(resource: CrudResource, id: string) {
   });
 }
 
-function getApiBaseUrl(): string {
+export function getApiBaseUrl(): string {
   const raw = String(import.meta.env.VITE_API_URL || "").trim();
   if (raw) return raw;
 

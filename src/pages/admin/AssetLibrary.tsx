@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiFetch, toProxiedUrl, downloadViaUrl } from "@/lib/admin/apiClient";
+import { apiFetch, toProxiedUrl, downloadViaUrl, getApiBaseUrl } from "@/lib/admin/apiClient";
+import { getAuthState } from "@/lib/auth";
+import { uploadWithProgress, type UploadProgressInfo } from "@/lib/uploadWithProgress";
+import { UploadingModal } from "@/components/shared/UploadingModal";
 import { toast } from "@/components/admin/ui/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
