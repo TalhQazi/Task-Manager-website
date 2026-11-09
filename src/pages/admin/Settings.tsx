@@ -94,14 +94,20 @@ export default function Settings() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
-  const currentTab = searchParams.get("tab") === "theme-engine" ? "theme-engine" : "general";
+  const tabParam = searchParams.get("tab");
+  const currentTab: "general" | "theme-engine" | "mcp-connector" =
+    tabParam === "theme-engine"
+      ? "theme-engine"
+      : tabParam === "mcp-connector"
+      ? "mcp-connector"
+      : "general";
 
-  const handleTabChange = (tab: "general" | "theme-engine") => {
+  const handleTabChange = (tab: "general" | "theme-engine" | "mcp-connector") => {
     if (tab === "general") {
       searchParams.delete("tab");
       setSearchParams(searchParams, { replace: true });
     } else {
-      setSearchParams({ tab: "theme-engine" }, { replace: true });
+      setSearchParams({ tab }, { replace: true });
     }
   };
 
@@ -1105,6 +1111,22 @@ export default function Settings() {
           </button>
           <button
             type="button"
+            onClick={() => handleTabChange("mcp-connector")}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all shrink-0 cursor-pointer",
+              currentTab === "mcp-connector"
+                ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-600 text-white shadow-md shadow-blue-500/20"
+                : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            <Cpu className="h-4 w-4" />
+            MCP AI Connector
+            <span className="ml-1 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300">
+              Active
+            </span>
+          </button>
+          <button
+            type="button"
             onClick={() => handleTabChange("theme-engine")}
             className={cn(
               "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all shrink-0 cursor-pointer",
@@ -1125,6 +1147,10 @@ export default function Settings() {
           <div className="pt-2 animate-in fade-in duration-200">
             <ThemeEngine />
           </div>
+        ) : currentTab === "mcp-connector" ? (
+          <div className="pt-2 animate-in fade-in duration-200">
+            <McpConnectorTab />
+          </div>
         ) : (
           <>
             {/* Settings Grid - Responsive */}
@@ -1143,9 +1169,6 @@ export default function Settings() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6 space-y-3">
-                  <p className="text-xs sm:text-sm text-muted-foreground">
-                    Connect Antigravity, Claude Desktop, Cursor, and AI assistants directly to your Task Manager database via Model Context Protocol.
-                  </p>
                   <Button
                     type="button"
                     onClick={() => handleTabChange("mcp-connector")}
