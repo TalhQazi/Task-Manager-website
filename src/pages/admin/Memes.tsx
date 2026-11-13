@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { apiFetch, toProxiedUrl } from "@/lib/admin/apiClient";
 import { resizeImageIfNeeded } from "@/lib/imageResizer";
+import { toast } from "sonner";
 
 type MemeItem = {
   id: string;
@@ -99,7 +100,8 @@ export default function Memes() {
 
   async function onUpload() {
     if (!file) {
-      setErr("Please choose an image (JPG/PNG, max 500KB).");
+      setErr("Please choose an image (JPG, PNG, WEBP, or GIF).");
+      toast.error("Please choose an image first.");
       return;
     }
     setLoading(true);
@@ -248,7 +250,7 @@ export default function Memes() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/png,image/jpeg"
+                accept="image/png,image/jpeg,image/webp,image/gif"
                 onChange={(e) => {
                   const f = e.target.files?.[0] || null;
                   void handleFileSelection(f);
@@ -256,7 +258,7 @@ export default function Memes() {
                 className="hidden"
               />
             </div>
-            <div className="mt-3 text-xs text-white/60">JPG/PNG, auto-resized & compressed under S3 limit. Preferred 1080×1080.</div>
+            <div className="mt-3 text-xs text-white/60">JPG/PNG/WEBP/GIF, auto-resized & compressed. Preferred 1080×1080.</div>
 
             {previewUrl ? (
               <div className="mt-4 rounded-xl overflow-hidden border border-white/10 bg-black/30">

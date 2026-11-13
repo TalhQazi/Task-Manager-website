@@ -723,6 +723,10 @@ export default function Tasks() {
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
   const [projectCategory, setProjectCategory] = useState<string>("general");
+  const [customProjectCategories, setCustomProjectCategories] = useState<string[]>([]);
+  const [isNewProjectCategoryOpen, setIsNewProjectCategoryOpen] = useState(false);
+  const [newProjectCategoryInput, setNewProjectCategoryInput] = useState("");
+  const [projectCategoryTarget, setProjectCategoryTarget] = useState<"create" | "edit">("create");
   const [projectIntroVideoUrl, setProjectIntroVideoUrl] = useState("");
   const [projectLogoFile, setProjectLogoFile] = useState<File | null>(null);
   const [projectLogoPreview, setProjectLogoPreview] = useState<string>("");
@@ -759,6 +763,43 @@ export default function Tasks() {
   const [projectTeamLeadPopoverOpen, setProjectTeamLeadPopoverOpen] = useState(false);
 
   const [projects, setProjects] = useState<Project[]>([]);
+
+  const projectCategoriesQuery = useQuery({
+    queryKey: ["project-categories"],
+    queryFn: async () => {
+      try {
+        const res = await apiFetch<{ categories: string[] }>("/api/projects/categories");
+        return res.categories || [];
+      } catch {
+        return [];
+      }
+    },
+    staleTime: 60000,
+  });
+
+  const allProjectCategories = useMemo(() => {
+    const defaults = ["Location", "Mechanical", "Medical", "Software", "Hardware", "Legal", "General"];
+    const fromApi = projectCategoriesQuery.data || [];
+    const fromProjects = (projects || []).map((p) => p.category).filter(Boolean) as string[];
+    const combined = Array.from(new Set([...defaults, ...fromApi, ...fromProjects, ...customProjectCategories]));
+    return combined.sort((a, b) => a.localeCompare(b));
+  }, [projectCategoriesQuery.data, projects, customProjectCategories]);
+
+  const handleAddNewProjectCategory = () => {
+    const trimmed = newProjectCategoryInput.trim();
+    if (!trimmed) return;
+    const formatted = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+    const key = formatted.toLowerCase();
+    setCustomProjectCategories((prev) => Array.from(new Set([...prev, formatted])));
+    if (projectCategoryTarget === "create") {
+      setProjectCategory(key);
+    } else {
+      setEditProjectCategory(key);
+    }
+    setNewProjectCategoryInput("");
+    setIsNewProjectCategoryOpen(false);
+    toast({ title: `Category "${formatted}" added successfully` });
+  };
   const [selectedProject, setSelectedProject] = useState<ProjectWithTasks | null>(null);
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
   const [isDirectTask, setIsDirectTask] = useState(false);
@@ -3946,20 +3987,46 @@ export default function Tasks() {
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Category</label>
-                <Select value={projectCategory} onValueChange={setProjectCategory}>
-                  <SelectTrigger className="h-10 text-sm">
-                    <SelectValue placeholder="Select Category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="location">Location</SelectItem>
-                    <SelectItem value="mechanical">Mechanical</SelectItem>
-                    <SelectItem value="medical">Medical</SelectItem>
-                    <SelectItem value="software">Software</SelectItem>
-                    <SelectItem value="hardware">Hardware</SelectItem>
-                    <SelectItem value="legal">Legal</SelectItem>
-                    <SelectItem value="general">General</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                  <Select
+                    value={projectCategory}
+                    onValueChange={(val) => {
+                      if (val === "__new__") {
+                        setProjectCategoryTarget("create");
+                        setIsNewProjectCategoryOpen(true);
+                      } else {
+                        setProjectCategory(val);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="h-10 text-sm flex-1">
+                      <SelectValue placeholder="Select Category" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-56 z-[160]">
+                      {allProjectCategories.map((cat) => (
+                        <SelectItem key={cat.toLowerCase()} value={cat.toLowerCase()}>
+                          {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="__new__" className="text-primary font-semibold border-t mt-1 pt-1 cursor-pointer">
+                        + Add New Category
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-10 w-10 shrink-0"
+                    title="Add New Category"
+                    onClick={() => {
+                      setProjectCategoryTarget("create");
+                      setIsNewProjectCategoryOpen(true);
+                    }}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Project Description</label>
@@ -5555,20 +5622,46 @@ export default function Tasks() {
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Category</label>
-                <Select value={editProjectCategory} onValueChange={setEditProjectCategory}>
-                  <SelectTrigger className="h-10 text-sm">
-                    <SelectValue placeholder="Select Category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="location">Location</SelectItem>
-                    <SelectItem value="mechanical">Mechanical</SelectItem>
-                    <SelectItem value="medical">Medical</SelectItem>
-                    <SelectItem value="software">Software</SelectItem>
-                    <SelectItem value="hardware">Hardware</SelectItem>
-                    <SelectItem value="legal">Legal</SelectItem>
-                    <SelectItem value="general">General</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                  <Select
+                    value={editProjectCategory}
+                    onValueChange={(val) => {
+                      if (val === "__new__") {
+                        setProjectCategoryTarget("edit");
+                        setIsNewProjectCategoryOpen(true);
+                      } else {
+                        setEditProjectCategory(val);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="h-10 text-sm flex-1">
+                      <SelectValue placeholder="Select Category" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-56 z-[160]">
+                      {allProjectCategories.map((cat) => (
+                        <SelectItem key={cat.toLowerCase()} value={cat.toLowerCase()}>
+                          {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="__new__" className="text-primary font-semibold border-t mt-1 pt-1 cursor-pointer">
+                        + Add New Category
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-10 w-10 shrink-0"
+                    title="Add New Category"
+                    onClick={() => {
+                      setProjectCategoryTarget("edit");
+                      setIsNewProjectCategoryOpen(true);
+                    }}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Project Description</label>
@@ -5655,6 +5748,55 @@ export default function Tasks() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog for Adding New Project Category */}
+      <Dialog open={isNewProjectCategoryOpen} onOpenChange={setIsNewProjectCategoryOpen}>
+        <DialogContent className="sm:max-w-[420px] z-[200]">
+          <DialogHeader>
+            <DialogTitle>Add New Project Category</DialogTitle>
+            <DialogDescription>
+              Enter a name for the new category to assign to this project.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground">Category Name</label>
+              <Input
+                placeholder="e.g. Mobile Apps, Real Estate, Marketing"
+                value={newProjectCategoryInput}
+                onChange={(e) => setNewProjectCategoryInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddNewProjectCategory();
+                  }
+                }}
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex gap-2 sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsNewProjectCategoryOpen(false);
+                setNewProjectCategoryInput("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleAddNewProjectCategory}
+              disabled={!newProjectCategoryInput.trim()}
+            >
+              Add Category
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       {/* Delete Project Dialog */}
       <AlertDialog open={isDeleteProjectOpen} onOpenChange={setIsDeleteProjectOpen}>

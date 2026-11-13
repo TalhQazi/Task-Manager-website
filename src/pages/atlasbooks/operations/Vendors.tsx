@@ -41,6 +41,11 @@ const Vendors: React.FC = () => {
   const [newVendorNotes, setNewVendorNotes] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
+  const [locations, setLocations] = useState<any[]>([]);
+  const [newLocationName, setNewLocationName] = useState("");
+  const [newVendorLocation, setNewVendorLocation] = useState("");
+  const [isAddingNewLocation, setIsAddingNewLocation] = useState(false);
+  const [addingLocationLoading, setAddingLocationLoading] = useState(false);
 
   const fetchData = async () => {
     try {

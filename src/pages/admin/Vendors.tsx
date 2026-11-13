@@ -99,6 +99,8 @@ export default function Vendors() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isNewCategoryOpen, setIsNewCategoryOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
+  const [isNewLocationOpen, setIsNewLocationOpen] = useState(false);
+  const [newLocationName, setNewLocationName] = useState("");
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   
   // Form states
