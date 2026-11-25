@@ -326,7 +326,7 @@ export function CredentialVault() {
           <CardContent className="pt-6">
             <div className="space-y-2">
               <p className="text-sm font-medium text-gray-600">Total Credentials</p>
-              <p className="text-3xl font-bold">{credentials.length}</p>
+              <p className="text-2xl sm:text-3xl font-bold">{credentials.length}</p>
             </div>
           </CardContent>
         </Card>
@@ -334,7 +334,7 @@ export function CredentialVault() {
           <CardContent className="pt-6">
             <div className="space-y-2">
               <p className="text-sm font-medium text-gray-600">Active</p>
-              <p className="text-3xl font-bold text-green-600">{activeCount}</p>
+              <p className="text-2xl sm:text-3xl font-bold text-green-600">{activeCount}</p>
             </div>
           </CardContent>
         </Card>
@@ -342,7 +342,7 @@ export function CredentialVault() {
           <CardContent className="pt-6">
             <div className="space-y-2">
               <p className="text-sm font-medium text-gray-600">Inactive</p>
-              <p className="text-3xl font-bold text-gray-600">
+              <p className="text-2xl sm:text-3xl font-bold text-gray-600">
                 {credentials.length - activeCount}
               </p>
             </div>
@@ -464,7 +464,7 @@ export function CredentialVault() {
                         {cred.passwordHash && (
                           <div>
                             <p className="text-gray-600 font-medium">Password</p>
-                            <div className="flex items-center justify-between gap-2 mt-1">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mt-1">
                               <code className="bg-gray-100 px-2 py-1 rounded text-xs">
                                 {isShowing ? cred.passwordHash : "••••••••"}
                               </code>
@@ -507,7 +507,7 @@ export function CredentialVault() {
                         {cred.apiKey && (
                           <div>
                             <p className="text-gray-600 font-medium">API Key</p>
-                            <div className="flex items-center justify-between gap-2 mt-1">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mt-1">
                               <code className="bg-gray-100 px-2 py-1 rounded text-xs truncate">
                                 {isShowing ? cred.apiKey : "••••••••"}
                               </code>

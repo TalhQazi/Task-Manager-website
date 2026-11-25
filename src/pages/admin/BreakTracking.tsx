@@ -17,7 +17,7 @@ import {
   Utensils,
   RefreshCw
 } from "lucide-react";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, toProxiedUrl } from "@/lib/api";
 import { useSocket } from "@/contexts/SocketContext";
 import { toast } from "sonner";
 
@@ -31,6 +31,7 @@ interface BreakSession {
   durationMinutes: number;
   isLate: boolean;
   exceededMinutes: number;
+  avatar?: string;
 }
 
 interface WeeklyStat {
@@ -42,6 +43,7 @@ interface WeeklyStat {
   breakSessionsCount: number;
   lateReturnsCount: number;
   totalExceededMinutes: number;
+  avatar?: string;
 }
 
 interface LiveStatus {
@@ -51,6 +53,7 @@ interface LiveStatus {
   lunch_start_time: string | null;
   lunch_expected_end: string | null;
   break_start_time: string | null;
+  avatar?: string;
 }
 
 export default function BreakTracking() {
@@ -345,7 +348,7 @@ export default function BreakTracking() {
       )}
 
       {/* KPI Cards Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         
         {/* KPI: Active Lunches */}
         <Card className="bg-white/[0.02] border-white/5 shadow-2xl backdrop-blur-md relative overflow-hidden group">
@@ -437,6 +440,7 @@ export default function BreakTracking() {
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <Avatar className="h-9 w-9 border border-white/10">
+                        {emp.avatar && <AvatarImage src={toProxiedUrl(emp.avatar) || emp.avatar} alt={emp.name} className="object-cover" />}
                         <AvatarFallback className="bg-[#0b1323] text-white text-xs font-semibold">
                           {getInitials(emp.name)}
                         </AvatarFallback>
@@ -507,12 +511,12 @@ export default function BreakTracking() {
             </CardHeader>
             <CardContent className="p-0">
               {loading ? (
-                <div className="p-8 text-center text-sm text-white/40 flex items-center justify-center gap-2">
+                <div className="p-4 sm:p-8 text-center text-sm text-white/40 flex items-center justify-center gap-2">
                   <div className="h-4 w-4 border-2 border-[#00C6FF] border-t-transparent rounded-full animate-spin" />
                   Loading session data...
                 </div>
               ) : filteredSessions.length === 0 ? (
-                <div className="p-8 text-center text-sm text-white/40">
+                <div className="p-4 sm:p-8 text-center text-sm text-white/40">
                   No break sessions recorded for the selected filters.
                 </div>
               ) : (
@@ -541,6 +545,7 @@ export default function BreakTracking() {
                             <td className="py-3.5 px-4 sm:px-6">
                               <div className="flex items-center gap-3">
                                 <Avatar className="h-8 w-8 border border-white/10">
+                                  {s.avatar && <AvatarImage src={toProxiedUrl(s.avatar) || s.avatar} alt={s.employeeName} className="object-cover" />}
                                   <AvatarFallback className="bg-[#0b1323] text-white text-xs font-bold">
                                     {getInitials(s.employeeName)}
                                   </AvatarFallback>
@@ -610,12 +615,12 @@ export default function BreakTracking() {
             </CardHeader>
             <CardContent className="p-0 flex-1 overflow-y-auto no-scrollbar">
               {loading ? (
-                <div className="p-8 text-center text-sm text-white/40 flex items-center justify-center gap-2">
+                <div className="p-4 sm:p-8 text-center text-sm text-white/40 flex items-center justify-center gap-2">
                   <div className="h-4 w-4 border-2 border-[#00C6FF] border-t-transparent rounded-full animate-spin" />
                   Calculating stats...
                 </div>
               ) : filteredStats.length === 0 ? (
-                <div className="p-8 text-center text-sm text-white/40">
+                <div className="p-4 sm:p-8 text-center text-sm text-white/40">
                   No aggregated records found.
                 </div>
               ) : (
@@ -625,6 +630,7 @@ export default function BreakTracking() {
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2.5">
                           <Avatar className="h-7 w-7 border border-white/10">
+                            {stat.avatar && <AvatarImage src={toProxiedUrl(stat.avatar) || stat.avatar} alt={stat.employeeName} className="object-cover" />}
                             <AvatarFallback className="bg-[#0b1323] text-white text-[10px] font-bold">
                               {getInitials(stat.employeeName)}
                             </AvatarFallback>

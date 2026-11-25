@@ -91,9 +91,9 @@ export function TaskList() {
   const tasksQuery = useQuery({
     queryKey: ["dashboard", "recent-tasks"],
     queryFn: async () => {
-      const res = await apiFetch<{ items: TaskApi[] }>("/api/tasks");
+      const res = await apiFetch<{ items: TaskApi[] }>("/api/tasks?excludeCompleted=true");
       const items = Array.isArray(res?.items) ? res.items : [];
-      return items.map(normalizeTask);
+      return items.map(normalizeTask).filter((t) => t.status !== "completed");
     },
   });
 

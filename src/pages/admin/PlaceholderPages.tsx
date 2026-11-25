@@ -9,7 +9,7 @@ interface PlaceholderPageProps {
 export function PlaceholderPage({ title, description }: PlaceholderPageProps) {
   return (
     <>
-      <div className="pl-6 space-y-6">
+      <div className="px-2 sm:px-0 sm:pl-6 space-y-6 page-shell">
         <div>
           <h1 className="text-2xl font-bold">{title}</h1>
           <p className="text-muted-foreground mt-1">{description}</p>

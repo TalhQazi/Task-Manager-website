@@ -1,16 +1,66 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/admin/ui/tabs";
-import { Printer } from "lucide-react";
+import { Printer, Calendar } from "lucide-react";
 import { Button } from "@/components/admin/ui/button";
-import { ActiveWebsites } from "@/components/admin/ActiveWebsites";
+import { Badge } from "@/components/admin/ui/badge";
+import { ActiveWebsites, renderExpirationCell } from "@/components/admin/ActiveWebsites";
 import { FutureWebsites } from "@/components/admin/FutureWebsites";
 import { SocialMediaAccounts } from "@/components/admin/SocialMediaAccounts";
 import { EmailAccounts } from "@/components/admin/EmailAccounts";
+import { useQuery } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/admin/apiClient";
 
 export function DigitalAssets() {
+  const activeWebsitesQuery = useQuery({
+    queryKey: ["active-websites"],
+    queryFn: async () => {
+      const res = await apiFetch<{ items: any[] }>("/api/websites/active");
+      return res.items || [];
+    },
+  });
+
+  const futureWebsitesQuery = useQuery({
+    queryKey: ["future-websites"],
+    queryFn: async () => {
+      const res = await apiFetch<{ items: any[] }>("/api/websites/future");
+      return res.items || [];
+    },
+  });
+
+  const socialMediaQuery = useQuery({
+    queryKey: ["social-media-accounts"],
+    queryFn: async () => {
+      const res = await apiFetch<{ items: any[] }>("/api/social-media");
+      return res.items || [];
+    },
+  });
+
+  const emailAccountsQuery = useQuery({
+    queryKey: ["email-accounts"],
+    queryFn: async () => {
+      const res = await apiFetch<{ items: any[] }>("/api/email-accounts");
+      return res.items || [];
+    },
+  });
+
+  const activeCount = activeWebsitesQuery.data?.length ?? 0;
+  const futureCount = futureWebsitesQuery.data?.length ?? 0;
+  const socialCount = socialMediaQuery.data?.length ?? 0;
+  const emailCount = emailAccountsQuery.data?.length ?? 0;
+
+  const allWebsitesOverview = [
+    ...(activeWebsitesQuery.data || []).map((w: any) => ({ ...w, _typeLabel: "Active" })),
+    ...(futureWebsitesQuery.data || []).map((w: any) => ({ ...w, _typeLabel: "Future" })),
+  ].sort((a: any, b: any) => {
+    const aTime = a.expirationDate ? new Date(a.expirationDate).getTime() : Number.POSITIVE_INFINITY;
+    const bTime = b.expirationDate ? new Date(b.expirationDate).getTime() : Number.POSITIVE_INFINITY;
+    if (aTime !== bTime) return aTime - bTime;
+    return String(a.siteName || "").localeCompare(String(b.siteName || ""));
+  });
+
   return (
-    <div className="pl-6 space-y-4 sm:space-y-5 md:space-y-6">
+    <div className="px-2 sm:px-0 sm:pl-6 space-y-4 sm:space-y-5 md:space-y-6 page-shell">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="space-y-1.5 sm:space-y-2">
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">
@@ -30,12 +80,61 @@ export function DigitalAssets() {
         </Button>
       </div>
 
+      {allWebsitesOverview.length > 0 && (
+        <Card>
+          <CardHeader className="py-3 px-4">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-primary" />
+              All Websites Expiration Overview ({allWebsitesOverview.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4 pt-0">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+              {allWebsitesOverview.map((site: any) => (
+                <div
+                  key={site._id}
+                  className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2"
+                >
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold truncate">{site.siteName}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">{site._typeLabel}</p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    {renderExpirationCell(site.expirationDate)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Tabs defaultValue="active-websites" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto">
-          <TabsTrigger value="active-websites" className="py-2.5">Active Websites</TabsTrigger>
-          <TabsTrigger value="future-websites" className="py-2.5">Future Websites</TabsTrigger>
-          <TabsTrigger value="social-media" className="py-2.5">Social Media</TabsTrigger>
-          <TabsTrigger value="email-accounts" className="py-2.5">Email Accounts</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto p-1 gap-1 text-[10px] sm:text-sm">
+          <TabsTrigger value="active-websites" className="py-2.5 flex items-center justify-center gap-2">
+            <span>Active Websites</span>
+            <Badge variant="secondary" className="px-1.5 py-0 text-[11px] font-semibold rounded-full min-w-[20px] text-center">
+              {activeCount}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="future-websites" className="py-2.5 flex items-center justify-center gap-2">
+            <span>Future Websites</span>
+            <Badge variant="secondary" className="px-1.5 py-0 text-[11px] font-semibold rounded-full min-w-[20px] text-center">
+              {futureCount}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="social-media" className="py-2.5 flex items-center justify-center gap-2">
+            <span>Social Media</span>
+            <Badge variant="secondary" className="px-1.5 py-0 text-[11px] font-semibold rounded-full min-w-[20px] text-center">
+              {socialCount}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="email-accounts" className="py-2.5 flex items-center justify-center gap-2">
+            <span>Email Accounts</span>
+            <Badge variant="secondary" className="px-1.5 py-0 text-[11px] font-semibold rounded-full min-w-[20px] text-center">
+              {emailCount}
+            </Badge>
+          </TabsTrigger>
         </TabsList>
 
         <style>{`

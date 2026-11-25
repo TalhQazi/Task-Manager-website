@@ -250,11 +250,6 @@ const toProxiedUrl = (url: string): string => {
   if (!url || url.startsWith("data:")) return url;
   if (url.includes("/api/s3-proxy/")) return url;
 
-  // Match S3 URLs pattern: https://<bucket>.s3.<region>.amazonaws.com/<key>
-  const s3Match = url.match(/https:\/\/[^/]+\.s3\.[^/]+\.amazonaws\.com\/(.+)/);
-  if (!s3Match) return url;
-
-  const s3Key = s3Match[1];
   const baseUrl = (import.meta.env.VITE_API_URL || "https://task.se7eninc.com").replace(/\/$/, "");
 
   let token = "";
@@ -278,5 +273,17 @@ const toProxiedUrl = (url: string): string => {
     }
   }
 
+  // Local server uploads ("/uploads/<key>") — served by the backend, so route them
+  // through the backend origin (via the s3-proxy, which reads local disk first).
+  if (url.startsWith("/uploads/")) {
+    const key = url.replace(/^\/uploads\//, "");
+    return `${baseUrl}/api/s3-proxy/${key}${token ? `?token=${token}` : ""}`;
+  }
+
+  // Match S3 URLs pattern: https://<bucket>.s3.<region>.amazonaws.com/<key>
+  const s3Match = url.match(/https:\/\/[^/]+\.s3\.[^/]+\.amazonaws\.com\/(.+)/);
+  if (!s3Match) return url;
+
+  const s3Key = s3Match[1];
   return `${baseUrl}/api/s3-proxy/${s3Key}${token ? `?token=${token}` : ""}`;
 };

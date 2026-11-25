@@ -416,7 +416,7 @@ export default function EmployeePayroll() {
 
       {!calculatedPayroll && (
         <Card>
-          <CardContent className="p-8 text-center text-muted-foreground">
+          <CardContent className="p-4 sm:p-8 text-center text-muted-foreground">
             <p>No time entries found for this month</p>
           </CardContent>
         </Card>

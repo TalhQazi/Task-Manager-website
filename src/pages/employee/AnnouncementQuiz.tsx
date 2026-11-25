@@ -93,7 +93,7 @@ export default function AnnouncementQuiz({
         >
           {/* Results Header */}
           <div
-            className={`p-8 text-center ${
+            className={`p-4 sm:p-8 text-center ${
               passed
                 ? "bg-gradient-to-r from-green-600 to-green-700"
                 : "bg-gradient-to-r from-red-600 to-red-700"
@@ -110,7 +110,7 @@ export default function AnnouncementQuiz({
                 <AlertCircle className="h-16 w-16 text-white mx-auto" />
               )}
             </motion.div>
-            <h2 className="text-3xl font-bold text-white mb-2">
+            <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">
               {passed ? "✓ Quiz Passed!" : "Quiz Not Passed"}
             </h2>
             <p className="text-white/90">
@@ -121,7 +121,7 @@ export default function AnnouncementQuiz({
           </div>
 
           {/* Results Content */}
-          <div className="p-8 space-y-6">
+          <div className="p-4 sm:p-8 space-y-6">
             {/* Score */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -188,7 +188,7 @@ export default function AnnouncementQuiz({
           </div>
 
           {/* Footer */}
-          <div className="border-t border-white/10 px-8 py-6 flex justify-between items-center bg-white/[0.02]">
+          <div className="border-t border-white/10 px-4 sm:px-8 py-6 flex justify-between items-center bg-white/[0.02]">
             <Button
               variant="outline"
               onClick={handleReset}
@@ -259,7 +259,7 @@ export default function AnnouncementQuiz({
         </div>
 
         {/* Content */}
-        <div className="p-8 space-y-6 min-h-80">
+        <div className="p-4 sm:p-8 space-y-6 min-h-80">
           {/* Question */}
           <motion.div
             key={question.id}
@@ -304,7 +304,7 @@ export default function AnnouncementQuiz({
         </div>
 
         {/* Footer */}
-        <div className="border-t border-white/10 px-8 py-6 flex justify-between items-center bg-white/[0.02]">
+        <div className="border-t border-white/10 px-4 sm:px-8 py-6 flex justify-between items-center bg-white/[0.02]">
           <Button
             variant="outline"
             onClick={onCancel}

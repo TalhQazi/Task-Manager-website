@@ -56,7 +56,7 @@ export default function BudgetManagement() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-2">
             <PieChart className="h-8 w-8 text-primary" />
             Budget Management
           </h1>

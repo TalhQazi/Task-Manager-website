@@ -1,0 +1,45 @@
+import { HolidayThemeManifest } from "../types";
+
+export const HALLOWEEN_2026_MANIFEST: HolidayThemeManifest = {
+  themeKey: "halloween-2026",
+  displayName: "Spooky Twilight 2026",
+  description: "Atmospheric twilight fog, glowing carved pumpkin motifs, and fluttering nocturnal particles.",
+  category: "halloween",
+  priority: 90,
+  palette: {
+    primary: "#ff7a1a",
+    secondary: "#7b2cff",
+    accent: "#00ffcc",
+    accent2: "#ff0055",
+    backgroundBase: "#0b0713",
+    surfaceTint: "rgba(123, 44, 255, 0.12)",
+    cardBorder: "rgba(255, 122, 26, 0.45)",
+    cardGlow: "0 0 24px rgba(255, 122, 26, 0.28)",
+    textColor: "#f8fafc",
+    scrimWash: "rgba(11, 7, 19, 0.72)",
+  },
+  layout: {
+    headerHeight: 68,
+    bannerHeight: 128,
+    sideFrameWidth: 56,
+    enableSideFrames: true,
+    enableBottomForeground: true,
+    enableHeaderBanner: true,
+  },
+  animations: {
+    particleType: "bats",
+    particleCountDesktop: 35,
+    particleCountMobile: 18,
+    particleColor: ["#ff7a1a", "#9d4edd", "#ffffff", "#ffbe0b"],
+    particleSpeed: 1.1,
+    enableGlowPulse: true,
+    transientEffectType: "ghost-pass",
+    transientIntervalSeconds: 35,
+  },
+  accessibility: {
+    minContrastRatio: 4.5,
+    reducedMotionAlternative: "static-decorations",
+    highContrastCompatible: true,
+  },
+  isActive: true,
+};

@@ -47,15 +47,16 @@ export function RecentTasksList({ basePath = "/admin/tasks" }: { basePath?: stri
           setLoading(true);
           setApiError(null);
         }
-        const res = await apiFetch<{ items: Task[] }>("/api/tasks?limit=6&page=1");
+        const res = await apiFetch<{ items: Task[] }>("/api/tasks?limit=6&page=1&excludeCompleted=true");
         if (!mounted) return;
-        setTasks(res.items ?? []);
+        setTasks((res.items ?? []).filter((t) => String(t.status || "").toLowerCase() !== "completed"));
       } catch (e) {
         if (!mounted) return;
         if (isInitial) setApiError(e instanceof Error ? e.message : "Failed to load tasks");
       } finally {
-        if (!mounted) return;
-        if (isInitial) setLoading(false);
+        if (mounted) {
+          if (isInitial) setLoading(false);
+        }
       }
     };
     void load(true);

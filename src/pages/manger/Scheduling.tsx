@@ -127,8 +127,9 @@ export default function Scheduling() {
         if (!mounted) return;
         setApiError(e instanceof Error ? e.message : "Failed to load schedules");
       } finally {
-        if (!mounted) return;
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
     void load();

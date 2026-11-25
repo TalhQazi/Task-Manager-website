@@ -3,7 +3,8 @@ import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
-import { Avatar, AvatarFallback } from "@/components/admin/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/admin/ui/avatar";
+import { useEmployeeAvatars } from "@/hooks/useEmployeeAvatars";
 import { Badge } from "@/components/admin/ui/badge";
 import { apiGet, listResource } from "@/lib/admin/apiClient";
 import { Search, MapPin, Clock, CheckCircle2, XCircle, ChevronDown, ChevronUp } from "lucide-react";
@@ -50,6 +51,7 @@ const getInitials = (name: string) =>
     .toUpperCase();
 
 export default function ItineraryHistory() {
+  const getAvatar = useEmployeeAvatars();
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [searchQuery, setSearchQuery] = useState("");
   const [itineraries, setItineraries] = useState<Itinerary[]>([]);
@@ -136,7 +138,7 @@ export default function ItineraryHistory() {
   return (
     <>
       <motion.div
-        className="pl-6 space-y-4 sm:space-y-6"
+        className="px-2 sm:pl-6 space-y-4 sm:space-y-6 page-shell"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.4 }}
@@ -209,14 +211,14 @@ export default function ItineraryHistory() {
           </CardHeader>
           <CardContent className="p-0">
             {loading ? (
-              <div className="p-8 text-center">
+              <div className="p-4 sm:p-8 text-center">
                 <div className="animate-spin h-9 w-9 border-4 border-primary border-t-transparent rounded-full mx-auto" />
                 <p className="mt-3 text-sm text-muted-foreground">Loading itinerary history...</p>
               </div>
             ) : error ? (
-              <div className="p-8 text-center text-destructive">{error}</div>
+              <div className="p-4 sm:p-8 text-center text-destructive">{error}</div>
             ) : filteredItineraries.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground">No itineraries found for this date.</div>
+              <div className="p-4 sm:p-8 text-center text-muted-foreground">No itineraries found for this date.</div>
             ) : (
               <div className="divide-y">
                 {filteredItineraries.map((itinerary) => {
@@ -231,6 +233,7 @@ export default function ItineraryHistory() {
                         <div className="space-y-2">
                           <div className="flex flex-wrap items-center gap-2">
                             <Avatar className="h-11 w-11 ring-2 ring-primary/20">
+                              {getAvatar(employeeName) && <AvatarImage src={getAvatar(employeeName)} alt={employeeName} className="object-cover" />}
                               <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white">
                                 {getInitials(employeeName)}
                               </AvatarFallback>

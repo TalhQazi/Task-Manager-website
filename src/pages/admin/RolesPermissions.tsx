@@ -43,7 +43,7 @@ export default function RolesPermissions() {
 
   return (
     <>
-      <div className="pl-6 space-y-6">
+      <div className="px-2 sm:px-0 sm:pl-6 space-y-6 page-shell">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold">Roles & Permissions</h1>

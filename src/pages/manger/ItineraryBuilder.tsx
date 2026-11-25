@@ -420,7 +420,7 @@ export default function ItineraryBuilder() {
   }
 
   return (
-    <div className="pl-6 space-y-6 text-white min-h-screen pb-12">
+    <div className="px-2 sm:pl-6 space-y-6 text-white min-h-screen pb-12 page-shell">
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
@@ -620,7 +620,7 @@ export default function ItineraryBuilder() {
                         className="bg-black/40 border-white/10 text-xs"
                       />
                     </div>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       <Input
                         placeholder="Latitude (e.g. 34.05)"
                         value={customLat}

@@ -12,9 +12,10 @@ import {
 import { Button } from "@/components/admin/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Badge } from "@/components/admin/ui/badge";
-import { Plus, Edit2, Trash2, Rocket, Code, ExternalLink } from "lucide-react";
+import { Plus, Edit2, Trash2, Rocket, Code, ExternalLink, Search } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 import { useQuery } from "@tanstack/react-query";
+import { toDateInput, renderExpirationCell } from "@/components/admin/ActiveWebsites";
 import {
   Table,
   TableBody,
@@ -30,6 +31,7 @@ interface FutureWebsite {
   url: string;
   developmentStage: "Concept" | "Planning" | "Design" | "Development" | "Testing" | "Ready for Launch";
   priority: "Low" | "Medium" | "High" | "Critical";
+  expirationDate?: string | null;
   concept: string;
   notes: string;
   createdAt: string;
@@ -75,12 +77,54 @@ export function FutureWebsites() {
     url: "",
     developmentStage: "Concept",
     priority: "Medium",
+    expirationDate: "",
     concept: "",
     notes: "",
   });
   const [selectedWebsite, setSelectedWebsite] = useState<FutureWebsite | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const [isConvertDialogOpen, setIsConvertDialogOpen] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [websiteToConvert, setWebsiteToConvert] = useState<FutureWebsite | null>(null);
+  const [isConverting, setIsConverting] = useState(false);
+
+  const projectsQuery = useQuery<any[]>({
+    queryKey: ["all-projects-minimal"],
+    queryFn: async () => {
+      const res = await apiFetch<{ items: any[] }>("/api/projects?limit=100");
+      return res.items || [];
+    },
+  });
+
+  const handleLaunchAsTask = async () => {
+    if (!websiteToConvert) return;
+    if (!selectedProjectId) {
+      setApiError("Please select a project to launch this task under.");
+      return;
+    }
+
+    try {
+      setIsConverting(true);
+      setApiError(null);
+
+      await apiFetch(`/api/websites/${websiteToConvert._id}/convert-to-task`, {
+        method: "POST",
+        body: JSON.stringify({ projectId: selectedProjectId }),
+      });
+
+      await websitesQuery.refetch();
+      setIsConvertDialogOpen(false);
+      setWebsiteToConvert(null);
+      setSelectedProjectId("");
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : "Failed to convert website to task");
+    } finally {
+      setIsConverting(false);
+    }
+  };
 
   const websitesQuery = useQuery<FutureWebsite[]>({
     queryKey: ["future-websites"],
@@ -90,10 +134,16 @@ export function FutureWebsites() {
     },
   });
 
-  const websites = useMemo(() => 
-    (websitesQuery.data || []).slice().sort((a, b) => (a.siteName || "").localeCompare(b.siteName || "")),
-    [websitesQuery.data]
-  );
+  const websites = useMemo(() => {
+    const list = websitesQuery.data || [];
+    const filtered = list.filter(w => 
+      (w.siteName || "").toLowerCase().includes(searchQuery.toLowerCase()) || 
+      (w.url || "").toLowerCase().includes(searchQuery.toLowerCase()) || 
+      (w.developmentStage || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (w.concept || "").toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    return filtered.slice().sort((a, b) => (a.siteName || "").localeCompare(b.siteName || ""));
+  }, [websitesQuery.data, searchQuery]);
 
   const resetForm = () => {
     setFormData({
@@ -101,10 +151,12 @@ export function FutureWebsites() {
       url: "",
       developmentStage: "Concept",
       priority: "Medium",
+      expirationDate: "",
       concept: "",
       notes: "",
     });
     setSelectedWebsite(null);
+    setSearchQuery("");
   };
 
   const handleSave = async () => {
@@ -119,6 +171,7 @@ export function FutureWebsites() {
 
       const payload = {
         ...formData,
+        expirationDate: formData.expirationDate ? formData.expirationDate : null,
         websiteType: "future",
       };
 
@@ -159,7 +212,10 @@ export function FutureWebsites() {
 
   const handleEdit = (website: FutureWebsite) => {
     setSelectedWebsite(website);
-    setFormData(website);
+    setFormData({
+      ...website,
+      expirationDate: toDateInput(website.expirationDate),
+    });
     setIsEditDialogOpen(true);
   };
 
@@ -171,21 +227,33 @@ export function FutureWebsites() {
         </div>
       )}
 
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogTrigger asChild>
-          <Button
-            onClick={() => {
-              resetForm();
-              setIsEditDialogOpen(true);
-            }}
-            className="w-full sm:w-auto"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Project
-          </Button>
-        </DialogTrigger>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/20 p-3 rounded-xl border border-border/50">
+        <div className="relative w-full sm:w-80">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search future websites..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 h-10"
+          />
+        </div>
 
-        <DialogContent className="w-[95vw] max-w-md">
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogTrigger asChild>
+            <Button
+              onClick={() => {
+                resetForm();
+                setIsEditDialogOpen(true);
+              }}
+              className="w-full sm:w-auto h-10 shrink-0"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Project
+            </Button>
+          </DialogTrigger>
+
+          <DialogContent className="w-[95vw] max-w-md">
           <DialogHeader>
             <DialogTitle>
               {selectedWebsite ? "Edit Project" : "New Project"}
@@ -263,6 +331,18 @@ export function FutureWebsites() {
             </div>
 
             <div>
+              <label className="text-sm font-medium">Expiration Date</label>
+              <input
+                type="date"
+                value={toDateInput(formData.expirationDate)}
+                onChange={(e) =>
+                  setFormData({ ...formData, expirationDate: e.target.value })
+                }
+                className="w-full mt-1 px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
               <label className="text-sm font-medium">Concept</label>
               <textarea
                 value={formData.concept || ""}
@@ -305,6 +385,7 @@ export function FutureWebsites() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
 
       {websitesQuery.isLoading ? (
         <Card>
@@ -331,6 +412,7 @@ export function FutureWebsites() {
                 <TableHead className="font-bold">Domain</TableHead>
                 <TableHead className="font-bold">Stage</TableHead>
                 <TableHead className="font-bold">Priority</TableHead>
+                <TableHead className="font-bold">Expiration Date</TableHead>
                 <TableHead className="font-bold">Concept</TableHead>
                 <TableHead className="text-right font-bold">Actions</TableHead>
               </TableRow>
@@ -361,11 +443,27 @@ export function FutureWebsites() {
                       {website.priority}
                     </Badge>
                   </TableCell>
+                  <TableCell>
+                    {renderExpirationCell(website.expirationDate)}
+                  </TableCell>
                   <TableCell className="max-w-xs truncate text-xs text-muted-foreground">
                     {website.concept || "—"}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 text-indigo-600 hover:text-indigo-700"
+                        title="Launch as Task"
+                        onClick={() => {
+                          setWebsiteToConvert(website);
+                          setSelectedProjectId("");
+                          setIsConvertDialogOpen(true);
+                        }}
+                      >
+                        <Rocket className="h-4 w-4" />
+                      </Button>
                       <Button
                         size="icon"
                         variant="ghost"
@@ -390,6 +488,78 @@ export function FutureWebsites() {
           </Table>
         </div>
       )}
+      <Dialog open={isConvertDialogOpen} onOpenChange={setIsConvertDialogOpen}>
+        <DialogContent className="w-[95vw] max-w-md">
+          <DialogHeader>
+            <DialogTitle>Launch Website as Task</DialogTitle>
+            <DialogDescription>
+              This will convert the future website planning item into an active task inside a project.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="text-sm font-medium">Link to Project *</label>
+              <select
+                value={selectedProjectId}
+                onChange={(e) => setSelectedProjectId(e.target.value)}
+                className="w-full mt-1.5 px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-background text-foreground"
+              >
+                <option value="">-- Choose a Project --</option>
+                {(projectsQuery.data || []).map((project: any) => (
+                  <option key={project.id || project._id} value={project.id || project._id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {websiteToConvert && (
+              <div className="rounded-lg bg-muted/40 p-3 border text-xs space-y-1">
+                <p className="font-semibold">Website Details:</p>
+                <p><span className="text-muted-foreground">Name:</span> {websiteToConvert.siteName}</p>
+                <p><span className="text-muted-foreground">Domain:</span> {websiteToConvert.url}</p>
+                <p><span className="text-muted-foreground">Stage:</span> {websiteToConvert.developmentStage}</p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsConvertDialogOpen(false);
+                setWebsiteToConvert(null);
+              }}
+              disabled={isConverting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleLaunchAsTask}
+              disabled={isConverting || !selectedProjectId}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium gap-1.5"
+            >
+              {isConverting ? "Launching..." : "Launch Task"}
+              <Rocket className="h-3.5 w-3.5" />
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <div className="text-center pt-3 border-t border-border/40">
+        <p className="text-xs sm:text-sm text-muted-foreground">
+          Part of the{" "}
+          <a
+            href="https://se7eninc.com"
+            target="_blank"
+            rel="noreferrer"
+            className="text-blue-500 hover:underline font-semibold"
+          >
+            Se7en
+          </a>{" "}
+          family of companies.
+        </p>
+      </div>
     </div>
   );
 }

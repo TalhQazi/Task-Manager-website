@@ -67,6 +67,16 @@ import {
 import { cn } from "@/lib/manger/utils";
 import { apiFetch } from "@/lib/manger/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { PaintRegistryTab } from "@/components/paint-registry/PaintRegistryTab";
+import {
+  LocationComplianceChecklist,
+  LocationAccountNumberItem,
+  DEFAULT_COMPLIANCE_CHECKLIST,
+  normalizeComplianceChecklist,
+  normalizeAccountNumbers,
+  LocationComplianceFormSection,
+  LocationComplianceViewSection,
+} from "@/components/shared/LocationComplianceSection";
 
 interface Location {
   id: string;
@@ -74,6 +84,7 @@ interface Location {
   type: "office" | "warehouse" | "facility" | "site";
   country: string;
   city: string;
+  state?: string;
   phone: string;
   manager: string;
   employeeCount: number;
@@ -81,6 +92,8 @@ interface Location {
   operatingHours: string;
   photoDataUrl?: string;
   photoFileName?: string;
+  complianceChecklist?: LocationComplianceChecklist;
+  accountNumbers?: LocationAccountNumberItem[];
 }
 
 type LocationApi = Omit<Location, "id"> & {
@@ -94,6 +107,7 @@ function normalizeLocation(l: LocationApi): Location {
     type: l.type,
     country: l.country,
     city: l.city,
+    state: (l as unknown as { state?: string }).state || "",
     phone:
       l.phone ||
       (l as unknown as { contactPhone?: string; contact_number?: string }).contactPhone ||
@@ -109,6 +123,8 @@ function normalizeLocation(l: LocationApi): Location {
     operatingHours: l.operatingHours,
     photoDataUrl: (l as unknown as { photoDataUrl?: string }).photoDataUrl,
     photoFileName: (l as unknown as { photoFileName?: string }).photoFileName,
+    complianceChecklist: normalizeComplianceChecklist((l as any).complianceChecklist),
+    accountNumbers: normalizeAccountNumbers((l as any).accountNumbers),
   };
 }
 
@@ -131,6 +147,7 @@ const createLocationSchema = z.object({
   type: z.enum(["office", "warehouse", "facility", "site"]),
   country: z.string().min(1, "Country is required"),
   city: z.string().min(1, "City is required"),
+  state: z.string().optional().default(""),
   status: z.enum(["active", "inactive"]),
   contactName: z.string().optional().default(""),
   contactPhone: z.string().optional().default(""),
@@ -332,6 +349,10 @@ export default function Locations() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
+  const [createComplianceChecklist, setCreateComplianceChecklist] = useState<LocationComplianceChecklist>({ ...DEFAULT_COMPLIANCE_CHECKLIST });
+  const [createAccountNumbers, setCreateAccountNumbers] = useState<LocationAccountNumberItem[]>([]);
+  const [editComplianceChecklist, setEditComplianceChecklist] = useState<LocationComplianceChecklist>({ ...DEFAULT_COMPLIANCE_CHECKLIST });
+  const [editAccountNumbers, setEditAccountNumbers] = useState<LocationAccountNumberItem[]>([]);
   const queryClient = useQueryClient();
 
   const locationsQuery = useQuery({
@@ -367,6 +388,8 @@ export default function Locations() {
           ...payload,
           manager: payload.contactName,
           phone: payload.contactPhone,
+          complianceChecklist: createComplianceChecklist,
+          accountNumbers: createAccountNumbers,
         }),
       });
       return normalizeLocation(res.item);
@@ -384,6 +407,8 @@ export default function Locations() {
           ...payload,
           manager: payload.contactName,
           phone: payload.contactPhone,
+          complianceChecklist: editComplianceChecklist,
+          accountNumbers: editAccountNumbers,
         }),
       });
       return normalizeLocation(res.item);
@@ -409,6 +434,7 @@ export default function Locations() {
       type: "office",
       country: "",
       city: "",
+      state: "",
       status: "active",
       contactName: "",
       contactPhone: "",
@@ -425,6 +451,7 @@ export default function Locations() {
       type: "office",
       country: "",
       city: "",
+      state: "",
       status: "active",
       contactName: "",
       contactPhone: "",
@@ -439,6 +466,8 @@ export default function Locations() {
       onSuccess: () => {
         setIsCreateOpen(false);
         form.reset();
+        setCreateComplianceChecklist({ ...DEFAULT_COMPLIANCE_CHECKLIST });
+        setCreateAccountNumbers([]);
         toast({
           title: "Location added",
           description: "New location has been added.",
@@ -472,6 +501,8 @@ export default function Locations() {
       photoDataUrl: location.photoDataUrl || "",
       photoFileName: location.photoFileName || "",
     });
+    setEditComplianceChecklist(normalizeComplianceChecklist(location.complianceChecklist));
+    setEditAccountNumbers(normalizeAccountNumbers(location.accountNumbers));
     setIsEditOpen(true);
   };
 
@@ -547,7 +578,7 @@ export default function Locations() {
       initial="hidden"
       animate="visible"
       variants={containerVariants}
-      className="pl-6 space-y-6"
+      className="px-2 sm:px-0 sm:pl-6 space-y-6 page-shell"
     >
       {/* Header */}
       <motion.div variants={headerVariants} className="flex items-center justify-between">
@@ -583,7 +614,7 @@ export default function Locations() {
 
       {/* Stats Cards */}
       <motion.div 
-        className="grid grid-cols-2 md:grid-cols-4 gap-4"
+        className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4"
         variants={{
           hidden: { opacity: 0 },
           visible: {
@@ -920,7 +951,7 @@ export default function Locations() {
 
       {/* Dialogs with animations */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-[850px] max-h-[92vh] overflow-y-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1091,6 +1122,20 @@ export default function Locations() {
 
                   <FormField
                     control={form.control}
+                    name="state"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>State / Province</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. NY, TX, CA" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
                     name="contactPhone"
                     render={({ field }) => (
                       <FormItem>
@@ -1187,6 +1232,13 @@ export default function Locations() {
                   </div>
                 </div>
 
+                <LocationComplianceFormSection
+                  checklist={createComplianceChecklist}
+                  onChange={setCreateComplianceChecklist}
+                  accountNumbers={createAccountNumbers}
+                  onAccountNumbersChange={setCreateAccountNumbers}
+                />
+
                 <DialogFooter className="flex-col sm:flex-row gap-2">
                   <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} className="w-full sm:w-auto">
                     Cancel
@@ -1210,7 +1262,7 @@ export default function Locations() {
 
       {/* View Location Dialog */}
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-[850px] max-h-[92vh] overflow-y-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1286,6 +1338,20 @@ export default function Locations() {
                     </span>
                   </div>
                 </div>
+
+                <LocationComplianceViewSection
+                  checklist={selectedLocation.complianceChecklist}
+                  accountNumbers={selectedLocation.accountNumbers || []}
+                />
+
+                {/* Paint & Finish Registry Integration */}
+                <div className="pt-6 border-t">
+                  <PaintRegistryTab
+                    propertyId={selectedLocation.id}
+                    propertyName={selectedLocation.name}
+                    photoUrl={selectedLocation.photoDataUrl}
+                  />
+                </div>
               </div>
             )}
 
@@ -1305,7 +1371,7 @@ export default function Locations() {
 
       {/* Dialogs with animations */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-[850px] max-h-[92vh] overflow-y-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1571,6 +1637,13 @@ export default function Locations() {
                     </div>
                   </div>
                 </div>
+
+                <LocationComplianceFormSection
+                  checklist={editComplianceChecklist}
+                  onChange={setEditComplianceChecklist}
+                  accountNumbers={editAccountNumbers}
+                  onAccountNumbersChange={setEditAccountNumbers}
+                />
 
                 <DialogFooter className="flex-col sm:flex-row gap-2">
                   <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)} className="w-full sm:w-auto">

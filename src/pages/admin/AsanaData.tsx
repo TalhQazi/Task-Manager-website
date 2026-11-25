@@ -383,7 +383,7 @@ export default function AsanaData() {
 
   return (
     <>
-      <div className="pl-12 space-y-4 sm:space-y-5 md:space-y-6 pr-2 sm:pr-0">
+      <div className="px-2 sm:pl-6 space-y-4 sm:space-y-5 md:space-y-6 pr-2 sm:pr-0 page-shell">
         <div className="space-y-1.5 sm:space-y-2">
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Imported Asana Data</h1>
           <p className="text-xs sm:text-sm md:text-base text-muted-foreground max-w-3xl">

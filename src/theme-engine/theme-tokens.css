@@ -1,0 +1,146 @@
+/**
+ * Task Manager® Holiday Immersive Theme Engine - CSS Token Contract
+ * 
+ * Dynamic CSS custom properties applied directly to :root[data-theme-key].
+ * Consumed by dashboard cards, sidebars, headers, and modals without breaking core styles.
+ */
+
+:root {
+  --tm-accent: #3b82f6;
+  --tm-accent-2: #6366f1;
+  --tm-card-border: rgba(255, 255, 255, 0.08);
+  --tm-card-glow: 0 0 0 transparent;
+  --tm-surface-tint: rgba(59, 130, 246, 0.04);
+  --tm-theme-header-height: 64px;
+  --tm-bg-base: #0b1120;
+  --tm-scrim-wash: rgba(11, 17, 32, 0.5);
+  --tm-text-color: #f8fafc;
+  --tm-side-frame-width: 0px;
+  --tm-banner-height: 0px;
+  --tm-particle-opacity: 0.85;
+}
+
+/* --- Theme Specific Token Overrides --- */
+
+:root[data-theme-key="halloween-2026"] {
+  --tm-accent: #ff7a1a;
+  --tm-accent-2: #7b2cff;
+  --tm-card-border: rgba(255, 122, 26, 0.42);
+  --tm-card-glow: 0 0 20px rgba(255, 122, 26, 0.22);
+  --tm-surface-tint: rgba(123, 44, 255, 0.12);
+  --tm-theme-header-height: 68px;
+  --tm-bg-base: #0b0713;
+  --tm-scrim-wash: rgba(11, 7, 19, 0.72);
+  --tm-text-color: #f8fafc;
+  --tm-side-frame-width: 56px;
+  --tm-banner-height: 128px;
+  --tm-particle-opacity: 0.95;
+}
+
+:root[data-theme-key="patriotic-july4"] {
+  --tm-accent: #dc2626;
+  --tm-accent-2: #2563eb;
+  --tm-card-border: rgba(220, 38, 38, 0.38);
+  --tm-card-glow: 0 0 20px rgba(37, 99, 235, 0.25);
+  --tm-surface-tint: rgba(37, 99, 235, 0.10);
+  --tm-theme-header-height: 64px;
+  --tm-bg-base: #070b19;
+  --tm-scrim-wash: rgba(7, 11, 25, 0.70);
+  --tm-text-color: #f8fafc;
+  --tm-side-frame-width: 48px;
+  --tm-banner-height: 120px;
+  --tm-particle-opacity: 0.90;
+}
+
+:root[data-theme-key="winter-wonderland-2026"] {
+  --tm-accent: #059669;
+  --tm-accent-2: #38bdf8;
+  --tm-card-border: rgba(56, 189, 248, 0.42);
+  --tm-card-glow: 0 0 22px rgba(56, 189, 248, 0.28);
+  --tm-surface-tint: rgba(56, 189, 248, 0.08);
+  --tm-theme-header-height: 68px;
+  --tm-bg-base: #070d1e;
+  --tm-scrim-wash: rgba(7, 13, 30, 0.70);
+  --tm-text-color: #f8fafc;
+  --tm-side-frame-width: 52px;
+  --tm-banner-height: 128px;
+  --tm-particle-opacity: 0.95;
+}
+
+:root[data-theme-key="spring-bloom-2026"] {
+  --tm-accent: #10b981;
+  --tm-accent-2: #fb7185;
+  --tm-card-border: rgba(251, 113, 133, 0.40);
+  --tm-card-glow: 0 0 24px rgba(251, 113, 133, 0.25);
+  --tm-surface-tint: rgba(16, 185, 129, 0.08);
+  --tm-theme-header-height: 64px;
+  --tm-bg-base: #042f2e;
+  --tm-scrim-wash: rgba(4, 47, 46, 0.70);
+  --tm-text-color: #f8fafc;
+  --tm-side-frame-width: 48px;
+  --tm-banner-height: 124px;
+  --tm-particle-opacity: 0.92;
+}
+
+:root[data-theme-key="default-neutral"] {
+  --tm-accent: #3b82f6;
+  --tm-accent-2: #6366f1;
+  --tm-card-border: rgba(255, 255, 255, 0.08);
+  --tm-card-glow: 0 0 0 transparent;
+  --tm-surface-tint: rgba(59, 130, 246, 0.04);
+  --tm-theme-header-height: 64px;
+  --tm-bg-base: #0b1120;
+  --tm-scrim-wash: rgba(11, 17, 32, 0.4);
+  --tm-text-color: #f8fafc;
+  --tm-side-frame-width: 0px;
+  --tm-banner-height: 0px;
+  --tm-particle-opacity: 0;
+}
+
+/* --- Dynamic Card Styling & Subtle Pulse (Layer 7) --- */
+
+[data-holiday-skin="true"] .dashboard-card,
+[data-holiday-skin="true"] .card,
+[data-holiday-skin="true"] [data-card-glow="true"],
+[data-holiday-skin="true"] .bg-card {
+  border-color: var(--tm-card-border) !important;
+  box-shadow: var(--tm-card-glow) !important;
+  background-color: color-mix(in srgb, var(--tm-bg-base) 85%, var(--tm-surface-tint)) !important;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Interactive Card Hover Glow */
+[data-holiday-skin="true"] .dashboard-card:hover,
+[data-holiday-skin="true"] .card:hover,
+[data-holiday-skin="true"] .bg-card:hover {
+  box-shadow: 0 0 28px var(--tm-accent-2, rgba(255, 122, 26, 0.35)) !important;
+}
+
+/* Glowing Pulsing Borders for Accent Highlights */
+@keyframes tm-border-pulse {
+  0%, 100% {
+    box-shadow: var(--tm-card-glow);
+  }
+  50% {
+    box-shadow: 0 0 30px var(--tm-accent, rgba(255, 122, 26, 0.4));
+  }
+}
+
+:root[data-holiday-pulse="true"] [data-card-glow="true"] {
+  animation: tm-border-pulse 4s ease-in-out infinite;
+}
+
+/* Reduced Motion Override */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-holiday-pulse="true"] [data-card-glow="true"] {
+    animation: none !important;
+  }
+}
+
+/* Readability Enforcement: Guaranteed WCAG 4.5:1 text color against dark backgrounds */
+[data-holiday-skin="true"] .main-app-layout,
+[data-holiday-skin="true"] .main-app-layout h1,
+[data-holiday-skin="true"] .main-app-layout h2,
+[data-holiday-skin="true"] .main-app-layout h3 {
+  color: var(--tm-text-color);
+}
