@@ -69,6 +69,19 @@ export function WebsiteStatusTable() {
 
                 <div className="flex items-center gap-8">
                   <div className="text-right hidden sm:block">
+                    <div className="text-xs text-white/40 uppercase font-semibold mb-1 tracking-wider">Expires</div>
+                    <div className={`text-sm font-medium ${
+                      site.expirationDate && new Date(site.expirationDate).getTime() < Date.now()
+                        ? "text-red-400"
+                        : site.expirationDate && new Date(site.expirationDate).getTime() - Date.now() < 30 * 24 * 60 * 60 * 1000
+                          ? "text-amber-400"
+                          : "text-white/80"
+                    }`}>
+                      {site.expirationDate ? new Date(site.expirationDate).toLocaleDateString() : "---"}
+                    </div>
+                  </div>
+
+                  <div className="text-right hidden sm:block">
                     <div className="text-xs text-white/40 uppercase font-semibold mb-1 tracking-wider">Response</div>
                     <div className={`text-sm font-medium ${site.responseTimeMs > 3000 ? 'text-amber-400' : 'text-white/80'}`}>
                       {site.responseTimeMs ? `${site.responseTimeMs}ms` : "---"}

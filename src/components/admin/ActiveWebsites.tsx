@@ -33,8 +33,37 @@ interface Website {
   loginEmail?: string;
   loginPassword?: string;
   status: "Live" | "Maintenance" | "Development" | "Offline";
+  expirationDate?: string | null;
   notes: string;
   createdAt: string;
+}
+
+export function toDateInput(value?: string | null) {
+  if (!value) return "";
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? "" : d.toISOString().split("T")[0];
+}
+
+export function renderExpirationCell(value?: string | null) {
+  if (!value) return <span className="text-xs text-muted-foreground">—</span>;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return <span className="text-xs text-muted-foreground">—</span>;
+  const diffDays = Math.ceil((d.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  const isExpired = diffDays < 0;
+  const isSoon = diffDays >= 0 && diffDays <= 30;
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className={`text-xs font-medium ${isExpired ? "text-red-600 dark:text-red-400" : isSoon ? "text-amber-600 dark:text-amber-400" : ""}`}>
+        {d.toLocaleDateString()}
+      </span>
+      {isExpired && (
+        <span className="text-[10px] font-bold uppercase text-red-600 dark:text-red-400">Expired</span>
+      )}
+      {isSoon && (
+        <span className="text-[10px] font-bold uppercase text-amber-600 dark:text-amber-400">In {diffDays}d</span>
+      )}
+    </div>
+  );
 }
 
 const statusColors = {
@@ -71,6 +100,7 @@ export function ActiveWebsites() {
     loginEmail: "",
     loginPassword: "",
     status: "Live",
+    expirationDate: "",
     notes: "",
   });
   const [isViewOpen, setIsViewOpen] = useState(false);
@@ -109,6 +139,7 @@ export function ActiveWebsites() {
       loginEmail: "",
       loginPassword: "",
       status: "Live",
+      expirationDate: "",
       notes: "",
     });
     setSelectedWebsite(null);
@@ -125,16 +156,21 @@ export function ActiveWebsites() {
       setIsSubmitting(true);
       setApiError(null);
 
+      const payload = {
+        ...formData,
+        expirationDate: formData.expirationDate ? formData.expirationDate : null,
+      };
+
       if (selectedWebsite) {
         await apiFetch(`/api/websites/${selectedWebsite._id}`, {
           method: "PUT",
-          body: JSON.stringify(formData),
+          body: JSON.stringify(payload),
         });
       } else {
         await apiFetch("/api/websites", {
           method: "POST",
           body: JSON.stringify({
-            ...formData,
+            ...payload,
             websiteType: "active",
           }),
         });
@@ -165,7 +201,10 @@ export function ActiveWebsites() {
 
   const handleEdit = (website: Website) => {
     setSelectedWebsite(website);
-    setFormData(website);
+    setFormData({
+      ...website,
+      expirationDate: toDateInput(website.expirationDate),
+    });
     setIsEditDialogOpen(true);
   };
 
@@ -303,6 +342,18 @@ export function ActiveWebsites() {
                   </select>
                 </div>
 
+                <div>
+                  <label className="text-sm font-medium">Expiration Date</label>
+                  <input
+                    type="date"
+                    value={toDateInput(formData.expirationDate)}
+                    onChange={(e) =>
+                      setFormData({ ...formData, expirationDate: e.target.value })
+                    }
+                    className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+
 
 
                 <div>
@@ -361,6 +412,7 @@ export function ActiveWebsites() {
                     <TableHead className="font-bold">Platform</TableHead>
                     <TableHead className="font-bold">Hosting</TableHead>
                     <TableHead className="font-bold">Status</TableHead>
+                    <TableHead className="font-bold">Expiration Date</TableHead>
                     <TableHead className="text-right font-bold">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -393,6 +445,9 @@ export function ActiveWebsites() {
                         <Badge className={`${statusColors[website.status]} border-0 shadow-none font-bold text-[10px] uppercase`}>
                           {website.status}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {renderExpirationCell(website.expirationDate)}
                       </TableCell>
 
                       <TableCell className="text-right">
@@ -460,7 +515,7 @@ export function ActiveWebsites() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-3 gap-4">
                     <div>
                       <p className="text-[10px] font-bold text-muted-foreground uppercase">Platform</p>
                       <p className="text-sm">{viewingWebsite.platform || "N/A"}</p>
@@ -468,6 +523,10 @@ export function ActiveWebsites() {
                     <div>
                       <p className="text-[10px] font-bold text-muted-foreground uppercase">Hosting</p>
                       <p className="text-sm">{viewingWebsite.hostingProvider || "N/A"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase">Expiration</p>
+                      {renderExpirationCell(viewingWebsite.expirationDate)}
                     </div>
                   </div>
 
@@ -553,6 +612,20 @@ export function ActiveWebsites() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+      <div className="text-center pt-3 border-t border-border/40">
+        <p className="text-xs sm:text-sm text-muted-foreground">
+          Part of the{" "}
+          <a
+            href="https://se7eninc.com"
+            target="_blank"
+            rel="noreferrer"
+            className="text-blue-500 hover:underline font-semibold"
+          >
+            Se7en
+          </a>{" "}
+          family of companies.
+        </p>
+      </div>
     </div>
   );
 }

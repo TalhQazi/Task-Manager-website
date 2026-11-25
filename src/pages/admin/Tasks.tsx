@@ -4,6 +4,8 @@ import CostManager from "@/components/cost-manager/CostManager";
 import TaskExpensesPanel from "@/components/cost-manager/TaskExpensesPanel";
 import { AsanaQuickAddBar } from "@/components/tasks/AsanaQuickAddBar";
 import { AsanaTaskDrawer } from "@/components/tasks/AsanaTaskDrawer";
+import { ProjectSocialMediaSection, ProjectSocialMediaBadges, type ProjectSocialMediaItem } from "@/components/tasks/ProjectSocialMediaSection";
+import { ProjectUpperRightCheckmark, ProjectTimerBadge, ProjectActionBar } from "@/components/tasks/ProjectTimerAndActions";
 import { getProjectCostSheet, getTaskCostSheet } from "@/lib/costManager";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/admin/ui/button";
@@ -414,6 +416,7 @@ type CreateProjectPayload = {
   name: string;
   description: string;
   category?: string;
+  socialMedia?: ProjectSocialMediaItem[];
   assignees?: string[];
   logo?: ProjectLogo;
   introVideoUrl?: string;
@@ -485,6 +488,7 @@ interface Project {
   name: string;
   description?: string;
   category?: string;
+  socialMedia?: ProjectSocialMediaItem[];
   createdByUsername?: string;
   createdAt?: string;
   assignees?: string[];
@@ -492,6 +496,10 @@ interface Project {
   logo?: ProjectLogo;
   taskCount?: number;
   status?: string;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  completedByName?: string;
+  lastCheckInAt?: string | null;
   priority?: string;
   tasks?: Task[];
   introVideoUrl?: string;
@@ -731,6 +739,9 @@ export default function Tasks() {
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
   const [projectCategory, setProjectCategory] = useState<string>("general");
+  const [projectSocialMedia, setProjectSocialMedia] = useState<ProjectSocialMediaItem[]>([]);
+  const [editProjectSocialMedia, setEditProjectSocialMedia] = useState<ProjectSocialMediaItem[]>([]);
+  const projectSubmitLockRef = useRef(false);
   const [customProjectCategories, setCustomProjectCategories] = useState<string[]>([]);
   const [isNewProjectCategoryOpen, setIsNewProjectCategoryOpen] = useState(false);
   const [newProjectCategoryInput, setNewProjectCategoryInput] = useState("");
@@ -804,11 +815,19 @@ export default function Tasks() {
   });
 
   const allProjectCategories = useMemo(() => {
-    const defaults = ["Location", "Mechanical", "Medical", "Software", "Hardware", "Legal", "General"];
+    const defaults = ["Location", "Mechanical", "Medical", "Software", "Hardware", "Legal", "Social Media", "General"];
     const fromApi = projectCategoriesQuery.data || [];
     const fromProjects = (projects || []).map((p) => p.category).filter(Boolean) as string[];
-    const combined = Array.from(new Set([...defaults, ...fromApi, ...fromProjects, ...customProjectCategories]));
-    return combined.sort((a, b) => a.localeCompare(b));
+    const catMap = new Map<string, string>();
+    for (const raw of [...defaults, ...fromApi, ...customProjectCategories, ...fromProjects]) {
+      const trimmed = String(raw || "").trim();
+      if (!trimmed) continue;
+      const key = trimmed.toLowerCase();
+      if (!catMap.has(key)) {
+        catMap.set(key, trimmed.charAt(0).toUpperCase() + trimmed.slice(1));
+      }
+    }
+    return Array.from(catMap.values()).sort((a, b) => a.localeCompare(b));
   }, [projectCategoriesQuery.data, projects, customProjectCategories]);
 
   const handleAddNewProjectCategory = () => {
@@ -1319,6 +1338,75 @@ export default function Tasks() {
     }
   });
 
+  const [projectBusyId, setProjectBusyId] = useState<string | null>(null);
+
+  const handleMarkProjectComplete = async (projectId: string) => {
+    try {
+      setProjectBusyId(projectId);
+      await apiFetch(`/api/projects/${encodeURIComponent(projectId)}/close`, { method: "POST" });
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      if (selectedProject?.id === projectId) {
+        await loadProject(projectId);
+      }
+      toast({ title: "Project marked complete" });
+    } catch (err) {
+      toast({
+        title: "Failed to complete project",
+        description: err instanceof Error ? err.message : "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setProjectBusyId(null);
+    }
+  };
+
+  const handleStartProjectTimer = async (projectId: string) => {
+    try {
+      setProjectBusyId(projectId);
+      await apiFetch(`/api/projects/${encodeURIComponent(projectId)}`, {
+        method: "PUT",
+        body: JSON.stringify({ status: "In Progress" }),
+      });
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      if (selectedProject?.id === projectId) {
+        await loadProject(projectId);
+      }
+      toast({ title: "Project timer started" });
+    } catch (err) {
+      toast({
+        title: "Failed to start project timer",
+        description: err instanceof Error ? err.message : "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setProjectBusyId(null);
+    }
+  };
+
+  const handleSendProjectCheckIn = async (project: Project) => {
+    try {
+      setProjectBusyId(project.id);
+      const res = await apiFetch<{ recipients?: string[] }>(`/api/projects/${encodeURIComponent(project.id)}/check-in`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      const count = Array.isArray(res?.recipients) ? res.recipients.length : 0;
+      toast({
+        title: "Check-in notification sent",
+        description: count > 0 ? `Asked ${count} assignee(s) if "${project.name}" is done.` : `Logged status check-in for "${project.name}".`,
+      });
+    } catch (err) {
+      toast({
+        title: "Failed to send notification",
+        description: err instanceof Error ? err.message : "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setProjectBusyId(null);
+    }
+  };
+
   const deleteProjectMutation = useMutation({
     mutationFn: async (id: string) => {
       await apiFetch<{ success: boolean }>(`/api/projects/${id}`, {
@@ -1628,6 +1716,7 @@ export default function Tasks() {
     setProjectName("");
     setProjectDescription("");
     setProjectCategory("general");
+    setProjectSocialMedia([]);
     setProjectTasks([]);
     setProjectLogoFile(null);
     setProjectLogoPreview("");
@@ -1797,8 +1886,10 @@ export default function Tasks() {
   };
 
   const handleCreateProject = async () => {
+    if (isCreating || projectSubmitLockRef.current) return;
     if (!validateForm()) return;
 
+    projectSubmitLockRef.current = true;
     try {
       setIsCreating(true);
       setApiError(null);
@@ -1843,6 +1934,7 @@ export default function Tasks() {
         name: projectName.trim(),
         description,
         category: projectCategory || "general",
+        socialMedia: projectSocialMedia,
         assignees: projectCreationAssignees,
         teamLead: projectTeamLead || undefined,
         logo: projectLogo,
@@ -1873,6 +1965,8 @@ export default function Tasks() {
         description: e instanceof Error ? e.message : "Something went wrong",
         variant: "destructive",
       });
+    } finally {
+      projectSubmitLockRef.current = false;
     }
   };
 
@@ -2727,17 +2821,8 @@ export default function Tasks() {
         set.add(e.name.trim());
       }
     });
-    sourceTasks.forEach((t: any) => {
-      if (Array.isArray(t.assignees)) {
-        t.assignees.forEach((a: string) => {
-          if (a && typeof a === "string" && a.trim()) {
-            set.add(a.trim());
-          }
-        });
-      }
-    });
     return Array.from(set).sort();
-  }, [activeEmployees, sourceTasks]);
+  }, [activeEmployees]);
 
   // Helper to match an assignee string against assigneeFilter
   const matchesSelectedAssignee = useCallback((assigneesList: string[], filter: string, teamLead?: string) => {
@@ -2783,12 +2868,12 @@ export default function Tasks() {
         task.priority.toLowerCase().includes(taskSearch.toLowerCase()) ||
         (task.projectName && task.projectName.toLowerCase().includes(taskSearch.toLowerCase()));
       const matchesStatus = showArchivedTasks
-        ? task.status === "completed"
+        ? String(task.status || "").toLowerCase() === "completed"
         : statusFilter === "all"
-          ? task.status !== "completed"
+          ? String(task.status || "").toLowerCase() !== "completed"
           : statusFilter === "active"
-            ? task.status !== "completed"
-            : task.status === statusFilter;
+            ? String(task.status || "").toLowerCase() !== "completed"
+            : String(task.status || "").toLowerCase() === statusFilter.toLowerCase();
       const matchesPriority =
         priorityFilter === "all" || task.priority === priorityFilter;
       const matchesAssignment =
@@ -2908,12 +2993,12 @@ export default function Tasks() {
       const assigneesText = Array.isArray(task.assignees) ? task.assignees.join(" ") : "";
       const matchesSearch = !qMain || task.title.toLowerCase().includes(qMain) || assigneesText.toLowerCase().includes(qMain);
       const matchesStatus = showArchivedTasks
-        ? task.status === "completed"
+        ? String(task.status || "").toLowerCase() === "completed"
         : statusFilter === "all"
-          ? task.status !== "completed"
+          ? String(task.status || "").toLowerCase() !== "completed"
           : statusFilter === "active"
-            ? task.status !== "completed"
-            : task.status === statusFilter;
+            ? String(task.status || "").toLowerCase() !== "completed"
+            : String(task.status || "").toLowerCase() === statusFilter.toLowerCase();
       const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
       const matchesAssignment =
         assignmentFilter === "all" ||
@@ -3301,13 +3386,11 @@ export default function Tasks() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all" className="text-xs">All Categories</SelectItem>
-                    <SelectItem value="location" className="text-xs">Location</SelectItem>
-                    <SelectItem value="mechanical" className="text-xs">Mechanical</SelectItem>
-                    <SelectItem value="medical" className="text-xs">Medical</SelectItem>
-                    <SelectItem value="software" className="text-xs">Software</SelectItem>
-                    <SelectItem value="hardware" className="text-xs">Hardware</SelectItem>
-                    <SelectItem value="legal" className="text-xs">Legal</SelectItem>
-                    <SelectItem value="general" className="text-xs">General</SelectItem>
+                    {allProjectCategories.map((cat) => (
+                      <SelectItem key={cat.toLowerCase()} value={cat.toLowerCase()} className="text-xs">
+                        {cat}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -3337,6 +3420,7 @@ export default function Tasks() {
                     setEditProjectName(selectedProject.name);
                     setEditProjectDescription(selectedProject.description || "");
                     setEditProjectCategory(selectedProject.category || "general");
+                    setEditProjectSocialMedia(Array.isArray(selectedProject.socialMedia) ? selectedProject.socialMedia : []);
                     setEditProjectIntroVideoUrl(selectedProject.introVideoUrl || "");
                     setEditProjectLogoPreview(selectedProject.logo?.url || "");
                     setEditProjectLogoFile(null);
@@ -3398,7 +3482,22 @@ export default function Tasks() {
                 </span>
                 <span className="border-l border-border h-3 hidden sm:inline" />
                 <span>Created {selectedProject.createdAt ? new Date(selectedProject.createdAt).toLocaleDateString() : ""}</span>
+                <ProjectTimerBadge
+                  status={selectedProject.status}
+                  startedAt={selectedProject.startedAt}
+                  completedAt={selectedProject.completedAt}
+                  createdAt={selectedProject.createdAt}
+                />
               </div>
+              <ProjectActionBar
+                status={selectedProject.status}
+                hasStarted={Boolean(selectedProject.startedAt) || ["in progress", "active"].includes(String(selectedProject.status || "").toLowerCase())}
+                busy={projectBusyId === selectedProject.id}
+                onStartTimer={() => void handleStartProjectTimer(selectedProject.id)}
+                onMarkComplete={() => void handleMarkProjectComplete(selectedProject.id)}
+                onSendCheckIn={() => void handleSendProjectCheckIn(selectedProject)}
+              />
+              <ProjectSocialMediaBadges socialMedia={selectedProject.socialMedia} />
               
               {projectViewEdited && (
                 <div className="flex gap-2 mt-2">
@@ -3683,6 +3782,12 @@ export default function Tasks() {
                             <div className="flex items-center justify-between text-xs">
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <Badge className="capitalize" variant="outline">{project.status || "No tasks"}</Badge>
+                                <ProjectTimerBadge
+                                  status={project.status}
+                                  startedAt={project.startedAt}
+                                  completedAt={project.completedAt}
+                                  createdAt={project.createdAt}
+                                />
                                 {project.category && (
                                   <Badge variant="secondary" className="capitalize text-[10px] bg-primary/10 text-primary border-primary/20">
                                     {project.category}
@@ -3703,31 +3808,79 @@ export default function Tasks() {
                                     Expense: {project.expenseSheetStatus === "done" ? "Done" : project.expenseSheetStatus === "started" ? "Started" : "Draft"}
                                   </Badge>
                                 )}
+                                <ProjectSocialMediaBadges socialMedia={project.socialMedia} compact />
                               </div>
                               <span className="text-muted-foreground text-xs">{project.createdAt ? new Date(project.createdAt).toLocaleDateString() : ""}</span>
                             </div>
                           </button>
 
-                          {/* Three dots menu */}
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="absolute top-2 right-2 h-8 w-8 p-0 bg-background/80 hover:bg-background"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-40">
-                              <DropdownMenuItem
+                          {/* Upper right-hand corner: Completed green checkmark + actions */}
+                          <div className="absolute top-2 right-2 flex items-center gap-1 z-10" onClick={(e) => e.stopPropagation()}>
+                            <ProjectUpperRightCheckmark
+                              status={project.status}
+                              disabled={projectBusyId === project.id}
+                              onMarkComplete={(e) => {
+                                e.stopPropagation();
+                                void handleMarkProjectComplete(project.id);
+                              }}
+                            />
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 w-7 p-0 bg-background/80 hover:bg-background"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-44">
+                                {String(project.status || "").toLowerCase() !== "completed" && (
+                                  <>
+                                    <DropdownMenuItem
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        void handleMarkProjectComplete(project.id);
+                                      }}
+                                      className="cursor-pointer text-emerald-600 focus:text-emerald-600"
+                                    >
+                                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                                      Mark Complete
+                                    </DropdownMenuItem>
+                                    {!project.startedAt && (
+                                      <DropdownMenuItem
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          void handleStartProjectTimer(project.id);
+                                        }}
+                                        className="cursor-pointer"
+                                      >
+                                        <Clock className="h-4 w-4 mr-2" />
+                                        Start Timer
+                                      </DropdownMenuItem>
+                                    )}
+                                    <DropdownMenuItem
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        void handleSendProjectCheckIn(project);
+                                      }}
+                                      className="cursor-pointer text-amber-600 focus:text-amber-600"
+                                    >
+                                      <Send className="h-4 w-4 mr-2" />
+                                      Ask If Done
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                  </>
+                                )}
+                                <DropdownMenuItem
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setEditingProject(project);
                                   setEditProjectName(project.name);
                                   setEditProjectDescription(project.description || "");
                                   setEditProjectCategory(project.category || "general");
+                                  setEditProjectSocialMedia(Array.isArray(project.socialMedia) ? project.socialMedia : []);
                                   setEditProjectIntroVideoUrl(project.introVideoUrl || "");
                                   setEditProjectLogoPreview(project.logo?.url || "");
                                   setEditProjectLogoFile(null);
@@ -3752,19 +3905,20 @@ export default function Tasks() {
                                 Reassign
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setEditingProject(project);
-                                  setIsDeleteProjectOpen(true);
-                                }}
-                                className="cursor-pointer text-destructive focus:text-destructive"
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingProject(project);
+                                    setIsDeleteProjectOpen(true);
+                                  }}
+                                  className="cursor-pointer text-destructive focus:text-destructive"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         </div>
                       );
                     })}
@@ -4316,6 +4470,7 @@ export default function Tasks() {
                 </Popover>
               </div>
             </div>
+            <ProjectSocialMediaSection value={projectSocialMedia} onChange={setProjectSocialMedia} />
             <div className="space-y-2">
               <div className="flex flex-wrap items-center justify-between gap-2"><label className="text-sm font-medium">Project Tasks</label><Button type="button" size="sm" onClick={() => setIsCreateTaskOpen(true)} className="gap-2"><Plus className="h-4 w-4" />Add Task</Button></div>
               {projectTasks.length > 0 ? (<div className="space-y-2 max-h-[300px] overflow-y-auto border border-border rounded-md p-3">{projectTasks.map((task, idx) => (<div key={idx} className="flex flex-col sm:flex-row sm:items-start gap-3 p-2 bg-muted/50 rounded-md"><div className="flex-1 min-w-0"><p className="font-medium text-sm truncate">{task.title || `Task ${idx + 1}`}</p><p className="text-xs text-muted-foreground truncate">{task.description || "No description"}</p><div className="flex gap-2 mt-1 flex-wrap text-xs"><span className="px-2 py-0.5 bg-muted rounded capitalize">{task.priority}</span><span className="px-2 py-0.5 bg-muted rounded capitalize">{task.status}</span></div></div><Button type="button" variant="ghost" size="sm" onClick={() => { setProjectTasks((prev) => prev.filter((_, i) => i !== idx)); }} className="h-8 w-8 p-0 flex-shrink-0 self-start"><X className="h-4 w-4" /></Button></div>))}</div>) : (<div className="border border-dashed border-border rounded-md p-4 text-center text-sm text-muted-foreground">No tasks added yet. You can create the project and add tasks later.</div>)}
@@ -5675,6 +5830,7 @@ export default function Tasks() {
                     name: editProjectName,
                     description: editProjectDescription,
                     category: editProjectCategory,
+                    socialMedia: editProjectSocialMedia,
                     introVideoUrl: editProjectIntroVideoUrl,
                   };
                   if (logoPayload) {
@@ -5696,6 +5852,7 @@ export default function Tasks() {
                   setEditProjectName("");
                   setEditProjectDescription("");
                   setEditProjectCategory("general");
+                  setEditProjectSocialMedia([]);
                   setEditProjectLogoPreview("");
                   setEditProjectLogoFile(null);
                   toast({ title: "Project updated", description: "Project has been updated successfully." });
@@ -5851,6 +6008,7 @@ export default function Tasks() {
                   }}
                 />
               </div>
+              <ProjectSocialMediaSection value={editProjectSocialMedia} onChange={setEditProjectSocialMedia} />
             </div>
             <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
               <Button
@@ -5862,6 +6020,7 @@ export default function Tasks() {
                   setEditProjectName("");
                   setEditProjectDescription("");
                   setEditProjectCategory("general");
+                  setEditProjectSocialMedia([]);
                   setEditProjectLogoPreview("");
                   setEditProjectLogoFile(null);
                 }}

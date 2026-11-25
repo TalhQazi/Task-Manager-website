@@ -124,7 +124,14 @@ const navItemsBase: NavItem[] = [
   },
   { icon: Users, label: "User Management", path: "/admin/users", end: true },
   { icon: ClipboardList, label: "Compliance Center", path: "/admin/compliance-center" },
-  { icon: CheckSquare, label: "Task Management", path: "/admin/tasks" },
+  {
+    icon: CheckSquare,
+    label: "Task Workforce",
+    children: [
+      { icon: CheckSquare, label: "Task Management", path: "/admin/tasks" },
+      { icon: History, label: "Task History", path: "/admin/task-history" },
+    ],
+  },
   { icon: LayoutGrid, label: "Task Workspace", path: "/admin/task-workspace" },
   {
     icon: UserCircle,
@@ -145,21 +152,14 @@ const navItemsBase: NavItem[] = [
   { icon: ClipboardList, label: "EOD Reports", path: "/admin/eod-reports" },
   { icon: Building, label: "EIN list", path: "/admin/company-registry" },
   { icon: Calendar, label: "Travel Calendar", path: "/admin/travel-calendar" },
-  { icon: History, label: "Task History", path: "/admin/task-history" },
   { icon: Clock, label: "Time Tracking", path: "/admin/time-tracking" },
-  {
-    icon: Layers,
-    label: "Operations",
-    children: [
-      { icon: Wrench, label: "Inventory/Appliances", path: "/admin/appliances" },
-      { icon: Car, label: "Vehicles", path: "/admin/vehicles" },
-      { icon: UserX, label: "Do Not Hire", path: "/admin/do-not-hire" },
-      { icon: MapPin, label: "Locations", path: "/admin/locations" },
-      { icon: Phone, label: "Phone Directory", path: "/admin/phone-directory" },
-      { icon: Palette, label: "Paint & Finish Registry", path: "/admin/paint-registry" },
-      { icon: Calendar, label: "Scheduling", path: "/admin/scheduling" },
-    ],
-  },
+  { icon: Wrench, label: "Inventory/Appliances", path: "/admin/appliances" },
+  { icon: Car, label: "Vehicles", path: "/admin/vehicles" },
+  { icon: UserX, label: "Do Not Hire", path: "/admin/do-not-hire" },
+  { icon: MapPin, label: "Locations", path: "/admin/locations" },
+  { icon: Phone, label: "Phone Directory", path: "/admin/phone-directory" },
+  { icon: Palette, label: "Paint & Finish Registry", path: "/admin/paint-registry" },
+  { icon: Calendar, label: "Scheduling", path: "/admin/scheduling" },
   {
     icon: Shield,
     label: "Delegation",
@@ -312,9 +312,9 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
       items.push({ icon: CalendarCheck, label: "Attendance", path: "/admin/attendance" });
     }
 
-    // Sort children within items first
+    // Sort children within items first (preserve order inside Task Workforce)
     items.forEach(item => {
-      if (item.children) {
+      if (item.children && item.label !== "Task Workforce") {
         item.children = [...item.children].sort((a, b) => a.label.localeCompare(b.label));
       }
     });

@@ -104,6 +104,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import jsPDF from "jspdf";
 import { Pagination } from "@/components/Pagination";
 import { DropboxIcon, formatBytes } from "@/components/admin/DropboxFilePicker";
+import { ProjectSocialMediaSection, ProjectSocialMediaBadges, type ProjectSocialMediaItem } from "@/components/tasks/ProjectSocialMediaSection";
+import { ProjectUpperRightCheckmark, ProjectTimerBadge } from "@/components/tasks/ProjectTimerAndActions";
 import { useRewards } from "@/contexts/RewardContext";
 import FollowUpControlCenter from "@/components/shared/FollowUpControlCenter";
 import { VideoRecorderModal } from "@/components/admin/VideoRecorderModal";
@@ -181,6 +183,7 @@ type CreateProjectTaskDraft = {
 type CreateProjectPayload = {
   name: string;
   description: string;
+  socialMedia?: ProjectSocialMediaItem[];
   assignees?: string[];
   logo?: ProjectLogo;
   attachments?: Array<{ fileName: string; url: string; mimeType: string; size: number }>;
@@ -234,12 +237,16 @@ interface Project {
   id: string;
   name: string;
   description?: string;
+  socialMedia?: ProjectSocialMediaItem[];
   createdByUsername?: string;
   createdAt?: string;
   assignees?: string[];
   logo?: ProjectLogo;
   taskCount?: number;
   status?: string;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  completedByName?: string;
   attachments?: Array<{
     fileName: string;
     url: string;
@@ -639,6 +646,8 @@ export default function Tasks() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
+  const [projectSocialMedia, setProjectSocialMedia] = useState<ProjectSocialMediaItem[]>([]);
+  const projectSubmitLockRef = useRef(false);
   const [projectTasks, setProjectTasks] = useState<CreateProjectTaskDraft[]>([]);
   const [projectLogoFile, setProjectLogoFile] = useState<File | null>(null);
   const [projectLogoPreview, setProjectLogoPreview] = useState("");
@@ -954,6 +963,7 @@ export default function Tasks() {
   const resetProjectFlow = () => {
     setProjectName("");
     setProjectDescription("");
+    setProjectSocialMedia([]);
     setProjectTasks([]);
     setProjectLogoFile(null);
     setProjectLogoPreview("");
@@ -1040,8 +1050,10 @@ export default function Tasks() {
   };
 
   const handleCreateProject = async () => {
+    if (isCreating || projectSubmitLockRef.current) return;
     if (!validateForm()) return;
 
+    projectSubmitLockRef.current = true;
     try {
       setIsCreating(true);
       setApiError(null);
@@ -1074,6 +1086,7 @@ export default function Tasks() {
       const payload: CreateProjectPayload & { assignees?: string[]; logo?: ProjectLogo } = {
         name: projectName.trim(),
         description,
+        socialMedia: projectSocialMedia,
         assignees: projectCreationAssignees,
         logo: projectLogo,
         attachments: projectAttachments,
@@ -1102,6 +1115,8 @@ export default function Tasks() {
         description: e instanceof Error ? e.message : "Something went wrong",
         variant: "destructive",
       });
+    } finally {
+      projectSubmitLockRef.current = false;
     }
   };
 
@@ -1740,7 +1755,9 @@ export default function Tasks() {
       const matchesSearch =
         task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         assigneesText.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStatus = statusFilter === "all" ? task.status !== "completed" : task.status === statusFilter;
+      const matchesStatus = statusFilter === "all"
+        ? String(task.status || "").toLowerCase() !== "completed"
+        : String(task.status || "").toLowerCase() === statusFilter.toLowerCase();
       const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
       return matchesSearch && matchesStatus && matchesPriority;
     });
@@ -1934,6 +1951,11 @@ export default function Tasks() {
               <span>{selectedProject.createdAt ? new Date(selectedProject.createdAt).toLocaleDateString() : ""}</span>
             </div>
           </div>
+          {selectedProject.socialMedia && selectedProject.socialMedia.length > 0 && (
+            <div className="mt-2">
+              <ProjectSocialMediaBadges socialMedia={selectedProject.socialMedia} />
+            </div>
+          )}
           {selectedProject.introVideoUrl && (
             <div className="mt-4 pt-3 border-t space-y-1.5">
               <p className="text-[11px] font-bold text-primary uppercase tracking-wider flex items-center gap-1.5"><Video className="w-3.5 h-3.5" /> Project Video</p>
@@ -1973,12 +1995,23 @@ export default function Tasks() {
                       const projectNumber = (projectPage - 1) * PAGE_SIZE + idx + 1;
 
                       return (
-                        <button
+                        <div
                           key={project.id}
+                          role="button"
+                          tabIndex={0}
                           onClick={() => void loadProject(project.id)}
-                          className="text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              void loadProject(project.id);
+                            }
+                          }}
+                          className="relative text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card cursor-pointer"
                         >
-                          <div className="flex items-center gap-2 mb-2">
+                          <div className="absolute top-2 right-2 z-10">
+                            <ProjectUpperRightCheckmark status={project.status} />
+                          </div>
+                          <div className="flex items-center gap-2 mb-2 pr-8">
                             <span className="flex-shrink-0 text-xs font-bold text-muted-foreground w-5 text-right">{projectNumber}.</span>
                             <ProjectLogoImg projectId={project.id} projectName={project.name} logoUrl={project.logo?.url} />
                             <div className="min-w-0">
@@ -2002,8 +2035,16 @@ export default function Tasks() {
                               })()}
                             </div>
                           </div>
-                          <div className="flex items-center justify-between text-xs border-t border-border/40 pt-2 mt-1">
-                            <Badge className="capitalize text-[10px]" variant="outline">{project.status || "No tasks"}</Badge>
+                          <div className="flex items-center justify-between text-xs border-t border-border/40 pt-2 mt-1 gap-1.5 flex-wrap">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <Badge className="capitalize text-[10px]" variant="outline">{project.status || "No tasks"}</Badge>
+                              <ProjectTimerBadge
+                                status={project.status}
+                                startedAt={project.startedAt}
+                                completedAt={project.completedAt}
+                                createdAt={project.createdAt}
+                              />
+                            </div>
                             <button
                               type="button"
                               onClick={(e) => {
@@ -2019,7 +2060,7 @@ export default function Tasks() {
                               {project.createdAt ? new Date(project.createdAt).toLocaleDateString() : ""}
                             </span>
                           </div>
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -2334,6 +2375,7 @@ export default function Tasks() {
 
 
               </div>
+              <ProjectSocialMediaSection value={projectSocialMedia} onChange={setProjectSocialMedia} />
             </div>
 
             {/* Tasks Section */}

@@ -71,7 +71,7 @@ const App = () => (
         <RewardProvider>
           <Toaster />
 
-        <Sonner />
+        <Sonner position="top-center" duration={2500} />
         <BrowserRouter>
           <ThemeProvider>
             <ThemeEngineProvider>

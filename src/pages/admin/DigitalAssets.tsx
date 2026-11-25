@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/admin/ui/tabs";
-import { Printer } from "lucide-react";
+import { Printer, Calendar } from "lucide-react";
 import { Button } from "@/components/admin/ui/button";
 import { Badge } from "@/components/admin/ui/badge";
-import { ActiveWebsites } from "@/components/admin/ActiveWebsites";
+import { ActiveWebsites, renderExpirationCell } from "@/components/admin/ActiveWebsites";
 import { FutureWebsites } from "@/components/admin/FutureWebsites";
 import { SocialMediaAccounts } from "@/components/admin/SocialMediaAccounts";
 import { EmailAccounts } from "@/components/admin/EmailAccounts";
@@ -49,6 +49,16 @@ export function DigitalAssets() {
   const socialCount = socialMediaQuery.data?.length ?? 0;
   const emailCount = emailAccountsQuery.data?.length ?? 0;
 
+  const allWebsitesOverview = [
+    ...(activeWebsitesQuery.data || []).map((w: any) => ({ ...w, _typeLabel: "Active" })),
+    ...(futureWebsitesQuery.data || []).map((w: any) => ({ ...w, _typeLabel: "Future" })),
+  ].sort((a: any, b: any) => {
+    const aTime = a.expirationDate ? new Date(a.expirationDate).getTime() : Number.POSITIVE_INFINITY;
+    const bTime = b.expirationDate ? new Date(b.expirationDate).getTime() : Number.POSITIVE_INFINITY;
+    if (aTime !== bTime) return aTime - bTime;
+    return String(a.siteName || "").localeCompare(String(b.siteName || ""));
+  });
+
   return (
     <div className="px-2 sm:px-0 sm:pl-6 space-y-4 sm:space-y-5 md:space-y-6 page-shell">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -69,6 +79,35 @@ export function DigitalAssets() {
           Print Report
         </Button>
       </div>
+
+      {allWebsitesOverview.length > 0 && (
+        <Card>
+          <CardHeader className="py-3 px-4">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-primary" />
+              All Websites Expiration Overview ({allWebsitesOverview.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4 pt-0">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+              {allWebsitesOverview.map((site: any) => (
+                <div
+                  key={site._id}
+                  className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2"
+                >
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold truncate">{site.siteName}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">{site._typeLabel}</p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    {renderExpirationCell(site.expirationDate)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs defaultValue="active-websites" className="space-y-4">
         <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto p-1 gap-1 text-[10px] sm:text-sm">

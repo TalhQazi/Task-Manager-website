@@ -143,6 +143,7 @@ interface Website {
   appleMaps?: string;
   infoEmailSetup?: string;
   nathanEmailSetup?: string;
+  se7enFamilyFooter?: string;
   // Social Media Compliance
   youtubeCompliance?: string;
   rumbleCompliance?: string;
@@ -1915,6 +1916,21 @@ export default function ComplianceCenter() {
           </div>
         </CardContent>
       </Card>
+
+      <div className="text-center py-3 border-t border-border/50">
+        <p className="text-sm text-muted-foreground">
+          Part of the{" "}
+          <a
+            href="https://se7eninc.com"
+            target="_blank"
+            rel="noreferrer"
+            className="text-blue-500 hover:underline font-semibold"
+          >
+            Se7en
+          </a>{" "}
+          family of companies.
+        </p>
+      </div>
     </div>
   )}
 
@@ -2288,7 +2304,8 @@ export default function ComplianceCenter() {
                     { key: "googleMaps", label: "Google Maps" },
                     { key: "appleMaps", label: "Apple Maps" },
                     { key: "infoEmailSetup", label: "info@ Email Setup" },
-                    { key: "nathanEmailSetup", label: "nathan@ Email Setup" }
+                    { key: "nathanEmailSetup", label: "nathan@ Email Setup" },
+                    { key: "se7enFamilyFooter", label: "Se7en Family Footer (Part of the Se7en family of companies.)" }
                   ].map((reqItem) => {
                     const val = (selectedWebsite as any)[reqItem.key] || "none";
                     const matchItem = checklistItems.find(i => i.title === reqItem.label);
@@ -3011,7 +3028,16 @@ export default function ComplianceCenter() {
                 </div>
                 <div className="text-center pb-4">
                   <p className="text-sm text-muted-foreground">
-                    Part of the <a href="https://se7en.com" target="_blank" rel="noreferrer" className="text-blue-500 hover:underline font-semibold">Se7en</a> family of companies.
+                    Part of the{" "}
+                    <a
+                      href="https://se7eninc.com"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-blue-500 hover:underline font-semibold"
+                    >
+                      Se7en
+                    </a>{" "}
+                    family of companies.
                   </p>
                 </div>
               </div>

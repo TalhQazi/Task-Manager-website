@@ -16,7 +16,7 @@ import {
 import { useTheme } from "@/contexts/ThemeContext";
 import { cn } from "@/lib/utils";
 
-const AUTO_DISMISS_TIME = 3000; // 3 seconds
+const AUTO_DISMISS_TIME = 1500; // 1.5 seconds
 
 interface Particle {
   id: number;

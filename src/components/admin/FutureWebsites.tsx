@@ -15,6 +15,7 @@ import { Badge } from "@/components/admin/ui/badge";
 import { Plus, Edit2, Trash2, Rocket, Code, ExternalLink, Search } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 import { useQuery } from "@tanstack/react-query";
+import { toDateInput, renderExpirationCell } from "@/components/admin/ActiveWebsites";
 import {
   Table,
   TableBody,
@@ -30,6 +31,7 @@ interface FutureWebsite {
   url: string;
   developmentStage: "Concept" | "Planning" | "Design" | "Development" | "Testing" | "Ready for Launch";
   priority: "Low" | "Medium" | "High" | "Critical";
+  expirationDate?: string | null;
   concept: string;
   notes: string;
   createdAt: string;
@@ -75,6 +77,7 @@ export function FutureWebsites() {
     url: "",
     developmentStage: "Concept",
     priority: "Medium",
+    expirationDate: "",
     concept: "",
     notes: "",
   });
@@ -148,6 +151,7 @@ export function FutureWebsites() {
       url: "",
       developmentStage: "Concept",
       priority: "Medium",
+      expirationDate: "",
       concept: "",
       notes: "",
     });
@@ -167,6 +171,7 @@ export function FutureWebsites() {
 
       const payload = {
         ...formData,
+        expirationDate: formData.expirationDate ? formData.expirationDate : null,
         websiteType: "future",
       };
 
@@ -207,7 +212,10 @@ export function FutureWebsites() {
 
   const handleEdit = (website: FutureWebsite) => {
     setSelectedWebsite(website);
-    setFormData(website);
+    setFormData({
+      ...website,
+      expirationDate: toDateInput(website.expirationDate),
+    });
     setIsEditDialogOpen(true);
   };
 
@@ -323,6 +331,18 @@ export function FutureWebsites() {
             </div>
 
             <div>
+              <label className="text-sm font-medium">Expiration Date</label>
+              <input
+                type="date"
+                value={toDateInput(formData.expirationDate)}
+                onChange={(e) =>
+                  setFormData({ ...formData, expirationDate: e.target.value })
+                }
+                className="w-full mt-1 px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
               <label className="text-sm font-medium">Concept</label>
               <textarea
                 value={formData.concept || ""}
@@ -392,6 +412,7 @@ export function FutureWebsites() {
                 <TableHead className="font-bold">Domain</TableHead>
                 <TableHead className="font-bold">Stage</TableHead>
                 <TableHead className="font-bold">Priority</TableHead>
+                <TableHead className="font-bold">Expiration Date</TableHead>
                 <TableHead className="font-bold">Concept</TableHead>
                 <TableHead className="text-right font-bold">Actions</TableHead>
               </TableRow>
@@ -421,6 +442,9 @@ export function FutureWebsites() {
                     <Badge className={`${priorityColors[website.priority]} border-0 shadow-none font-bold text-[10px] uppercase`}>
                       {website.priority}
                     </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {renderExpirationCell(website.expirationDate)}
                   </TableCell>
                   <TableCell className="max-w-xs truncate text-xs text-muted-foreground">
                     {website.concept || "—"}
@@ -521,6 +545,21 @@ export function FutureWebsites() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <div className="text-center pt-3 border-t border-border/40">
+        <p className="text-xs sm:text-sm text-muted-foreground">
+          Part of the{" "}
+          <a
+            href="https://se7eninc.com"
+            target="_blank"
+            rel="noreferrer"
+            className="text-blue-500 hover:underline font-semibold"
+          >
+            Se7en
+          </a>{" "}
+          family of companies.
+        </p>
+      </div>
     </div>
   );
 }

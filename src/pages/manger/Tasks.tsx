@@ -124,6 +124,8 @@ import TaskExpensesPanel from "@/components/cost-manager/TaskExpensesPanel";
 import { getProjectCostSheet, getTaskCostSheet } from "@/lib/costManager";
 import ExpenseSheetList from "@/components/expense/ExpenseSheetList";
 import DropboxFilePicker, { type DropboxSelectedFile, formatBytes, DropboxIcon } from "@/components/admin/DropboxFilePicker";
+import { ProjectSocialMediaSection, ProjectSocialMediaBadges, type ProjectSocialMediaItem } from "@/components/tasks/ProjectSocialMediaSection";
+import { ProjectUpperRightCheckmark, ProjectTimerBadge, ProjectActionBar } from "@/components/tasks/ProjectTimerAndActions";
 import { renderMessageContent } from "@/lib/linkify";
 
 
@@ -192,6 +194,7 @@ type CreateProjectPayload = {
   name: string;
   description: string;
   category?: string;
+  socialMedia?: ProjectSocialMediaItem[];
   assignees?: string[];
   logo?: ProjectLogo;
   attachments?: Array<{ fileName: string; url: string; mimeType: string; size: number }>;
@@ -260,6 +263,7 @@ interface Project {
   name: string;
   description?: string;
   category?: string;
+  socialMedia?: ProjectSocialMediaItem[];
   createdByUsername?: string;
   createdAt?: string;
   assignees?: string[];
@@ -270,6 +274,10 @@ interface Project {
   logo?: ProjectLogo;
   taskCount?: number;
   status?: string;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  completedByName?: string;
+  lastCheckInAt?: string | null;
   attachments?: Array<{
     fileName: string;
     url: string;
@@ -735,6 +743,9 @@ export default function Tasks() {
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
   const [projectCategory, setProjectCategory] = useState<string>("general");
+  const [projectSocialMedia, setProjectSocialMedia] = useState<ProjectSocialMediaItem[]>([]);
+  const [editProjectSocialMedia, setEditProjectSocialMedia] = useState<ProjectSocialMediaItem[]>([]);
+  const projectSubmitLockRef = useRef(false);
   const [customProjectCategories, setCustomProjectCategories] = useState<string[]>([]);
   const [isNewProjectCategoryOpen, setIsNewProjectCategoryOpen] = useState(false);
   const [newProjectCategoryInput, setNewProjectCategoryInput] = useState("");
@@ -825,11 +836,19 @@ export default function Tasks() {
   });
 
   const allProjectCategories = useMemo(() => {
-    const defaults = ["Location", "Mechanical", "Medical", "Software", "Hardware", "Legal", "General"];
+    const defaults = ["Location", "Mechanical", "Medical", "Software", "Hardware", "Legal", "Social Media", "General"];
     const fromApi = projectCategoriesQuery.data || [];
     const fromProjects = (projects || []).map((p) => p.category).filter(Boolean) as string[];
-    const combined = Array.from(new Set([...defaults, ...fromApi, ...fromProjects, ...customProjectCategories]));
-    return combined.sort((a, b) => a.localeCompare(b));
+    const catMap = new Map<string, string>();
+    for (const raw of [...defaults, ...fromApi, ...customProjectCategories, ...fromProjects]) {
+      const trimmed = String(raw || "").trim();
+      if (!trimmed) continue;
+      const key = trimmed.toLowerCase();
+      if (!catMap.has(key)) {
+        catMap.set(key, trimmed.charAt(0).toUpperCase() + trimmed.slice(1));
+      }
+    }
+    return Array.from(catMap.values()).sort((a, b) => a.localeCompare(b));
   }, [projectCategoriesQuery.data, projects, customProjectCategories]);
 
   const handleAddNewProjectCategory = () => {
@@ -1295,6 +1314,75 @@ export default function Tasks() {
     introVideoUrl: "",
   });
 
+  const [projectBusyId, setProjectBusyId] = useState<string | null>(null);
+
+  const handleMarkProjectComplete = async (projectId: string) => {
+    try {
+      setProjectBusyId(projectId);
+      await apiFetch(`/api/projects/${encodeURIComponent(projectId)}/close`, { method: "POST" });
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      if (selectedProject?.id === projectId) {
+        await loadProject(projectId);
+      }
+      toast({ title: "Project marked complete" });
+    } catch (err) {
+      toast({
+        title: "Failed to complete project",
+        description: err instanceof Error ? err.message : "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setProjectBusyId(null);
+    }
+  };
+
+  const handleStartProjectTimer = async (projectId: string) => {
+    try {
+      setProjectBusyId(projectId);
+      await apiFetch(`/api/projects/${encodeURIComponent(projectId)}`, {
+        method: "PUT",
+        body: JSON.stringify({ status: "In Progress" }),
+      });
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      if (selectedProject?.id === projectId) {
+        await loadProject(projectId);
+      }
+      toast({ title: "Project timer started" });
+    } catch (err) {
+      toast({
+        title: "Failed to start project timer",
+        description: err instanceof Error ? err.message : "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setProjectBusyId(null);
+    }
+  };
+
+  const handleSendProjectCheckIn = async (project: Project) => {
+    try {
+      setProjectBusyId(project.id);
+      const res = await apiFetch<{ recipients?: string[] }>(`/api/projects/${encodeURIComponent(project.id)}/check-in`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      const count = Array.isArray(res?.recipients) ? res.recipients.length : 0;
+      toast({
+        title: "Check-in notification sent",
+        description: count > 0 ? `Asked ${count} assignee(s) if "${project.name}" is done.` : `Logged status check-in for "${project.name}".`,
+      });
+    } catch (err) {
+      toast({
+        title: "Failed to send notification",
+        description: err instanceof Error ? err.message : "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setProjectBusyId(null);
+    }
+  };
+
   const updateTaskMutation = useMutation({
     mutationFn: async ({ id, payload }: { id: string; payload: Partial<Task> }) => {
       const res = await apiFetch<{ item: TaskApi }>(`/api/tasks/${id}`, {
@@ -1467,6 +1555,7 @@ export default function Tasks() {
     setProjectName("");
     setProjectDescription("");
     setProjectCategory("general");
+    setProjectSocialMedia([]);
     setProjectTasks([]);
     setProjectLogoFile(null);
     setProjectLogoPreview("");
@@ -1569,8 +1658,10 @@ export default function Tasks() {
   };
 
   const handleCreateProject = async () => {
+    if (isCreating || projectSubmitLockRef.current) return;
     if (!validateForm()) return;
 
+    projectSubmitLockRef.current = true;
     try {
       setIsCreating(true);
       setApiError(null);
@@ -1621,6 +1712,7 @@ export default function Tasks() {
         name: projectName.trim(),
         description,
         category: projectCategory || "general",
+        socialMedia: projectSocialMedia,
         assignees: assigneesWithSelf,
         logo: projectLogo,
         attachments: projectAttachments,
@@ -1650,6 +1742,8 @@ export default function Tasks() {
         description: e instanceof Error ? e.message : "Something went wrong",
         variant: "destructive",
       });
+    } finally {
+      projectSubmitLockRef.current = false;
     }
   };
 
@@ -2442,17 +2536,8 @@ export default function Tasks() {
         set.add(e.name.trim());
       }
     });
-    sourceTasks.forEach((t: any) => {
-      if (Array.isArray(t.assignees)) {
-        t.assignees.forEach((a: string) => {
-          if (a && typeof a === "string" && a.trim()) {
-            set.add(a.trim());
-          }
-        });
-      }
-    });
     return Array.from(set).sort();
-  }, [activeEmployees, sourceTasks]);
+  }, [activeEmployees]);
 
   // Helper to match an assignee string against assigneeFilter
   const matchesSelectedAssignee = useCallback((assigneesList: string[], filter: string, teamLead?: string) => {
@@ -2491,7 +2576,9 @@ export default function Tasks() {
       return sourceTasks.filter((task) => {
         const assigneesText = Array.isArray(task.assignees) ? task.assignees.join(" ") : "";
         const matchesSearch = !searchQuery || task.title.toLowerCase().includes(searchQuery.toLowerCase()) || assigneesText.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesStatus = statusFilter === "all" ? task.status !== "completed" : task.status === statusFilter;
+        const matchesStatus = statusFilter === "all"
+          ? String(task.status || "").toLowerCase() !== "completed"
+          : String(task.status || "").toLowerCase() === statusFilter.toLowerCase();
         const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
         const matchesAssignment =
           assignmentFilter === "all" ||
@@ -2514,7 +2601,9 @@ export default function Tasks() {
         !searchQuery ||
         task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         assigneesText.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStatus = statusFilter === "all" ? task.status !== "completed" : task.status === statusFilter;
+      const matchesStatus = statusFilter === "all"
+        ? String(task.status || "").toLowerCase() !== "completed"
+        : String(task.status || "").toLowerCase() === statusFilter.toLowerCase();
       const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
       const matchesAssignment =
         assignmentFilter === "all" ||
@@ -2884,13 +2973,11 @@ export default function Tasks() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all" className="text-xs">All Categories</SelectItem>
-                    <SelectItem value="location" className="text-xs">Location</SelectItem>
-                    <SelectItem value="mechanical" className="text-xs">Mechanical</SelectItem>
-                    <SelectItem value="medical" className="text-xs">Medical</SelectItem>
-                    <SelectItem value="software" className="text-xs">Software</SelectItem>
-                    <SelectItem value="hardware" className="text-xs">Hardware</SelectItem>
-                    <SelectItem value="legal" className="text-xs">Legal</SelectItem>
-                    <SelectItem value="general" className="text-xs">General</SelectItem>
+                    {allProjectCategories.map((cat) => (
+                      <SelectItem key={cat.toLowerCase()} value={cat.toLowerCase()} className="text-xs">
+                        {cat}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -3042,7 +3129,26 @@ export default function Tasks() {
                 );
               })()}
             </div>
-            <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> Created {new Date(selectedProject.createdAt).toLocaleDateString()}</span>
+            <div className="flex items-center gap-4">
+              <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> Created {new Date(selectedProject.createdAt).toLocaleDateString()}</span>
+              <ProjectTimerBadge
+                status={selectedProject.status}
+                startedAt={selectedProject.startedAt}
+                completedAt={selectedProject.completedAt}
+                createdAt={selectedProject.createdAt}
+              />
+            </div>
+          </div>
+          <div className="mt-3 pt-3 border-t border-border/40 flex flex-wrap items-center justify-between gap-2">
+            <ProjectActionBar
+              status={selectedProject.status}
+              hasStarted={Boolean(selectedProject.startedAt) || ["in progress", "active"].includes(String(selectedProject.status || "").toLowerCase())}
+              busy={projectBusyId === selectedProject.id}
+              onStartTimer={() => void handleStartProjectTimer(selectedProject.id)}
+              onMarkComplete={() => void handleMarkProjectComplete(selectedProject.id)}
+              onSendCheckIn={() => void handleSendProjectCheckIn(selectedProject)}
+            />
+            <ProjectSocialMediaBadges socialMedia={selectedProject.socialMedia} />
           </div>
           {selectedProject.introVideoUrl && (
             <div className="mt-4 pt-3 border-t space-y-1.5">
@@ -3098,8 +3204,16 @@ export default function Tasks() {
                         key={project.id}
                         className="group relative p-3 sm:p-4 rounded-xl border border-border/60 hover:border-primary/50 transition-all bg-card shadow-sm hover:shadow-md flex flex-col gap-3"
                       >
-                        {/* Three dots menu for project edit */}
-                        <div className="absolute top-2 right-2 z-10">
+                        {/* Upper right-hand corner: Completed green checkmark + actions */}
+                        <div className="absolute top-2 right-2 z-10 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                          <ProjectUpperRightCheckmark
+                            status={project.status}
+                            disabled={projectBusyId === project.id}
+                            onMarkComplete={(e) => {
+                              e.stopPropagation();
+                              void handleMarkProjectComplete(project.id);
+                            }}
+                          />
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <button
@@ -3111,6 +3225,42 @@ export default function Tasks() {
                               </button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              {String(project.status || "").toLowerCase() !== "completed" && (
+                                <>
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      void handleMarkProjectComplete(project.id);
+                                    }}
+                                    className="text-emerald-600 focus:text-emerald-600"
+                                  >
+                                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                                    Mark Complete
+                                  </DropdownMenuItem>
+                                  {!project.startedAt && (
+                                    <DropdownMenuItem
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        void handleStartProjectTimer(project.id);
+                                      }}
+                                    >
+                                      <Clock className="w-4 h-4 mr-2" />
+                                      Start Timer
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      void handleSendProjectCheckIn(project);
+                                    }}
+                                    className="text-amber-600 focus:text-amber-600"
+                                  >
+                                    <Send className="w-4 h-4 mr-2" />
+                                    Ask If Done
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                </>
+                              )}
 
                               
                               <DropdownMenuItem
@@ -3120,6 +3270,7 @@ export default function Tasks() {
                                   setEditProjectName(project.name);
                                   setEditProjectDescription(project.description || "");
                                   setEditProjectCategory(project.category || "general");
+                                  setEditProjectSocialMedia(Array.isArray(project.socialMedia) ? project.socialMedia : []);
                                   setEditProjectLogoPreview(project.logo?.url || "");
                                   setEditProjectLogoFile(null);
                                   setIsEditProjectOpen(true);
@@ -3164,11 +3315,18 @@ export default function Tasks() {
                             <Badge variant="outline" className="h-6 text-[10px] font-bold bg-muted/5 border-border/60">
                               {project.status || "Pending"}
                             </Badge>
+                            <ProjectTimerBadge
+                              status={project.status}
+                              startedAt={project.startedAt}
+                              completedAt={project.completedAt}
+                              createdAt={project.createdAt}
+                            />
                             {project.category && (
                               <Badge variant="secondary" className="h-6 text-[10px] font-semibold capitalize bg-primary/10 text-primary border-primary/20">
                                 {project.category}
                               </Badge>
                             )}
+                            <ProjectSocialMediaBadges socialMedia={project.socialMedia} compact />
                           </div>
                           <Button 
                             variant="ghost" 
@@ -3642,6 +3800,7 @@ export default function Tasks() {
               
               
               </div>
+              <ProjectSocialMediaSection value={projectSocialMedia} onChange={setProjectSocialMedia} />
             </div>
 
             {/* Tasks Section */}
@@ -5707,6 +5866,7 @@ export default function Tasks() {
                     name: editProjectName,
                     description: editProjectDescription,
                     category: editProjectCategory,
+                    socialMedia: editProjectSocialMedia,
                   };
                   if (logoPayload) {
                     payload.logo = logoPayload;
@@ -5719,6 +5879,7 @@ export default function Tasks() {
                   setEditProjectName("");
                   setEditProjectDescription("");
                   setEditProjectCategory("general");
+                  setEditProjectSocialMedia([]);
                   setEditProjectLogoPreview("");
                   setEditProjectLogoFile(null);
                   toast({ title: "Project updated", description: "Project has been updated successfully." });
@@ -5833,6 +5994,7 @@ export default function Tasks() {
                   }}
                 />
               </div>
+              <ProjectSocialMediaSection value={editProjectSocialMedia} onChange={setEditProjectSocialMedia} />
             </div>
             <DialogFooter className="flex-col sm:flex-row gap-2">
               <Button
@@ -5844,6 +6006,7 @@ export default function Tasks() {
                   setEditProjectName("");
                   setEditProjectDescription("");
                   setEditProjectCategory("general");
+                  setEditProjectSocialMedia([]);
                   setEditProjectLogoPreview("");
                   setEditProjectLogoFile(null);
                 }}

@@ -53,7 +53,11 @@ function normalize(t: any): TaskView {
 export async function fetchTasksPage(filters: TaskFilters, page: number, limit = 100): Promise<TasksPage> {
   const params = new URLSearchParams({ page: String(page), limit: String(limit) });
   if (filters.search) params.set("search", filters.search);
-  if (filters.status && filters.status !== "all") params.set("status", filters.status);
+  if (filters.status && filters.status !== "all") {
+    params.set("status", filters.status);
+  } else {
+    params.set("excludeCompleted", "true");
+  }
   if (filters.priority && filters.priority !== "all") params.set("priority", filters.priority);
   if (filters.assignment && filters.assignment !== "all") params.set("assignment", filters.assignment);
   if (filters.projectId) params.set("projectId", filters.projectId);

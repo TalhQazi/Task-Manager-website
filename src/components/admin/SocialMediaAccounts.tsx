@@ -125,6 +125,7 @@ export function SocialMediaAccounts() {
   };
 
   const handleSave = async () => {
+    if (isSubmitting) return;
     const handle = formData.accountHandle || formData.username;
     
     if (!formData.platform || !handle) {
