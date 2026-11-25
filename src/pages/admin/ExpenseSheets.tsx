@@ -250,7 +250,7 @@ export default function ExpenseSheets() {
       setSheetModalOpen(false);
       loadSheets();
     } catch (err) {
-      toast.error("Failed to save expense sheet");
+      toast.error(err instanceof Error && err.message ? err.message : "Failed to save expense sheet");
     } finally {
       setSavingSheet(false);
     }
