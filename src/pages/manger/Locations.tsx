@@ -68,6 +68,15 @@ import { cn } from "@/lib/manger/utils";
 import { apiFetch } from "@/lib/manger/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PaintRegistryTab } from "@/components/paint-registry/PaintRegistryTab";
+import {
+  LocationComplianceChecklist,
+  LocationAccountNumberItem,
+  DEFAULT_COMPLIANCE_CHECKLIST,
+  normalizeComplianceChecklist,
+  normalizeAccountNumbers,
+  LocationComplianceFormSection,
+  LocationComplianceViewSection,
+} from "@/components/shared/LocationComplianceSection";
 
 interface Location {
   id: string;
@@ -83,6 +92,8 @@ interface Location {
   operatingHours: string;
   photoDataUrl?: string;
   photoFileName?: string;
+  complianceChecklist?: LocationComplianceChecklist;
+  accountNumbers?: LocationAccountNumberItem[];
 }
 
 type LocationApi = Omit<Location, "id"> & {
@@ -112,6 +123,8 @@ function normalizeLocation(l: LocationApi): Location {
     operatingHours: l.operatingHours,
     photoDataUrl: (l as unknown as { photoDataUrl?: string }).photoDataUrl,
     photoFileName: (l as unknown as { photoFileName?: string }).photoFileName,
+    complianceChecklist: normalizeComplianceChecklist((l as any).complianceChecklist),
+    accountNumbers: normalizeAccountNumbers((l as any).accountNumbers),
   };
 }
 
@@ -336,6 +349,10 @@ export default function Locations() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
+  const [createComplianceChecklist, setCreateComplianceChecklist] = useState<LocationComplianceChecklist>({ ...DEFAULT_COMPLIANCE_CHECKLIST });
+  const [createAccountNumbers, setCreateAccountNumbers] = useState<LocationAccountNumberItem[]>([]);
+  const [editComplianceChecklist, setEditComplianceChecklist] = useState<LocationComplianceChecklist>({ ...DEFAULT_COMPLIANCE_CHECKLIST });
+  const [editAccountNumbers, setEditAccountNumbers] = useState<LocationAccountNumberItem[]>([]);
   const queryClient = useQueryClient();
 
   const locationsQuery = useQuery({
@@ -371,6 +388,8 @@ export default function Locations() {
           ...payload,
           manager: payload.contactName,
           phone: payload.contactPhone,
+          complianceChecklist: createComplianceChecklist,
+          accountNumbers: createAccountNumbers,
         }),
       });
       return normalizeLocation(res.item);
@@ -388,6 +407,8 @@ export default function Locations() {
           ...payload,
           manager: payload.contactName,
           phone: payload.contactPhone,
+          complianceChecklist: editComplianceChecklist,
+          accountNumbers: editAccountNumbers,
         }),
       });
       return normalizeLocation(res.item);
@@ -445,6 +466,8 @@ export default function Locations() {
       onSuccess: () => {
         setIsCreateOpen(false);
         form.reset();
+        setCreateComplianceChecklist({ ...DEFAULT_COMPLIANCE_CHECKLIST });
+        setCreateAccountNumbers([]);
         toast({
           title: "Location added",
           description: "New location has been added.",
@@ -478,6 +501,8 @@ export default function Locations() {
       photoDataUrl: location.photoDataUrl || "",
       photoFileName: location.photoFileName || "",
     });
+    setEditComplianceChecklist(normalizeComplianceChecklist(location.complianceChecklist));
+    setEditAccountNumbers(normalizeAccountNumbers(location.accountNumbers));
     setIsEditOpen(true);
   };
 
@@ -1207,6 +1232,13 @@ export default function Locations() {
                   </div>
                 </div>
 
+                <LocationComplianceFormSection
+                  checklist={createComplianceChecklist}
+                  onChange={setCreateComplianceChecklist}
+                  accountNumbers={createAccountNumbers}
+                  onAccountNumbersChange={setCreateAccountNumbers}
+                />
+
                 <DialogFooter className="flex-col sm:flex-row gap-2">
                   <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} className="w-full sm:w-auto">
                     Cancel
@@ -1306,6 +1338,11 @@ export default function Locations() {
                     </span>
                   </div>
                 </div>
+
+                <LocationComplianceViewSection
+                  checklist={selectedLocation.complianceChecklist}
+                  accountNumbers={selectedLocation.accountNumbers || []}
+                />
 
                 {/* Paint & Finish Registry Integration */}
                 <div className="pt-6 border-t">
@@ -1600,6 +1637,13 @@ export default function Locations() {
                     </div>
                   </div>
                 </div>
+
+                <LocationComplianceFormSection
+                  checklist={editComplianceChecklist}
+                  onChange={setEditComplianceChecklist}
+                  accountNumbers={editAccountNumbers}
+                  onAccountNumbersChange={setEditAccountNumbers}
+                />
 
                 <DialogFooter className="flex-col sm:flex-row gap-2">
                   <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)} className="w-full sm:w-auto">

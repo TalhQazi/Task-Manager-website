@@ -27,6 +27,7 @@ import { getEmployeeProfile, toProxiedUrl, employeeApiFetch } from "@/Employee/l
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/manger/api";
 import AssetLibraryPicker from "@/components/admin/AssetLibraryPicker";
+import { ImagePositionRemote } from "@/components/shared/ImagePositionRemote";
 
 function HolidayEffects({ type }: { type: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -871,7 +872,7 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
                     className="w-full h-full"
                     style={{ 
                       objectFit: (headerSettings?.imageConfig?.size === "100% 100%" ? "fill" : headerSettings?.imageConfig?.size === "auto" ? "none" : headerSettings?.imageConfig?.size || "cover") as any,
-                      objectPosition: headerSettings?.imageConfig?.position || "center"
+                      objectPosition: localPosition || headerSettings?.imageConfig?.position || "center"
                     }}
                   />
                 ) : (
@@ -928,97 +929,20 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
                     </select>
                   </div>
 
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <label className="text-xs font-semibold text-foreground">Horizontal Position (Left / Right)</label>
-                      <span className="text-xs text-muted-foreground font-mono">{getPositionValues(localPosition).x}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      value={getPositionValues(localPosition).x}
-                      onChange={(e) => {
-                        const valX = e.target.value;
-                        const valY = getPositionValues(localPosition).y;
-                        setLocalPosition(`${valX}% ${valY}%`);
-                      }}
-                      onMouseUp={async (e: any) => {
-                        const valX = e.target.value;
-                        const valY = getPositionValues(localPosition).y;
-                        const newPos = `${valX}% ${valY}%`;
-                        await apiFetch("/api/header-settings", {
-                          method: "PUT",
-                          body: JSON.stringify({ imageConfig: { position: newPos } })
-                        });
-                        queryClient.invalidateQueries({ queryKey: ["header-settings"] });
-                        window.dispatchEvent(new CustomEvent("header-settings-updated"));
-                      }}
-                      onTouchEnd={async (e: any) => {
-                        const valX = e.target.value;
-                        const valY = getPositionValues(localPosition).y;
-                        const newPos = `${valX}% ${valY}%`;
-                        await apiFetch("/api/header-settings", {
-                          method: "PUT",
-                          body: JSON.stringify({ imageConfig: { position: newPos } })
-                        });
-                        queryClient.invalidateQueries({ queryKey: ["header-settings"] });
-                        window.dispatchEvent(new CustomEvent("header-settings-updated"));
-                      }}
-                      className="w-full h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
-                    />
-                    <div className="flex justify-between text-[10px] text-muted-foreground">
-                      <span>Left</span>
-                      <span>Center</span>
-                      <span>Right</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <label className="text-xs font-semibold text-foreground">Vertical Position (Top / Bottom)</label>
-                      <span className="text-xs text-muted-foreground font-mono">{getPositionValues(localPosition).y}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      value={getPositionValues(localPosition).y}
-                      onChange={(e) => {
-                        const valX = getPositionValues(localPosition).x;
-                        const valY = e.target.value;
-                        setLocalPosition(`${valX}% ${valY}%`);
-                      }}
-                      onMouseUp={async (e: any) => {
-                        const valX = getPositionValues(localPosition).x;
-                        const valY = e.target.value;
-                        const newPos = `${valX}% ${valY}%`;
-                        await apiFetch("/api/header-settings", {
-                          method: "PUT",
-                          body: JSON.stringify({ imageConfig: { position: newPos } })
-                        });
-                        queryClient.invalidateQueries({ queryKey: ["header-settings"] });
-                        window.dispatchEvent(new CustomEvent("header-settings-updated"));
-                      }}
-                      onTouchEnd={async (e: any) => {
-                        const valX = getPositionValues(localPosition).x;
-                        const valY = e.target.value;
-                        const newPos = `${valX}% ${valY}%`;
-                        await apiFetch("/api/header-settings", {
-                          method: "PUT",
-                          body: JSON.stringify({ imageConfig: { position: newPos } })
-                        });
-                        queryClient.invalidateQueries({ queryKey: ["header-settings"] });
-                        window.dispatchEvent(new CustomEvent("header-settings-updated"));
-                      }}
-                      className="w-full h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
-                    />
-                    <div className="flex justify-between text-[10px] text-muted-foreground">
-                      <span>Top</span>
-                      <span>Center</span>
-                      <span>Bottom</span>
-                    </div>
-                  </div>
+                  <ImagePositionRemote
+                    position={localPosition || headerSettings?.imageConfig?.position || "50% 50%"}
+                    onChange={(newPos) => {
+                      setLocalPosition(newPos);
+                    }}
+                    onCommit={async (newPos) => {
+                      await apiFetch("/api/header-settings", {
+                        method: "PUT",
+                        body: JSON.stringify({ imageConfig: { position: newPos } })
+                      });
+                      queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+                      window.dispatchEvent(new CustomEvent("header-settings-updated"));
+                    }}
+                  />
                 </div>
               )}
             </div>

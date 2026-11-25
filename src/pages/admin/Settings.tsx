@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import AssetLibraryPicker from "@/components/admin/AssetLibraryPicker";
 import ThemeEngine from "@/pages/admin/ThemeEngine";
 import McpConnectorTab from "@/components/admin/McpConnectorTab";
+import { ImagePositionRemote } from "@/components/shared/ImagePositionRemote";
 
 type UploadStatus = "idle" | "uploading" | "success" | "error";
 
@@ -671,6 +672,9 @@ export default function Settings() {
                       src={headerSettings.imageConfig.dataUrl}
                       alt="Header preview"
                       className="w-full h-full object-cover"
+                      style={{
+                        objectPosition: headerSettings.imageConfig.position || "center",
+                      }}
                     />
                   </div>
                 )}
@@ -684,34 +688,18 @@ export default function Settings() {
                 )}
 
                 {headerSettings.imageConfig.dataUrl && (
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <label className="text-xs text-muted-foreground font-semibold">Reposition Cover (Uplift / Downlift)</label>
-                      <span className="text-xs text-muted-foreground font-mono">{getVerticalPositionValue(headerSettings.imageConfig.position)}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      value={getVerticalPositionValue(headerSettings.imageConfig.position)}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setHeaderSettings(prev => ({
-                          ...prev,
-                          imageConfig: {
-                            ...prev.imageConfig,
-                            position: `center ${val}%`
-                          }
-                        }));
-                      }}
-                      className="w-full h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
-                    />
-                    <div className="flex justify-between text-[10px] text-muted-foreground">
-                      <span>Downlift (Top)</span>
-                      <span>Center</span>
-                      <span>Uplift (Bottom)</span>
-                    </div>
-                  </div>
+                  <ImagePositionRemote
+                    position={headerSettings.imageConfig.position}
+                    onChange={(newPos) => {
+                      setHeaderSettings(prev => ({
+                        ...prev,
+                        imageConfig: {
+                          ...prev.imageConfig,
+                          position: newPos
+                        }
+                      }));
+                    }}
+                  />
                 )}
 
                 <div className="space-y-2">
@@ -748,7 +736,7 @@ export default function Settings() {
                       alt="Header preview"
                       className="absolute inset-0 w-full h-full"
                       style={{
-                        objectFit: 'fill',
+                        objectFit: (headerSettings.imageConfig.size === "100% 100%" ? "fill" : headerSettings.imageConfig.size === "auto" ? "none" : headerSettings.imageConfig.size || 'cover') as any,
                         objectPosition: headerSettings.imageConfig.position || 'center',
                       }}
                     />

@@ -4,6 +4,7 @@ import { Bell, Bug, Camera, Loader2, LogOut, Mail, Menu, Palette, Search, Settin
 import { ThemeShell } from "./ThemeShell";
 import { GlobalSearchButton } from "@/components/GlobalSearchButton";
 import { useTheme } from "@/contexts/ThemeContext";
+import { ImagePositionRemote } from "@/components/shared/ImagePositionRemote";
 
 function HolidayEffects({ type }: { type: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1238,7 +1239,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                       className="w-full h-full" 
                       style={{ 
                         objectFit: (headerSettings?.imageConfig?.size === "100% 100%" ? "fill" : headerSettings?.imageConfig?.size === "auto" ? "none" : headerSettings?.imageConfig?.size || "cover") as any,
-                        objectPosition: headerSettings?.imageConfig?.position || "center"
+                        objectPosition: localPosition || headerSettings?.imageConfig?.position || "center"
                       }} 
                     />
                   ) : (
@@ -1274,23 +1275,34 @@ export function MainLayout({ children }: MainLayoutProps) {
               </div>
 
               {hasImageBackground && (
-                <div className="space-y-3 border-t pt-4">
-                  <div className="flex justify-between items-center">
-                    <label className="text-xs font-semibold text-foreground">Reposition Cover (Uplift / Downlift)</label>
-                    <span className="text-xs text-muted-foreground font-mono">{getVerticalPositionValue(localPosition)}%</span>
+                <div className="space-y-4 border-t pt-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-foreground">Image Fit (Sizing Mode)</label>
+                    <select
+                      className="w-full text-sm rounded-md border border-input bg-background px-3 py-1"
+                      value={headerSettings?.imageConfig?.size || "cover"}
+                      onChange={async (e) => {
+                        const newSize = e.target.value;
+                        await apiFetch("/api/header-settings", {
+                          method: "PUT",
+                          body: JSON.stringify({ imageConfig: { size: newSize } })
+                        });
+                        queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+                        window.dispatchEvent(new CustomEvent("header-settings-updated"));
+                      }}
+                    >
+                      <option value="cover">Cover (Maintain aspect ratio, fill space)</option>
+                      <option value="contain">Contain (Maintain aspect ratio, fit inside)</option>
+                      <option value="100% 100%">Stretch (Fill completely, ignoring aspect ratio)</option>
+                      <option value="auto">Auto (Original size)</option>
+                    </select>
                   </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={getVerticalPositionValue(localPosition)}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setLocalPosition(`center ${val}%`);
+                  <ImagePositionRemote
+                    position={localPosition || headerSettings?.imageConfig?.position || "50% 50%"}
+                    onChange={(newPos) => {
+                      setLocalPosition(newPos);
                     }}
-                    onMouseUp={async (e: any) => {
-                      const val = e.target.value;
-                      const newPos = `center ${val}%`;
+                    onCommit={async (newPos) => {
                       await apiFetch("/api/header-settings", {
                         method: "PUT",
                         body: JSON.stringify({
@@ -1302,27 +1314,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                       queryClient.invalidateQueries({ queryKey: ["header-settings"] });
                       window.dispatchEvent(new CustomEvent("header-settings-updated"));
                     }}
-                    onTouchEnd={async (e: any) => {
-                      const val = e.target.value;
-                      const newPos = `center ${val}%`;
-                      await apiFetch("/api/header-settings", {
-                        method: "PUT",
-                        body: JSON.stringify({
-                          imageConfig: {
-                            position: newPos
-                          }
-                        })
-                      });
-                      queryClient.invalidateQueries({ queryKey: ["header-settings"] });
-                      window.dispatchEvent(new CustomEvent("header-settings-updated"));
-                    }}
-                    className="w-full h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
                   />
-                  <div className="flex justify-between text-[10px] text-muted-foreground">
-                    <span>Downlift (Top)</span>
-                    <span>Center</span>
-                    <span>Uplift (Bottom)</span>
-                  </div>
                 </div>
               )}
             </div>

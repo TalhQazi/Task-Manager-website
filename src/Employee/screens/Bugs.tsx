@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/admin/ui/table";
-import { Bug, Plus, Globe } from "lucide-react";
+import { Bug, Plus, Globe, CheckCircle2 } from "lucide-react";
 
 import BugDashboardAnalytics from "@/components/bugs/BugDashboardAnalytics";
 import ReportBugModal from "@/components/bugs/ReportBugModal";
@@ -37,6 +37,9 @@ type BugItem = {
   createdByUsername?: string;
   createdByRole?: string;
   assignedDeveloperName?: string;
+  fixedByName?: string;
+  fixedAt?: string;
+  resolution?: { submittedBy?: string; submittedAt?: string };
   createdAt?: string;
   source?: { panel?: string; path?: string };
   attachments?: { fileName?: string; url?: string; mimeType?: string; size?: number }[];
@@ -85,6 +88,9 @@ export default function EmployeeBugs() {
           createdByUsername: toText(x.createdByUsername),
           createdByRole: toText(x.createdByRole),
           assignedDeveloperName: toText(x.assignedDeveloperName),
+          fixedByName: toText(x.fixedByName || x.resolution?.submittedBy),
+          fixedAt: toText(x.fixedAt || x.resolution?.submittedAt),
+          resolution: x.resolution && typeof x.resolution === "object" ? x.resolution : undefined,
           createdAt: toText(x.createdAt),
           source: x.source && typeof x.source === "object" ? x.source : undefined,
           attachments: Array.isArray(x.attachments) ? x.attachments : [],
@@ -126,7 +132,7 @@ export default function EmployeeBugs() {
     const query = q.trim().toLowerCase();
     if (!query) return list;
     return list.filter((b) => {
-      const where = `${b.title} ${b.description} ${b.taskTitle || ""} ${b.createdByUsername || ""} ${b.assignedDeveloperName || ""} ${b.module || ""} ${b.websiteName || ""} ${b.reporterName || ""} ${b.source?.path || ""}`.toLowerCase();
+      const where = `${b.title} ${b.description} ${b.taskTitle || ""} ${b.createdByUsername || ""} ${b.assignedDeveloperName || ""} ${b.fixedByName || ""} ${b.module || ""} ${b.websiteName || ""} ${b.reporterName || ""} ${b.source?.path || ""}`.toLowerCase();
       return where.includes(query);
     });
   }, [items, q, statusFilter, siteFilter]);
@@ -234,6 +240,7 @@ export default function EmployeeBugs() {
                     <TableHead className="text-xs">Title</TableHead>
                     <TableHead className="text-xs">Website</TableHead>
                     <TableHead className="text-xs">Status</TableHead>
+                    <TableHead className="text-xs">Fixed By</TableHead>
                     <TableHead className="text-xs">Posted By</TableHead>
                     <TableHead className="text-xs">Date</TableHead>
                   </TableRow>
@@ -262,6 +269,16 @@ export default function EmployeeBugs() {
                           {b.status}
                         </Badge>
                       </TableCell>
+                      <TableCell className="text-xs">
+                        {b.fixedByName ? (
+                          <span className="inline-flex items-center gap-1 font-medium text-emerald-600 dark:text-emerald-400">
+                            <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                            <span>{b.fixedByName}</span>
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground italic">—</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {b.reporterName || b.createdByUsername || "-"}
                       </TableCell>
@@ -272,7 +289,7 @@ export default function EmployeeBugs() {
                   ))}
                   {filtered.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-12 text-muted-foreground text-xs italic">
+                      <TableCell colSpan={6} className="text-center py-12 text-muted-foreground text-xs italic">
                         No bugs found.
                       </TableCell>
                     </TableRow>

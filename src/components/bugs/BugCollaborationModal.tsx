@@ -63,6 +63,9 @@ type BugItem = {
   taskTitle?: string;
   assignedDeveloperId?: string;
   assignedDeveloperName?: string;
+  fixedByUserId?: string;
+  fixedByName?: string;
+  fixedAt?: string;
   createdByUserId?: string;
   createdByUsername?: string;
   createdByRole?: string;
@@ -160,6 +163,7 @@ export default function BugCollaborationModal({ bugId, open, onOpenChange, onBug
   const auth = getAuthState();
   const empAuth = getEmployeeAuth();
   const currentUsername = String(empAuth?.username || empAuth?.name || auth.username || auth.name || "User").trim();
+  const currentDisplayName = String(empAuth?.name || auth.name || empAuth?.username || auth.username || "User").trim();
   const currentRole = String(empAuth?.role || auth.role || "").toLowerCase();
   const isAdmin = ["admin", "super-admin"].includes(currentRole);
 
@@ -190,6 +194,7 @@ export default function BugCollaborationModal({ bugId, open, onOpenChange, onBug
   const [resCommit, setResCommit] = useState("");
   const [resPR, setResPR] = useState("");
   const [resDisposition, setResDisposition] = useState("Fixed");
+  const [resFixedByName, setResFixedByName] = useState(currentDisplayName);
   const [submittingRes, setSubmittingRes] = useState(false);
 
   // Reporter Verification Dialog State
@@ -219,6 +224,7 @@ export default function BugCollaborationModal({ bugId, open, onOpenChange, onBug
       if (bugRes?.item) {
         setBug(bugRes.item);
         setAssignDevName(bugRes.item.assignedDeveloperName || "");
+        setResFixedByName(bugRes.item.fixedByName || bugRes.item.assignedDeveloperName || currentDisplayName);
       }
       setComments(Array.isArray(commentsRes?.items) ? commentsRes.items : []);
       setEvents(Array.isArray(eventsRes?.items) ? eventsRes.items : []);
@@ -349,6 +355,7 @@ export default function BugCollaborationModal({ bugId, open, onOpenChange, onBug
           commitUrl: resCommit.trim(),
           pullRequestUrl: resPR.trim(),
           disposition: resDisposition,
+          fixedByName: resFixedByName.trim() || currentDisplayName,
         }),
       });
       setResolutionOpen(false);
@@ -538,6 +545,12 @@ export default function BugCollaborationModal({ bugId, open, onOpenChange, onBug
                       Assign
                     </Button>
                   </div>
+                )}
+                {bug?.fixedByName && (
+                  <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Fixed By: <strong className="text-foreground">{bug.fixedByName}</strong>
+                    {bug.fixedAt ? ` (${new Date(bug.fixedAt).toLocaleDateString()})` : ""}
+                  </span>
                 )}
                 {bug?.module && (
                   <span className="flex items-center gap-1">
@@ -733,7 +746,8 @@ export default function BugCollaborationModal({ bugId, open, onOpenChange, onBug
                         <CheckCircle2 className="h-4 w-4" /> Submitted Resolution Details
                       </span>
                       <span className="text-[10px] text-muted-foreground">
-                        By {bug.resolution.submittedBy} on {bug.resolution.submittedAt ? new Date(bug.resolution.submittedAt).toLocaleDateString() : ""}
+                        Fixed by <strong className="text-foreground">{bug.fixedByName || bug.resolution.submittedBy || "Developer"}</strong>
+                        {bug.resolution.submittedAt ? ` on ${new Date(bug.resolution.submittedAt).toLocaleDateString()}` : ""}
                       </span>
                     </div>
 
@@ -1032,6 +1046,16 @@ export default function BugCollaborationModal({ bugId, open, onOpenChange, onBug
                 <label className="font-semibold">Release Version</label>
                 <Input placeholder="e.g. v1.4.2" value={resVersion} onChange={(e) => setResVersion(e.target.value)} className="h-8 text-xs" />
               </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="font-semibold">Fixed By (Name)</label>
+              <Input
+                placeholder="Developer / fixer name"
+                value={resFixedByName}
+                onChange={(e) => setResFixedByName(e.target.value)}
+                className="h-8 text-xs"
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-2">

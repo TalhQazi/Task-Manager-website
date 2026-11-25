@@ -37,6 +37,7 @@ import {
   Video,
   BarChart2,
   Palette,
+  Maximize2,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -359,6 +360,21 @@ export function Sidebar({ mode = "desktop", onNavigate, isCollapsed = false, onT
                 ) : (
                   <span className={cn("truncate", isMobile ? "text-lg font-semibold" : "font-medium text-sm", isMetallic ? (isActive ? "text-white font-semibold" : "text-[#cfd7dc]") : "")}>{item.label}</span>
                 )
+              )}
+              {!(isCollapsed && !isMobile) && item.path === "/manager/tasks" && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleNavigate();
+                    navigate("/manager/tasks?fullWindow=1");
+                  }}
+                  className="ml-auto p-1 rounded-md opacity-60 group-hover:opacity-100 hover:bg-white/15 text-white/80 hover:text-white transition-all"
+                  title="Open Tasks in Full Window"
+                >
+                  <Maximize2 className="h-3.5 w-3.5" />
+                </button>
               )}
             </div>
           );

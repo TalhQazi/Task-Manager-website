@@ -93,6 +93,7 @@ import {
   PlusCircle,
   TrendingUp,
   Maximize2,
+  Minimize2,
   Smile,
   Flame,
   Video,
@@ -275,6 +276,8 @@ interface Project {
     mimeType: string;
     size: number;
   }>;
+  expenseSheetStatus?: "none" | "not-started" | "started" | "done";
+  expenseSheetName?: string;
 }
 
 interface ProjectWithTasks extends Project {
@@ -723,6 +726,7 @@ export default function Tasks() {
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [assignmentFilter, setAssignmentFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [expenseSheetFilter, setExpenseSheetFilter] = useState<string>("all");
   const [viewByPriority, setViewByPriority] = useState(false);
   const [projectPage, setProjectPage] = useState(1);
   const [taskPage, setTaskPage] = useState(1);
@@ -742,6 +746,24 @@ export default function Tasks() {
   const [projectTasks, setProjectTasks] = useState<CreateProjectTaskDraft[]>([]);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isViewOpen, setIsViewOpen] = useState(false);
+  const [isTaskModalFullWindow, setIsTaskModalFullWindow] = useState(false);
+  const [isPageFullWindow, setIsPageFullWindow] = useState(() => searchParams.get("fullWindow") === "1");
+
+  useEffect(() => {
+    setIsPageFullWindow(searchParams.get("fullWindow") === "1");
+  }, [searchParams]);
+
+  const togglePageFullWindow = () => {
+    const nextVal = !isPageFullWindow;
+    setIsPageFullWindow(nextVal);
+    const next = new URLSearchParams(searchParams);
+    if (nextVal) {
+      next.set("fullWindow", "1");
+    } else {
+      next.delete("fullWindow");
+    }
+    setSearchParams(next, { replace: true });
+  };
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
@@ -957,7 +979,7 @@ export default function Tasks() {
 
   // Fetch tasks with server-side pagination
   const tasksQuery = useQuery({
-    queryKey: ["tasks", taskPage, projectSearchQuery, statusFilter, priorityFilter, viewByPriority, assignmentFilter],
+    queryKey: ["tasks", taskPage, projectSearchQuery, statusFilter, priorityFilter, viewByPriority, assignmentFilter, expenseSheetFilter],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: taskPage.toString(),
@@ -967,6 +989,12 @@ export default function Tasks() {
         priority: priorityFilter,
         assignment: assignmentFilter,
       });
+      if (statusFilter === "all") {
+        params.set("excludeCompleted", "true");
+      }
+      if (expenseSheetFilter !== "all") {
+        params.set("expenseStatus", expenseSheetFilter);
+      }
       if (viewByPriority) params.set("sort", "priority");
       const res = await apiFetch<{ items: TaskApi[], totalPages: number, total: number }>(`/api/tasks?${params.toString()}`);
       return {
@@ -981,7 +1009,7 @@ export default function Tasks() {
 
   // Fetch projects with server-side pagination
   const projectsQuery = useQuery({
-    queryKey: ["projects", projectPage, projectSearchQuery, statusFilter, assignmentFilter, categoryFilter],
+    queryKey: ["projects", projectPage, projectSearchQuery, statusFilter, assignmentFilter, categoryFilter, expenseSheetFilter],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: projectPage.toString(),
@@ -992,6 +1020,9 @@ export default function Tasks() {
       });
       if (categoryFilter && categoryFilter !== "all") {
         params.set("category", categoryFilter);
+      }
+      if (expenseSheetFilter !== "all") {
+        params.set("expenseStatus", expenseSheetFilter);
       }
       const res = await apiFetch<{ items: Project[], totalPages: number, total: number }>(`/api/projects?${params.toString()}`);
       return {
@@ -1005,8 +1036,8 @@ export default function Tasks() {
   });
 
   // Reset pages when filters change
-  useEffect(() => { setTaskPage(1); }, [projectSearchQuery, statusFilter, priorityFilter, viewByPriority, assignmentFilter]);
-  useEffect(() => { setProjectPage(1); }, [projectSearchQuery, statusFilter, assignmentFilter, categoryFilter]);
+  useEffect(() => { setTaskPage(1); }, [projectSearchQuery, statusFilter, priorityFilter, viewByPriority, assignmentFilter, expenseSheetFilter]);
+  useEffect(() => { setProjectPage(1); }, [projectSearchQuery, statusFilter, assignmentFilter, categoryFilter, expenseSheetFilter]);
 
   useEffect(() => {
     if (tasksQuery.data) {
@@ -2460,7 +2491,7 @@ export default function Tasks() {
       return sourceTasks.filter((task) => {
         const assigneesText = Array.isArray(task.assignees) ? task.assignees.join(" ") : "";
         const matchesSearch = !searchQuery || task.title.toLowerCase().includes(searchQuery.toLowerCase()) || assigneesText.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesStatus = statusFilter === "all" || task.status === statusFilter;
+        const matchesStatus = statusFilter === "all" ? task.status !== "completed" : task.status === statusFilter;
         const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
         const matchesAssignment =
           assignmentFilter === "all" ||
@@ -2483,7 +2514,7 @@ export default function Tasks() {
         !searchQuery ||
         task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         assigneesText.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStatus = statusFilter === "all" || task.status === statusFilter;
+      const matchesStatus = statusFilter === "all" ? task.status !== "completed" : task.status === statusFilter;
       const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
       const matchesAssignment =
         assignmentFilter === "all" ||
@@ -2515,7 +2546,8 @@ export default function Tasks() {
       const priority = (p.priority || "").toLowerCase();
 
       // Status Filter
-      if (sFilter !== "all" && status !== sFilter) {
+      const normalizedProjectStatus = status.replace(/\s+/g, "-");
+      if (sFilter !== "all" && status !== sFilter && normalizedProjectStatus !== sFilter) {
         return false;
       }
 
@@ -2559,6 +2591,15 @@ export default function Tasks() {
         }
       }
 
+      // Expense Sheet Filter
+      if (expenseSheetFilter !== "all") {
+        const expStatus = p.expenseSheetStatus || "none";
+        if (expenseSheetFilter === "done" && expStatus !== "done") return false;
+        if (expenseSheetFilter === "started" && expStatus !== "started" && expStatus !== "done") return false;
+        if (expenseSheetFilter === "has-sheet" && expStatus === "none") return false;
+        if (expenseSheetFilter === "not-started" && expStatus !== "not-started") return false;
+      }
+
       // Search Query
       if (qMain && !name.includes(qMain) && !desc.includes(qMain) && !assigneesText.includes(qMain) && !teamLeadText.includes(qMain)) {
         return false;
@@ -2566,7 +2607,7 @@ export default function Tasks() {
 
       return true;
     });
-  }, [projects, searchQuery, statusFilter, priorityFilter, assignmentFilter, assigneeFilter, categoryFilter, matchesSelectedAssignee]);
+  }, [projects, searchQuery, statusFilter, priorityFilter, assignmentFilter, assigneeFilter, categoryFilter, expenseSheetFilter, matchesSelectedAssignee]);
 
   // Pagination is server-driven when no project is selected; client-driven when project is selected
   const paginatedProjects = filteredProjects;
@@ -2582,7 +2623,11 @@ export default function Tasks() {
     : (tasksQuery.data?.totalPages || 1);
 
   return (
-    <div className="px-2 sm:px-4 lg:px-6 space-y-6">
+    <div className={cn(
+      isPageFullWindow
+        ? "fixed inset-0 z-[70] bg-background overflow-y-auto px-4 sm:px-6 py-4 sm:py-6 space-y-6"
+        : "px-2 sm:px-4 lg:px-6 space-y-6"
+    )}>
       <UploadingModal
         isOpen={isTaskUploadingModalOpen}
         progress={taskUploadProgress}
@@ -2600,6 +2645,17 @@ export default function Tasks() {
           <p className="page-subtitle">Create, assign, and track all tasks</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant={isPageFullWindow ? "default" : "outline"}
+            size="sm"
+            className="gap-1.5 h-9"
+            onClick={togglePageFullWindow}
+            title={isPageFullWindow ? "Exit Full Window" : "Open Task Management in Full Window"}
+          >
+            {isPageFullWindow ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            <span>{isPageFullWindow ? "Exit Full Window" : "Full Window"}</span>
+          </Button>
           {selectedProject ? (
             <>
               <Button variant="outline" onClick={() => {
@@ -2718,8 +2774,8 @@ export default function Tasks() {
           </Button>
           <Button
             size="sm"
-            variant={statusFilter === "active" ? "default" : "outline"}
-            onClick={() => setStatusFilter(statusFilter === "active" ? "all" : "active")}
+            variant={statusFilter === "in-progress" ? "default" : "outline"}
+            onClick={() => setStatusFilter(statusFilter === "in-progress" ? "all" : "in-progress")}
             className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
           >
             In Progress
@@ -2798,28 +2854,48 @@ export default function Tasks() {
             </Button>
           </div>
 
-          {(activeTab === "all" || activeTab === "projects") && (
+          <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                <Folder className="w-3.5 h-3.5 text-primary" /> Category:
+                <Wallet className="w-3.5 h-3.5 text-indigo-500" /> Expense Sheet:
               </span>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="h-8 w-[160px] text-xs bg-background">
-                  <SelectValue placeholder="All Categories" />
+              <Select value={expenseSheetFilter} onValueChange={setExpenseSheetFilter}>
+                <SelectTrigger className="h-8 w-[175px] text-xs bg-background">
+                  <SelectValue placeholder="All Expense Sheets" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all" className="text-xs">All Categories</SelectItem>
-                  <SelectItem value="location" className="text-xs">Location</SelectItem>
-                  <SelectItem value="mechanical" className="text-xs">Mechanical</SelectItem>
-                  <SelectItem value="medical" className="text-xs">Medical</SelectItem>
-                  <SelectItem value="software" className="text-xs">Software</SelectItem>
-                  <SelectItem value="hardware" className="text-xs">Hardware</SelectItem>
-                  <SelectItem value="legal" className="text-xs">Legal</SelectItem>
-                  <SelectItem value="general" className="text-xs">General</SelectItem>
+                  <SelectItem value="all" className="text-xs">All (No Filter)</SelectItem>
+                  <SelectItem value="started" className="text-xs">At Least Started</SelectItem>
+                  <SelectItem value="done" className="text-xs">Done</SelectItem>
+                  <SelectItem value="has-sheet" className="text-xs">Has Expense Sheet</SelectItem>
+                  <SelectItem value="not-started" className="text-xs">Not Started</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-          )}
+
+            {(activeTab === "all" || activeTab === "projects") && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                  <Folder className="w-3.5 h-3.5 text-primary" /> Category:
+                </span>
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger className="h-8 w-[160px] text-xs bg-background">
+                    <SelectValue placeholder="All Categories" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all" className="text-xs">All Categories</SelectItem>
+                    <SelectItem value="location" className="text-xs">Location</SelectItem>
+                    <SelectItem value="mechanical" className="text-xs">Mechanical</SelectItem>
+                    <SelectItem value="medical" className="text-xs">Medical</SelectItem>
+                    <SelectItem value="software" className="text-xs">Software</SelectItem>
+                    <SelectItem value="hardware" className="text-xs">Hardware</SelectItem>
+                    <SelectItem value="legal" className="text-xs">Legal</SelectItem>
+                    <SelectItem value="general" className="text-xs">General</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -3865,12 +3941,17 @@ export default function Tasks() {
           </DialogContent>
         </Dialog>
 
-        <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-          <DialogContent className="w-[98vw] sm:max-w-[95vw] lg:max-w-[1100px] h-[90vh] p-0 overflow-hidden flex flex-col gap-0 border-none shadow-2xl">
+        <Dialog open={isViewOpen} onOpenChange={(open) => { setIsViewOpen(open); if (!open) setIsTaskModalFullWindow(false); }}>
+          <DialogContent className={cn(
+            "p-0 overflow-hidden flex flex-col gap-0 border-none shadow-2xl transition-all duration-200",
+            isTaskModalFullWindow
+              ? "w-screen h-screen max-w-none sm:max-w-none max-h-none sm:max-h-none rounded-none"
+              : "w-[98vw] sm:max-w-[95vw] lg:max-w-[1100px] h-[90vh]"
+          )}>
             {selectedTask && (
               <>
                 <DialogHeader className="p-4 sm:p-6 border-b bg-card flex-shrink-0">
-                  <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center justify-between gap-4 pr-8">
                     <div className="min-w-0 space-y-1">
                       <div className="flex items-center gap-2 mb-1">
                         <Badge variant="outline" className="text-[10px] h-5 uppercase tracking-wider font-bold bg-muted/30">Task Details</Badge>
@@ -3878,6 +3959,17 @@ export default function Tasks() {
                       </div>
                       <DialogTitle className="text-lg sm:text-2xl font-bold truncate leading-tight">{selectedTask.title}</DialogTitle>
                     </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsTaskModalFullWindow((v) => !v)}
+                      className="h-8 gap-1.5 shrink-0"
+                      title={isTaskModalFullWindow ? "Restore Window Size" : "Open in Full Window"}
+                    >
+                      {isTaskModalFullWindow ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+                      <span className="hidden sm:inline">{isTaskModalFullWindow ? "Restore" : "Full Window"}</span>
+                    </Button>
                   </div>
                 </DialogHeader>
 

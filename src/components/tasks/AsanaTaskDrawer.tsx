@@ -284,10 +284,10 @@ export function AsanaTaskDrawer({
                     variant="outline"
                     onClick={onOpenFullModal}
                     className="h-9 px-2.5 text-xs text-muted-foreground hover:text-foreground gap-1.5 border-dashed"
-                    title="Open full dialog view"
+                    title="Open task in full window"
                   >
                     <Maximize2 className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">Full View</span>
+                    <span className="hidden sm:inline">Full Window</span>
                   </Button>
                 )}
               </div>

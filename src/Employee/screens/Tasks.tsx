@@ -89,6 +89,7 @@ import {
   Paperclip,
   Layers,
   Maximize2,
+  Minimize2,
   Flame,
   Video,
 } from "lucide-react";
@@ -667,6 +668,24 @@ export default function Tasks() {
 
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isViewOpen, setIsViewOpen] = useState(false);
+  const [isTaskModalFullWindow, setIsTaskModalFullWindow] = useState(false);
+  const [isPageFullWindow, setIsPageFullWindow] = useState(() => searchParams.get("fullWindow") === "1");
+
+  useEffect(() => {
+    setIsPageFullWindow(searchParams.get("fullWindow") === "1");
+  }, [searchParams]);
+
+  const togglePageFullWindow = () => {
+    const nextVal = !isPageFullWindow;
+    setIsPageFullWindow(nextVal);
+    const next = new URLSearchParams(searchParams);
+    if (nextVal) {
+      next.set("fullWindow", "1");
+    } else {
+      next.delete("fullWindow");
+    }
+    setSearchParams(next, { replace: true });
+  };
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [statusSaving, setStatusSaving] = useState(false);
@@ -712,6 +731,9 @@ export default function Tasks() {
         status: statusFilter,
         priority: priorityFilter,
       });
+      if (statusFilter === "all") {
+        params.set("excludeCompleted", "true");
+      }
       if (viewByPriority) params.set("sort", "priority");
       const res = await apiFetch<{ items: TaskApi[], totalPages: number, total: number }>(`/api/tasks?${params.toString()}`);
       return {
@@ -1718,7 +1740,7 @@ export default function Tasks() {
       const matchesSearch =
         task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         assigneesText.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStatus = statusFilter === "all" || task.status === statusFilter;
+      const matchesStatus = statusFilter === "all" ? task.status !== "completed" : task.status === statusFilter;
       const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
       return matchesSearch && matchesStatus && matchesPriority;
     });
@@ -1739,7 +1761,11 @@ export default function Tasks() {
     : (tasksQuery.data?.totalPages || 1);
 
   return (
-    <div className="px-2 sm:px-4 lg:px-6 space-y-6">
+    <div className={cn(
+      isPageFullWindow
+        ? "fixed inset-0 z-[70] bg-background overflow-y-auto px-4 sm:px-6 py-4 sm:py-6 space-y-6"
+        : "px-2 sm:px-4 lg:px-6 space-y-6"
+    )}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="page-header mb-0">
@@ -1747,6 +1773,17 @@ export default function Tasks() {
           <p className="page-subtitle">Create, assign, and track all tasks</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant={isPageFullWindow ? "default" : "outline"}
+            size="sm"
+            className="gap-1.5 h-9"
+            onClick={togglePageFullWindow}
+            title={isPageFullWindow ? "Exit Full Window" : "Open Task Management in Full Window"}
+          >
+            {isPageFullWindow ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            <span>{isPageFullWindow ? "Exit Full Window" : "Full Window"}</span>
+          </Button>
           {selectedProject ? (
             <>
               <Button variant="outline" onClick={() => {
@@ -1808,7 +1845,7 @@ export default function Tasks() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="in-progress">In Progress</SelectItem>
               <SelectItem value="pending">Pending</SelectItem>
               <SelectItem value="completed">Completed</SelectItem>
             </SelectContent>
@@ -2506,12 +2543,17 @@ export default function Tasks() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-        <DialogContent className="w-[98vw] sm:max-w-[95vw] lg:max-w-[1100px] h-[90vh] p-0 overflow-hidden flex flex-col gap-0 border-none shadow-2xl">
+      <Dialog open={isViewOpen} onOpenChange={(open) => { setIsViewOpen(open); if (!open) setIsTaskModalFullWindow(false); }}>
+        <DialogContent className={cn(
+          "p-0 overflow-hidden flex flex-col gap-0 border-none shadow-2xl transition-all duration-200",
+          isTaskModalFullWindow
+            ? "w-screen h-screen max-w-none sm:max-w-none max-h-none sm:max-h-none rounded-none"
+            : "w-[98vw] sm:max-w-[95vw] lg:max-w-[1100px] h-[90vh]"
+        )}>
           {selectedTask && (
             <>
               <DialogHeader className="p-4 sm:p-6 border-b bg-card flex-shrink-0">
-                <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center justify-between gap-4 pr-8">
                   <div className="min-w-0 space-y-1">
                     <div className="flex items-center gap-2 mb-1">
                       <Badge variant="outline" className={cn("text-[10px] h-5 uppercase tracking-wider font-extrabold px-2 shadow-sm rounded-full", priorityClasses[selectedTask.priority])}>
@@ -2521,6 +2563,17 @@ export default function Tasks() {
                     </div>
                     <DialogTitle className="text-xl sm:text-2xl font-black truncate leading-tight tracking-tight text-foreground">{selectedTask.title}</DialogTitle>
                   </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsTaskModalFullWindow((v) => !v)}
+                    className="h-8 gap-1.5 shrink-0"
+                    title={isTaskModalFullWindow ? "Restore Window Size" : "Open in Full Window"}
+                  >
+                    {isTaskModalFullWindow ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+                    <span className="hidden sm:inline">{isTaskModalFullWindow ? "Restore" : "Full Window"}</span>
+                  </Button>
                 </div>
               </DialogHeader>
 
